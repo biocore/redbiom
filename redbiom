@@ -428,7 +428,7 @@ def search(category, operator, value):
         try:
 
             if op(obs_value, value):
-                #print(sample, obs_value)
+                click.echo("%s\t%s" % (sample, str(obs_value)))
                 pass
         except:
             pass
