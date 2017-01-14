@@ -4,6 +4,7 @@ import click
 
 
 def _get_config():
+    """Deal with all the configy bits"""
     import os
     import requests.auth
     user = os.environ.get('SEQUENCE_SEARCH_USER')
@@ -17,12 +18,23 @@ def _get_config():
     return {'auth': auth, 'hostname': hostname}
 
 
+def _parse_validate_request(req, command):
+    import requests
+    if req.status_code != 200:
+        raise requests.HTTPError("%s : %s" % (command, req.content))
+    return req.json()[command]
+
+
+def _format_request(command, other):
+    return "%s/%s" % (command, other)
+
 def _make_post(config):
     import requests
     s = requests.Session()
     s.auth = config['auth']
-    def f(payload):
-        return s.post(config['hostname'], data=payload)
+    def f(cmd, payload):
+        req = s.post(config['hostname'], data=_format_request(cmd, payload))
+        return _parse_validate_request(req, cmd)
     return f
 
 
@@ -30,9 +42,10 @@ def _make_put(config):
     import requests
     s = requests.Session()
     s.auth = config['auth']
-    def f(url, data):
-        url = '/'.join([config['hostname'], url])
-        return s.put(url, data=data)
+    def f(cmd, key, data):
+        url = '/'.join([config['hostname'], _format_request(cmd, key)])
+        req = s.put(url, data=data)
+        return _parse_validate_request(req, cmd)
     return f
 
 
@@ -40,9 +53,10 @@ def _make_get(config):
     import requests
     s = requests.Session()
     s.auth = config['auth']
-    def f(url):
-        url = '/'.join([config['hostname'], url])
-        return s.get(url)
+    def f(cmd, data):
+        payload = _format_request(cmd, data)
+        url = '/'.join([config['hostname'], payload])
+        return _parse_validate_request(s.get(url), cmd)
     return f
 
 
@@ -79,12 +93,8 @@ def update_observations(table):
 
     for values, id_, _ in tab.iter(axis='observation', dense=False):
         observed = samples[values.indices]
-        payload = "SADD/samples:%s/%s" % (id_, "/".join(observed))
-
-        req = post(payload)
-        if req.status_code != 200:
-            raise requests.HTTPError('Failed to update; ID: %s; payload size: '
-                                     '%d' % (id_, len(payload)))
+        payload = "samples:%s/%s" % (id_, "/".join(observed))
+        post('SADD', payload)
 
 
 @cli.command()
@@ -126,20 +136,14 @@ def load_table(table):
     acquired = False
     while not acquired:
         # not using redlock as time interval isn't that critical
-        req = get('SETNX/__load_table_lock/1')
-        if req.status_code != 200:
-            raise requests.HTTPError('Failed to test/set lock')
-        acquired = req.json()['SETNX'] == 1
+        acquired = get('SETNX', '__load_table_lock/1') == 1
         if not acquired:
-            print("%s is blocked" % table)
+            click.echo("%s is blocked" % table)
             time.sleep(1)
 
     try:
         # load the observation index
-        req = get('GET/__observation_index')
-        if req.status_code != 200:
-            raise requests.HTTPError('Failed to test/set lock')
-        obs_index = req.json()['GET']
+        obs_index = get('GET', '__observation_index')
         if obs_index is None:
             obs_index = {}
         else:
@@ -159,20 +163,14 @@ def load_table(table):
             packed = '\t'.join(["%s\t%d" % (i, v)
                                 for i, v in zip(remapped,
                                                 int_values.data)])
-            post('SET/data:%s/%s' % (id_, packed))
-            if req.status_code != 200:
-                raise HTTPError("Failed to load %s" % id_)
+            post('SET', 'data:%s/%s' % (id_, packed))
 
         # store the index following the load of the table
-        post('SET/__observation_index/%s' % json.dumps(obs_index))
-        if req.status_code != 200:
-            raise HTTPError("Failed to insert index")
+        post('SET', '__observation_index/%s' % json.dumps(obs_index))
 
     finally:
         # release the lock no matter what
-        req = get('DEL/__load_table_lock')
-        if req.status_code != 200:
-            raise HTTPError("Cannot release lock")
+        get('DEL', '__load_table_lock')
 
 
 @cli.command()
@@ -186,33 +184,31 @@ def update_metadata(metadata):
     post = _make_post(config)
     put = _make_put(config)
 
-    md = pd.read_csv(metadata, sep='\t', dtype=object).set_index('#SampleID')
+    md = pd.read_csv(metadata, sep='\t', dtype=str).set_index('#SampleID')
 
-    null_values = {'Not applicable',
+    null_values = {'Not applicable', 'Unknown', 'Unspecified',
                    'Missing: Not collected',
                    'Missing: Not provided',
                    'Missing: Restricted access',
-                   'null', 'NULL', 'no_data', 'None'}
+                   'null', 'NULL', 'no_data', 'None', 'nan'}
 
     indexed_columns = md.columns
     for idx, row in md.iterrows():
         # denote what columns contain information
-        columns = [i.upper() for i in row.index if i not in null_values]
-        url = "SET/metadata-categories:%s" % idx
-        req = put(url, json.dumps(columns))
-        if req.status_code != 200:
-            raise requests.HTTPError('Failed to update; ID: %s; payload size: '
-                                     '%d' % (idx, len(payload)))
+        columns = [c for c, i in zip(md.columns, row.values) 
+                   if _indexable(i, null_values)]
+        key = "metadata-categories:%s" % idx
+
+        # TODO: express metadata-categories using redis sets
+        # TODO: dumps is expensive relative to just, say, '\t'.join
+        put('SET', key, json.dumps(columns))
 
     for col in indexed_columns:
         bulk_set = ["%s/%s" % (idx, v) for idx, v in zip(md.index, md[col])
                     if _indexable(v, null_values)]
 
-        # NOTE: columns are normalized to upper case
-        payload = "HMSET/category:%s/%s" % (col.upper(), '/'.join(bulk_set))
-        req = post(payload)
-        if req.status_code != 200:
-            raise requests.HTTPError('Failed to update; ID: %s' % col)
+        payload = "category:%s/%s" % (col, '/'.join(bulk_set))
+        post('HMSET', payload)
 
 
 @cli.command()
@@ -222,17 +218,22 @@ def fetch_metadata(table, output):
     """Fetch the common metadata categories for the samples in the table"""
     import h5py
     import json
+    from collections import defaultdict
+    import pandas as pd
 
     config = _get_config()
     get = _make_get(config)
 
     samples = h5py.File(table)['sample/ids'][:]
 
+    # TODO: express metadata-categories using redis sets
+    # can do this as SINTER
     all_columns = []
     for start in range(0, len(samples), 100):
-        bulk = '/'.join(['metadata-categories:%s' % s for s in samples[start:start+100]])
-        req = get('MGET/%s' % bulk)
-        columns_per_sample = req.json()['MGET']
+        sample_set = samples[start:start+100]
+        bulk = '/'.join(['metadata-categories:%s' % s for s in sample_set])
+
+        columns_per_sample = get('MGET', bulk)
 
         for column_set in columns_per_sample:
             if column_set is not None:
@@ -243,7 +244,6 @@ def fetch_metadata(table, output):
     for columns in all_columns[1:]:
         common_columns = common_columns.intersection(columns)
 
-    from collections import defaultdict
     metadata = defaultdict(dict)
     for sample in samples:
         metadata[sample]['#SampleID'] = sample
@@ -252,16 +252,13 @@ def fetch_metadata(table, output):
         sample_subset = samples[start:start+100]
         bulk_samples = '/'.join(sample_subset)
         for category in common_columns:
-            req = get('HMGET/category:%s/%s' % (category, bulk_samples))
-            if req.status_code != 200:
-                raise ValueError('Failed to get: %s' % category)
-            values = req.json()['HMGET']
+            values = get('HMGET', 'category:%s/%s' % (category, bulk_samples))
             for sample, value in zip(sample_subset, values):
                 metadata[sample][category] = value
 
-    import pandas
-    md = pandas.DataFrame(metadata).T
+    md = pd.DataFrame(metadata).T
     md.to_csv(output, sep='\t', header=True, index=False)
+
 
 @cli.command()
 @click.option('--category', required=False, type=str)
@@ -283,29 +280,28 @@ def find_samples(category, observations):
     samples = set()
     for start in range(0, len(observations), 10):
         bulk = '/'.join(['samples:%s' % i for i in observations[start:start+10]])
-        req = get('SUNION/%s' % bulk)
-        if req.status_code != 200:
-            raise requests.HTTPError(':(')
-        samples.update(set(req.json()['SUNION']))
+        samples.update(set(get('SUNION', bulk)))
 
     if category is None:
         click.echo('\n'.join(samples))
     else:
-        cat_results = []
-        samples = list(samples)
-        # larger chunk size as sample names usually << sOTUs
-        for start in range(0, len(samples), 100):
-            sample_slize = samples[start:start+100]
-            req = get('HMGET/category:%s/%s' % (category, '/'.join(sample_slize)))
-            if req.status_code != 200:
-                raise requests.HTTPError(':(')
-            cat_results.extend(req.json()['HMGET'])
         import collections
         from operator import itemgetter
+
+        cat_results = []
+        samples = list(samples)
+        
+        for start in range(0, len(samples), 100):
+            sample_slice = samples[start:start+100]
+            bulk_samples = '/'.join(sample_slice)
+            cat_results.extend(get('HMGET', 'category:%s/%s' % (category, 
+                                                                bulk_samples)))
         cat_stats = collections.Counter(cat_results)
-        for val, count in sorted(cat_stats.items(), key=itemgetter(1), reverse=True):
+        for val, count in sorted(cat_stats.items(), key=itemgetter(1), 
+                                 reverse=Truae):
             click.echo("%s\t%s" % (val, count))
         click.echo("\n%s\t%s" % ("Total samples", len(samples)))
+
 
 @cli.command()
 @click.option('--output', required=True, type=click.Path(exists=False))
@@ -329,17 +325,10 @@ def fetch_samples(observations, output):
     # determine the samples which contain the observations of interest
     samples = set()
     for observation in observations:
-        req = get('SMEMBERS/samples:%s' % observation)
-        if req.status_code != 200:
-            raise requests.HTTPError('Failed to get: %s' % observation)
-        samples.update(set(req.json()['SMEMBERS']))
+        samples.update(set(get('SMEMBERS', 'samples:%s' % observation)))
 
     # pull out the observation index so the IDs can be remapped
-    req = get('GET/__observation_index')
-    if req.status_code != 200:
-        raise requests.HTTPError('Failed to get observation index')
-    obs_index = req.json()['GET']
-    obs_index = json.loads(obs_index)
+    obs_index = json.loads(get('GET', '__observation_index'))
 
     # redis contains {observation ID -> internal ID}, and we need
     # {internal ID -> observation ID}
@@ -352,16 +341,13 @@ def fetch_samples(observations, output):
     for start in range(0, len(samples), 100):
         sample_set = samples[start:start+100]
         bulk = '/'.join(['data:%s' % s for s in sample_set])
-        req = get('MGET/%s' % bulk)
-        if req.status_code != 200:
-            raise requests.HTTPError('Failed')
-        sample_set_data = req.json()['MGET']
+        sample_set_data = get('MGET', bulk)
         for sample, data in zip(sample_set, sample_set_data):
             data = data.split('\t')
             table_data.append((sample, data))
 
             # update our perspective of total unique observations
-            unique_indices.update({int(i) for i in data[::2]})  # every other position is an ID index
+            unique_indices.update({int(i) for i in data[::2]})
 
     # construct a mapping of {observation ID : index position in the BIOM table}
     unique_indices_map = {observed: index for index, observed in enumerate(unique_indices)}
@@ -380,7 +366,7 @@ def fetch_samples(observations, output):
     # write it out
     table = biom.Table(mat, obs_ids, sample_ids)
     with h5py.File(output, 'w') as fp:
-        table.to_hdf5(fp, 'seqsearch')
+        table.to_hdf5(fp, 'redbiom')
 
 
 @cli.command()
@@ -413,10 +399,7 @@ def search(category, operator, value):
 
     import time
     start = time.time()
-    req = get('HGETALL/category:%s' % category)
-    if req.status_code != 200:
-        raise requests.HTTPError('Failed to get: %s' % category)
-    sample_values = req.json()['HGETALL']
+    sample_values = get('HGETALL', 'category:%s' % category)
     print(time.time() - start)
 
     import pandas as pd
