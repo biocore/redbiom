@@ -28,6 +28,7 @@ def _parse_validate_request(req, command):
 def _format_request(command, other):
     return "%s/%s" % (command, other)
 
+
 def _make_post(config):
     import requests
     s = requests.Session()
@@ -70,15 +71,118 @@ def _indexable(value, nullables):
         return '/' not in value
 
 
+def _from_or_nargs(from_, nargs_variable):
+    import sys
+    if from_ is None and not nargs_variable:
+        click.echo('Need at least 1 item', err=True)
+        sys.exit(1)  # should be doable from click but need ctx i think...?
+
+    if from_ is not None and nargs_variable:
+        click.echo("Unable to handle --from as well as cmdline itemss",
+                   err=True)
+        sys.exit(1)
+    
+    if from_ is not None:
+        nargs_variable = from_
+
+    return iter(nargs_variable)
+
+
+def _buffered(it, prefix, cmd, get=None, buffer_size=10):
+    """Bulk fetch samples associated with observations"""
+    if get is None:
+        config = _get_config()
+        get = _make_get(config)
+
+    exhausted = False
+    while not exhausted:
+        items = []
+        for i in range(buffer_size):
+            try:
+                items.append(next(it).strip())
+            except StopIteration:
+                exhausted = True
+                break
+        
+        bulk = '/'.join(['%s:%s' % (prefix, i) for i in items])
+        yield items, get(cmd, bulk)
+
+
+def _biom_from_samples(samples, output, get=None):
+    """Create a BIOM table from an iterable of samples"""
+    import json
+    from operator import itemgetter
+    import scipy.sparse as ss
+    import biom
+    import h5py
+
+    if get is None:
+        config = _get_config()
+        get = _make_get(config)
+
+    # pull out the observation index so the IDs can be remapped
+    obs_index = json.loads(get('GET', '__observation_index'))
+
+    # redis contains {observation ID -> internal ID}, and we need
+    # {internal ID -> observation ID}
+    inverted_obs_index = {v: k for k, v in obs_index.items()}
+
+    # pull out the per-sample data
+    table_data = []
+    unique_indices = set()
+    
+    getter = _buffered(samples, 'data', 'MGET', get=get, buffer_size=100)
+    for (sample_set, sample_set_data) in getter:
+        for sample, data in zip(sample_set, sample_set_data):
+            data = data.split('\t')
+            table_data.append((sample, data))
+
+            # update our perspective of total unique observations
+            unique_indices.update({int(i) for i in data[::2]})
+
+    # construct a mapping of {observation ID : index position in the BIOM table}
+    unique_indices_map = {observed: index for index, observed in enumerate(unique_indices)}
+
+    # pull out the observation and sample IDs in the desired ordering
+    obs_ids = [inverted_obs_index[k] for k, _ in sorted(unique_indices_map.items(), key=itemgetter(1))]
+    sample_ids = [d[0] for d in table_data]
+
+    # fill in the matrix
+    mat = ss.lil_matrix((len(unique_indices), len(table_data)))
+    for col, (sample, col_data) in enumerate(table_data):
+        # since this isn't dense, hopefully roworder doesn't hose us
+        for index, value in zip(col_data[::2], col_data[1::2]):
+            mat[unique_indices_map[int(index)], col] = value
+
+    # write it out
+    table = biom.Table(mat, obs_ids, sample_ids)
+    with h5py.File(output, 'w') as fp:
+        table.to_hdf5(fp, 'redbiom')
+
+
 @click.group()
 def cli():
     pass
 
+@cli.group()
+def admin():
+    """Update database, etc"""
+    pass
 
-@cli.command()
+@cli.group()
+def search():
+    """Observation and sample search support"""
+    pass
+
+@cli.group()
+def fetch():
+    """Sample data and metadata retrieval"""
+    pass
+
+@admin.command(name='load-observations')
 @click.option('--table', required=True, type=click.Path(exists=True))
-def update_observations(table):
-    """Update DB observation to and sample mappings
+def load_observations(table):
+    """Load observation to sample mappings.
 
     For each observation, all samples in the table associated with the
     observation are added to a Redis set keyed by "samples:<observation_id>".
@@ -97,10 +201,10 @@ def update_observations(table):
         post('SADD', payload)
 
 
-@cli.command()
+@admin.command(name='load-sample-data')
 @click.option('--table', required=True, type=click.Path(exists=True))
-def load_table(table):
-    """Load the nonzero COUNTS of the table into Redis
+def load_sample_data(table):
+    """Load nonzero entries per sample.
 
     WARNING: this method does not support non count data.
 
@@ -173,10 +277,10 @@ def load_table(table):
         get('DEL', '__load_table_lock')
 
 
-@cli.command()
+@admin.command(name='load-sample-metadata')
 @click.option('--metadata', required=True, type=click.Path(exists=True))
-def update_metadata(metadata):
-    """Update DB sample metadata"""
+def load_sample_metadata(metadata):
+    """Load sample metadata."""
     import pandas as pd
     import json
 
@@ -211,12 +315,34 @@ def update_metadata(metadata):
         post('HMSET', payload)
 
 
-@cli.command()
-@click.option('--table', required=True, type=click.Path(exists=True))
+@fetch.command(name='samples')
+@click.option('--from', 'from_', type=click.File('r'), required=False, 
+              default=None)
 @click.option('--output', required=True, type=click.Path(exists=False))
-def fetch_metadata(table, output):
-    """Fetch the common metadata categories for the samples in the table"""
-    import h5py
+@click.argument('samples', nargs=-1)
+def fetch_samples_from_samples(samples, from_, output):
+    it = _from_or_nargs(from_, samples)
+
+@fetch.command(name='sample-metadata')
+@click.option('--table', required=True, type=click.Path(exists=True))
+@click.option('--from', 'from_', type=click.File('r'), required=False, 
+              default=None)
+@click.option('--output', required=True, type=click.Path(exists=False))
+@click.argument('samples', nargs=-1)
+def fetch_sample_metadata(table, from_, samples, output):
+    """Retreive sample metadata."""
+    if table is not None:
+        if from_ is not None or samples:
+            click.echo("Cannot specify --table with --from or cmdline samples",
+                       err=True)
+            import sys
+            sys.exit(1)
+        
+        import h5py
+        it = iter(h5py.File(table)['sample/ids'][:])
+    else:
+        it = _from_or_nargs(from_, samples)
+
     import json
     from collections import defaultdict
     import pandas as pd
@@ -224,158 +350,115 @@ def fetch_metadata(table, output):
     config = _get_config()
     get = _make_get(config)
 
-    samples = h5py.File(table)['sample/ids'][:]
-
     # TODO: express metadata-categories using redis sets
-    # can do this as SINTER
+    # and then this can be done with SINTER
     all_columns = []
-    for start in range(0, len(samples), 100):
-        sample_set = samples[start:start+100]
-        bulk = '/'.join(['metadata-categories:%s' % s for s in sample_set])
-
-        columns_per_sample = get('MGET', bulk)
-
-        for column_set in columns_per_sample:
+    all_samples = []
+    getter = _buffered(it, 'metadata-categories', 'MGET', get=get, 
+                       buffer_size=100)
+    for samples, columns_by_sample in getter:
+        for column_set in columns_by_sample:
             if column_set is not None:
                 column_set = json.loads(column_set)
                 all_columns.append(set(column_set))
+                all_samples.extend(samples)
 
     common_columns = set(all_columns[0])
     for columns in all_columns[1:]:
         common_columns = common_columns.intersection(columns)
 
     metadata = defaultdict(dict)
-    for sample in samples:
+    for sample in all_samples:
         metadata[sample]['#SampleID'] = sample
-
-    for start in range(0, len(samples), 100):
-        sample_subset = samples[start:start+100]
-        bulk_samples = '/'.join(sample_subset)
-        for category in common_columns:
-            values = get('HMGET', 'category:%s/%s' % (category, bulk_samples))
-            for sample, value in zip(sample_subset, values):
+    
+    for category in common_categories:
+        prefix = 'category:%s' % category
+        getter = _buffered(iter(all_samples), prefix, 'HMGET', get=get, 
+                           buffer_size=100)
+        for samples, category_values in getter:
+            for sample, value in zip(samples, category_values):
                 metadata[sample][category] = value
 
     md = pd.DataFrame(metadata).T
     md.to_csv(output, sep='\t', header=True, index=False)
 
 
-@cli.command()
-@click.option('--category', required=False, type=str)
-@click.argument('observations', nargs=-1)
-def find_samples(category, observations):
-    """Find all samples in which the observations appear
-
-    Print category stats if desired
-    """
-    if len(observations) < 1:
-        import sys
-        click.echo('Need at least 1 observation', err=True)
-        sys.exit(1)  # should be doable from click but need ctx
-
-    config = _get_config()
-    get = _make_get(config)
-
-    # determine the samples which contain the observations of interest
-    samples = set()
-    for start in range(0, len(observations), 10):
-        bulk = '/'.join(['samples:%s' % i for i in observations[start:start+10]])
-        samples.update(set(get('SUNION', bulk)))
-
-    if category is None:
-        click.echo('\n'.join(samples))
-    else:
-        import collections
-        from operator import itemgetter
-
-        cat_results = []
-        samples = list(samples)
-        
-        for start in range(0, len(samples), 100):
-            sample_slice = samples[start:start+100]
-            bulk_samples = '/'.join(sample_slice)
-            cat_results.extend(get('HMGET', 'category:%s/%s' % (category, 
-                                                                bulk_samples)))
-        cat_stats = collections.Counter(cat_results)
-        for val, count in sorted(cat_stats.items(), key=itemgetter(1), 
-                                 reverse=Truae):
-            click.echo("%s\t%s" % (val, count))
-        click.echo("\n%s\t%s" % ("Total samples", len(samples)))
-
-
-@cli.command()
+@fetch.command(name='observations')
+@click.option('--from', 'from_', type=click.File('r'), required=False, 
+              default=None)
 @click.option('--output', required=True, type=click.Path(exists=False))
 @click.argument('observations', nargs=-1)
-def fetch_samples(observations, output):
-    """Obtain all samples in which the observations appear"""
-    if len(observations) < 1:
-        import sys
-        click.echo('Need at least 1 observation', err=True)
-        sys.exit(1)  # should be doable from click but need ctx
-
-    import json
-    from operator import itemgetter
-    import scipy.sparse as ss
-    import biom
-    import h5py
+def fetch_samples_from_obserations(observations, from_, output):
+    """Fetch samples containing observations."""
+    it = _from_or_nargs(from_, observations)
 
     config = _get_config()
     get = _make_get(config)
 
     # determine the samples which contain the observations of interest
     samples = set()
-    for observation in observations:
-        samples.update(set(get('SMEMBERS', 'samples:%s' % observation)))
-
-    # pull out the observation index so the IDs can be remapped
-    obs_index = json.loads(get('GET', '__observation_index'))
-
-    # redis contains {observation ID -> internal ID}, and we need
-    # {internal ID -> observation ID}
-    inverted_obs_index = {v: k for k, v in obs_index.items()}
-
-    # pull out the per-sample data
-    table_data = []
-    unique_indices = set()
-    samples = list(samples)
-    for start in range(0, len(samples), 100):
-        sample_set = samples[start:start+100]
-        bulk = '/'.join(['data:%s' % s for s in sample_set])
-        sample_set_data = get('MGET', bulk)
-        for sample, data in zip(sample_set, sample_set_data):
-            data = data.split('\t')
-            table_data.append((sample, data))
-
-            # update our perspective of total unique observations
-            unique_indices.update({int(i) for i in data[::2]})
-
-    # construct a mapping of {observation ID : index position in the BIOM table}
-    unique_indices_map = {observed: index for index, observed in enumerate(unique_indices)}
-
-    # pull out the observation and sample IDs in the desired ordering
-    obs_ids = [inverted_obs_index[k] for k, _ in sorted(unique_indices_map.items(), key=itemgetter(1))]
-    sample_ids = [d[0] for d in table_data]
-
-    # fill in the matrix
-    mat = ss.lil_matrix((len(unique_indices), len(table_data)))
-    for col, (sample, col_data) in enumerate(table_data):
-        # since this isn't dense, hopefully roworder doesn't hose us
-        for index, value in zip(col_data[::2], col_data[1::2]):
-            mat[unique_indices_map[int(index)], col] = value
-
-    # write it out
-    table = biom.Table(mat, obs_ids, sample_ids)
-    with h5py.File(output, 'w') as fp:
-        table.to_hdf5(fp, 'redbiom')
+    for _, block in _buffered(it, 'samples', 'SUNION', get=get):
+        # TODO: it _should_ be possible to pipeline this if needed. 
+        # _biom_from_samples would need to be a coroutine though, and we'd
+        # need to keep passing in the new samples. 
+        samples.update(set(block))
+    _biom_from_samples(iter(samples), output, get=get)
 
 
-@cli.command()
+@fetch.command(name='samples')
+@click.option('--from', 'from_', type=click.File('r'), required=False, 
+              default=None)
+@click.option('--output', required=True, type=click.Path(exists=False))
+@click.argument('samples', nargs=-1)
+def fetch_samples_from_samples(samples, from_, output):
+    it = _from_or_nargs(from_, samples)
+    _biom_from_samples(it, output)
+
+
+@search.command(name="observations")
+@click.option('--from', 'from_', type=click.File('r'), required=False, 
+              default=None)
+@click.argument('observations', nargs=-1)
+def search_observations(from_, observations):
+    """Find samples containing observations."""
+    it = _from_or_nargs(from_, observations)
+
+    # determine the samples which contain the observations of interest
+    samples = set()
+    for _, block in _buffered(it, 'samples', 'SUNION'):
+        block = set(block)
+        for sample in block - samples:
+            click.echo(sample)
+        samples.update(block)
+
+# TODO: create "redbiom summarize observations --category foo" (pull samples, blah blah)
+# TODO: create "redbiom summarize samples --category foo"
+#    else:
+#        import collections
+#        from operator import itemgetter
+#
+#        cat_results = []
+#        samples = list(samples)
+#        
+#        for start in range(0, len(samples), 100):
+#            sample_slice = samples[start:start+100]
+#            bulk_samples = '/'.join(sample_slice)
+#            cat_results.extend(get('HMGET', 'category:%s/%s' % (category, 
+#                                                                bulk_samples)))
+#        cat_stats = collections.Counter(cat_results)
+#        for val, count in sorted(cat_stats.items(), key=itemgetter(1), 
+#                                 reverse=Truae):
+#            click.echo("%s\t%s" % (val, count))
+#        click.echo("\n%s\t%s" % ("Total samples", len(samples)))
+
+
+@search.command(name="samples")
 @click.option('--category', type=str, required=True)
 @click.option('--operator', required=True,
               type=click.Choice(['eq', 'ne', 'in', 'lt', 'gt']))
 @click.option('--value', type=str, required=True)
-def search(category, operator, value):
-    """Search for samples based off arbitrary criteria"""
+def samples(category, operator, value):
+    """Find samples given metadata criteria."""
     config = _get_config()
     get = _make_get(config)
 
