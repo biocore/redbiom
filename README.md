@@ -2,6 +2,8 @@
 
 Load BIOM tables and sample metadata from a lot of studies into Redis to facilitate search using observation IDs or metadata.
 
+It is safe to say the interfaces are not stable.
+
 # Installation
 
 Needs Redis (tested with 3.2.6) and Webdis (just clone the repo). Also depends on BIOM (tested on 2.1.5-dev), Pandas (tested on 0.19.0), Click (tested on 6.6) and scipy (whatever BIOM is happy with).
