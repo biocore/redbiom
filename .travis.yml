@@ -1,0 +1,23 @@
+sudo: false
+language: python
+env:
+  - PYTHON_VERSION=3.5
+services:
+  - redis-server
+before_install:
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+  - chmod +x miniconda.sh
+  - ./miniconda.sh -b
+  - export PATH=/home/travis/miniconda3/bin:$PATH
+  - apt-get install libevent-dev
+install:
+    - conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests
+  - source activate test-env
+  - pip install flake8
+  - git clone https://github.com/nicolasff/webdis
+  - pushd webdis
+  - make
+  - ./webdis &
+script:
+  - flake8 redbiom test.py
+  - make test
