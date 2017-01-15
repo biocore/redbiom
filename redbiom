@@ -18,6 +18,14 @@ def _get_config():
     return {'auth': auth, 'hostname': hostname}
 
 
+def _float_or_nan(t):
+    import math
+    try:
+        return float(t)
+    except:
+        return math.nan
+
+
 def _parse_validate_request(req, command):
     import requests
     if req.status_code != 200:
@@ -62,6 +70,7 @@ def _make_get(config):
 
 
 def _indexable(value, nullables):
+    """Returns true if the value appears to be something that storable"""
     if value in nullables:
         return False
 
@@ -72,6 +81,7 @@ def _indexable(value, nullables):
 
 
 def _from_or_nargs(from_, nargs_variable):
+    """In support of _buffered: determine whether to use from_ or nargs"""
     import sys
     if from_ is None and not nargs_variable:
         click.echo('Need at least 1 item', err=True)
@@ -88,11 +98,16 @@ def _from_or_nargs(from_, nargs_variable):
     return iter(nargs_variable)
 
 
-def _buffered(it, prefix, cmd, get=None, buffer_size=10):
-    """Bulk fetch samples associated with observations"""
+def _buffered(it, prefix, cmd, get=None, buffer_size=10, multikey=None):
+    """Bulk fetch data"""
     if get is None:
         config = _get_config()
         get = _make_get(config)
+    
+    if multikey is None:
+        prefixer = lambda a, b: '%s:%s' % (a, b)
+    else:
+        prefixer = lambda a, b: b
 
     exhausted = False
     while not exhausted:
@@ -104,7 +119,9 @@ def _buffered(it, prefix, cmd, get=None, buffer_size=10):
                 exhausted = True
                 break
         
-        bulk = '/'.join(['%s:%s' % (prefix, i) for i in items])
+        bulk = '/'.join([prefixer(prefix, i) for i in items])
+        if multikey:
+            bulk = "%s/%s" % (multikey, bulk)
         yield items, get(cmd, bulk)
 
 
@@ -160,24 +177,108 @@ def _biom_from_samples(samples, output, get=None):
         table.to_hdf5(fp, 'redbiom')
 
 
+def _samples_from_observations(it, exact, get=None):
+    """Grab samples from an iterable of observations"""
+    cmd = 'SINTER' if exact else 'SUNION'
+    samples = None
+    for _, block in _buffered(it, 'samples', cmd, get=get):
+        block = set(block)
+        
+        if not exact:
+            if samples is None:
+                samples = set()
+            samples.update(block)
+        else:
+            if samples is None:
+                samples = block
+            else:
+                samples = samples.intersection(block)
+    return samples
+
+
+def _summarize_samples(samples, category, value, get):
+    """Summaryze an iterable of samples based on criteria"""
+    key = 'category:%s' % category
+    getter = _buffered(iter(samples), None, 'HMGET', get=get, buffer_size=100, 
+                       multikey=key)
+    
+    results = []
+    for samples, category_values in getter:
+        for sample, observed_value in zip(samples, category_values):
+            results.append((sample, observed_value))
+   
+    if value is None:
+        from collections import Counter
+        from operator import itemgetter
+        
+        cat_stats = Counter([v for s, v in results])
+        for val, count in sorted(cat_stats.items(), key=itemgetter(1), 
+                                 reverse=True):
+            click.echo("%s\t%s" % (val, count))
+        click.echo("\n%s\t%s" % ("Total samples", len(samples)))
+    else:
+        import shlex
+        tokens = list(shlex.shlex(value))
+        if len(tokens) > 1:
+            # < 5
+            # in "foo bar",blah
+            # notin thing,"other thing"
+
+            op = {'in': lambda a, b: a in b,
+                  'notin': lambda a, b: a not in b,
+                  '<': lambda a, b: a <= b,
+                  '>': lambda a, b: a >= b}
+            operator = op.get(tokens[0])
+            if operator is None:
+                raise ValueError("Cannot parse: %s" % value)
+            if tokens[0] in ('in', 'notin'):
+                rh = [t.strip("'").strip('"') for t in tokens[1:] if t != ',']
+                tokens = set(rh)
+                func = lambda to_test: operator(to_test, rh)
+            else:
+                rh = tokens[1]
+                if len(tokens) > 2:
+                    raise ValueError("Unexpected additional criteria: %s" % value)
+                try:
+                    rh = float(rh)
+                except TypeError:
+                    if operator in {'<=', '>='}:
+                        raise ValueError("Right hand does not look numeric")
+
+                func = lambda to_test: operator(_float_or_nan(to_test), rh)
+        else:
+            func = lambda to_test: to_test == value
+        click.echo("\n".join([s for s, v in results if func(v)]))
+
+
 @click.group()
 def cli():
     pass
 
+
 @cli.group()
 def admin():
-    """Update database, etc"""
+    """Update database, etc."""
     pass
+
 
 @cli.group()
 def search():
-    """Observation and sample search support"""
+    """Observation and sample search support."""
     pass
+
 
 @cli.group()
 def fetch():
-    """Sample data and metadata retrieval"""
+    """Sample data and metadata retrieval."""
     pass
+
+
+@cli.group()
+def summarize():
+    """Summarize things."""
+    pass
+
 
 @admin.command(name='load-observations')
 @click.option('--table', required=True, type=click.Path(exists=True))
@@ -315,16 +416,8 @@ def load_sample_metadata(metadata):
         post('HMSET', payload)
 
 
-@fetch.command(name='samples')
-@click.option('--from', 'from_', type=click.File('r'), required=False, 
-              default=None)
-@click.option('--output', required=True, type=click.Path(exists=False))
-@click.argument('samples', nargs=-1)
-def fetch_samples_from_samples(samples, from_, output):
-    it = _from_or_nargs(from_, samples)
-
 @fetch.command(name='sample-metadata')
-@click.option('--table', required=True, type=click.Path(exists=True))
+@click.option('--table', required=False, type=click.Path(exists=True))
 @click.option('--from', 'from_', type=click.File('r'), required=False, 
               default=None)
 @click.option('--output', required=True, type=click.Path(exists=False))
@@ -357,28 +450,29 @@ def fetch_sample_metadata(table, from_, samples, output):
     getter = _buffered(it, 'metadata-categories', 'MGET', get=get, 
                        buffer_size=100)
     for samples, columns_by_sample in getter:
+        all_samples.extend(samples)
         for column_set in columns_by_sample:
             if column_set is not None:
                 column_set = json.loads(column_set)
                 all_columns.append(set(column_set))
-                all_samples.extend(samples)
-
+    
     common_columns = set(all_columns[0])
     for columns in all_columns[1:]:
         common_columns = common_columns.intersection(columns)
-
+    
     metadata = defaultdict(dict)
     for sample in all_samples:
         metadata[sample]['#SampleID'] = sample
-    
-    for category in common_categories:
-        prefix = 'category:%s' % category
-        getter = _buffered(iter(all_samples), prefix, 'HMGET', get=get, 
-                           buffer_size=100)
+
+    for category in common_columns:
+        key = 'category:%s' % category
+        getter = _buffered(iter(all_samples), None, 'HMGET', get=get, 
+                           buffer_size=100, multikey=key)
+
         for samples, category_values in getter:
             for sample, value in zip(samples, category_values):
                 metadata[sample][category] = value
-
+    
     md = pd.DataFrame(metadata).T
     md.to_csv(output, sep='\t', header=True, index=False)
 
@@ -387,8 +481,10 @@ def fetch_sample_metadata(table, from_, samples, output):
 @click.option('--from', 'from_', type=click.File('r'), required=False, 
               default=None)
 @click.option('--output', required=True, type=click.Path(exists=False))
+@click.option('--exact', is_flag=True, default=False,
+              help="All found samples must contain all specified observations")
 @click.argument('observations', nargs=-1)
-def fetch_samples_from_obserations(observations, from_, output):
+def fetch_samples_from_obserations(observations, exact, from_, output):
     """Fetch samples containing observations."""
     it = _from_or_nargs(from_, observations)
 
@@ -396,12 +492,8 @@ def fetch_samples_from_obserations(observations, from_, output):
     get = _make_get(config)
 
     # determine the samples which contain the observations of interest
-    samples = set()
-    for _, block in _buffered(it, 'samples', 'SUNION', get=get):
-        # TODO: it _should_ be possible to pipeline this if needed. 
-        # _biom_from_samples would need to be a coroutine though, and we'd
-        # need to keep passing in the new samples. 
-        samples.update(set(block))
+    samples = _samples_from_observations(it, exact, get=get)
+    
     _biom_from_samples(iter(samples), output, get=get)
 
 
@@ -418,38 +510,18 @@ def fetch_samples_from_samples(samples, from_, output):
 @search.command(name="observations")
 @click.option('--from', 'from_', type=click.File('r'), required=False, 
               default=None)
+@click.option('--exact', is_flag=True, default=False,
+              help="All found samples must contain all specified observations")
 @click.argument('observations', nargs=-1)
-def search_observations(from_, observations):
+def search_observations(from_, exact, observations):
     """Find samples containing observations."""
     it = _from_or_nargs(from_, observations)
 
     # determine the samples which contain the observations of interest
-    samples = set()
-    for _, block in _buffered(it, 'samples', 'SUNION'):
-        block = set(block)
-        for sample in block - samples:
-            click.echo(sample)
-        samples.update(block)
+    samples = _samples_from_observations(it, exact)
 
-# TODO: create "redbiom summarize observations --category foo" (pull samples, blah blah)
-# TODO: create "redbiom summarize samples --category foo"
-#    else:
-#        import collections
-#        from operator import itemgetter
-#
-#        cat_results = []
-#        samples = list(samples)
-#        
-#        for start in range(0, len(samples), 100):
-#            sample_slice = samples[start:start+100]
-#            bulk_samples = '/'.join(sample_slice)
-#            cat_results.extend(get('HMGET', 'category:%s/%s' % (category, 
-#                                                                bulk_samples)))
-#        cat_stats = collections.Counter(cat_results)
-#        for val, count in sorted(cat_stats.items(), key=itemgetter(1), 
-#                                 reverse=Truae):
-#            click.echo("%s\t%s" % (val, count))
-#        click.echo("\n%s\t%s" % ("Total samples", len(samples)))
+    for sample in samples:
+        click.echo(sample)
 
 
 @search.command(name="samples")
@@ -498,6 +570,39 @@ def samples(category, operator, value):
                 pass
         except:
             pass
+
+
+@summarize.command(name='observations')
+@click.option('--from', 'from_', type=click.File('r'), required=False, 
+              default=None)
+@click.option('--category', type=str, required=True)
+@click.option('--value', type=str, required=False, default=None, 
+              help="Restrict to a specific value; prints the sample IDs")
+@click.option('--exact', is_flag=True, default=False,
+              help="All found samples must contain all specified observations")
+@click.argument('observations', nargs=-1)
+def summarize_observations(from_, category, exact, value, observations):
+    """Summarize observations over a metadata category."""
+    it = _from_or_nargs(from_, observations)
+
+    config = _get_config()
+    get = _make_get(config)
+
+    samples = _samples_from_observations(it, exact, get=get)
+    _summarize_samples(samples, category, value, get)
+
+
+@summarize.command(name='samples')
+@click.option('--from', 'from_', type=click.File('r'), required=False, 
+              default=None)
+@click.option('--category', type=str, required=True)
+@click.option('--value', type=str, required=False, default=None, 
+              help="Restrict to a specific value; prints the sample IDs")
+@click.argument('samples', nargs=-1)
+def summarize_samples(from_, category, value, samples):
+    """Summarize samples over a metadata category."""
+    it = _from_or_nargs(from_, samples)
+    _summarize_samples(it, category, value, get)
 
 
 if __name__ == '__main__':
