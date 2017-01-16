@@ -9,7 +9,7 @@ before_install:
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
   - export PATH=/home/travis/miniconda3/bin:$PATH
-  - apt-get install libevent-dev
+  - sudo apt-get install libevent-dev
 install:
   - conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests
   - source activate test-env
