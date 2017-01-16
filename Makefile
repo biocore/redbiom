@@ -4,4 +4,4 @@ test:
 	./redbiom admin load-sample-metadata --metadata test.txt
 	./redbiom admin load-sample-data --table test.biom
 	python test.py
-	sh test.sh
+	/bin/bash test.sh
