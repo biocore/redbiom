@@ -19,7 +19,8 @@ install:
   - pushd webdis
   - make
   - ./webdis &
-  - popd  
+  - popd
+  - alias md5=md5sum
 script:
   - flake8 redbiom test.py
   - make test
