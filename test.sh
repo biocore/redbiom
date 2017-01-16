@@ -66,18 +66,18 @@ if [[ "${obs}" != "${exp}" ]]; then
 fi
 
 ###
-echo "FECAL\t4" > exp_summarize.txt
-echo "SKIN\t1" >> exp_summarize.txt
+echo "FECAL	4" > exp_summarize.txt
+echo "SKIN	1" >> exp_summarize.txt
 echo "" >> exp_summarize.txt
-echo "Total samples\t5" >> exp_summarize.txt
+echo "Total samples	5" >> exp_summarize.txt
 
 ./redbiom summarize observations --category SIMPLE_BODY_SITE TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
 md5test obs_summarize.txt exp_summarize.txt
 
 ###
-echo "FECAL\t2" > exp_summarize.txt
+echo "FECAL	2" > exp_summarize.txt
 echo "" >> exp_summarize.txt
-echo "Total samples\t2" >> exp_summarize.txt
+echo "Total samples	2" >> exp_summarize.txt
 
 ./redbiom summarize observations --exact --category SIMPLE_BODY_SITE TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
 md5test obs_summarize.txt exp_summarize.txt
