@@ -2,11 +2,17 @@
 set -e
 set -x
 
+if [[ "$(uname)" == "Darwin"]]; if
+    md5=md5
+else
+    md5=md5sum
+fi
+
 alias md5=md5sum
 function md5test ()
 {
-    _obs=`sort ${1} | md5 -q`
-    _exp=`sort ${2} | md5 -q`
+    _obs=`sort ${1} | ${md5}`
+    _exp=`sort ${2} | ${md5}`
     if [[ "${_obs}" != "${_exp}" ]]; then
         echo "Failed"
         exit 1
