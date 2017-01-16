@@ -2,6 +2,7 @@
 set -e
 set -x
 
+alias md5=md5sum
 function md5test ()
 {
     _obs=`sort ${1} | md5 -q`
