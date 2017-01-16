@@ -1,3 +1,5 @@
+# ![redbiom](logo.png)
+
 # What is this?
 
 Load BIOM tables and sample metadata from a lot of studies into Redis to facilitate search using observation IDs or metadata.
