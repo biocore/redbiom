@@ -19,6 +19,7 @@ install:
   - pushd webdis
   - make
   - ./webdis &
+  - popd  
 script:
   - flake8 redbiom test.py
   - make test
