@@ -485,7 +485,7 @@ def fetch_sample_metadata(table, from_, samples, output):
               help="All found samples must contain all specified observations")
 @click.argument('observations', nargs=-1)
 def fetch_samples_from_obserations(observations, exact, from_, output):
-    """Fetch samples containing observations."""
+    """Fetch sample data containing observations."""
     it = _from_or_nargs(from_, observations)
 
     config = _get_config()
@@ -503,6 +503,7 @@ def fetch_samples_from_obserations(observations, exact, from_, output):
 @click.option('--output', required=True, type=click.Path(exists=False))
 @click.argument('samples', nargs=-1)
 def fetch_samples_from_samples(samples, from_, output):
+    """Fetch sample data."""
     it = _from_or_nargs(from_, samples)
     _biom_from_samples(it, output)
 
