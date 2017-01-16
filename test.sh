@@ -2,7 +2,7 @@
 set -e
 set -x
 
-if [[ "$(uname)" == "Darwin"]]; if
+if [[ "$(uname)" == "Darwin" ]]; then
     md5=md5
 else
     md5=md5sum
