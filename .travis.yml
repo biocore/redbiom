@@ -5,11 +5,12 @@ env:
 services:
   - redis-server
 before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y libevent-dev
   - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
   - export PATH=/home/travis/miniconda3/bin:$PATH
-  - sudo apt-get install libevent-dev
 install:
   - conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests
   - source activate test-env
