@@ -22,5 +22,5 @@ install:
   - popd
   - alias md5=md5sum
 script:
-  - flake8 redbiom test.py
+  - flake8 --ignore=E731 redbiom test.py
   - make test

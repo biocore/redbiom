@@ -17,6 +17,7 @@ def get(cmd, remainder):
         raise requests.HTTPError()
     return req.json()[cmd]
 
+
 # database integrity tests
 class redbiomtests(unittest.TestCase):
     def test_observation_sample_associations(self):

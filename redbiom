@@ -14,7 +14,7 @@ def _get_config():
     if user is None:
         auth = None
     else:
-        auth = requests.auth(config['user'], config['password'])
+        auth = requests.auth(user, password)
     return {'auth': auth, 'hostname': hostname}
 
 
@@ -41,6 +41,7 @@ def _make_post(config):
     import requests
     s = requests.Session()
     s.auth = config['auth']
+
     def f(cmd, payload):
         req = s.post(config['hostname'], data=_format_request(cmd, payload))
         return _parse_validate_request(req, cmd)
@@ -51,6 +52,7 @@ def _make_put(config):
     import requests
     s = requests.Session()
     s.auth = config['auth']
+
     def f(cmd, key, data):
         url = '/'.join([config['hostname'], _format_request(cmd, key)])
         req = s.put(url, data=data)
@@ -62,6 +64,7 @@ def _make_get(config):
     import requests
     s = requests.Session()
     s.auth = config['auth']
+
     def f(cmd, data):
         payload = _format_request(cmd, data)
         url = '/'.join([config['hostname'], payload])
@@ -88,10 +91,10 @@ def _from_or_nargs(from_, nargs_variable):
         sys.exit(1)  # should be doable from click but need ctx i think...?
 
     if from_ is not None and nargs_variable:
-        click.echo("Unable to handle --from as well as cmdline itemss",
+        click.echo("Unable to handle --from as well as cmdline items",
                    err=True)
         sys.exit(1)
-    
+
     if from_ is not None:
         nargs_variable = from_
 
@@ -103,7 +106,7 @@ def _buffered(it, prefix, cmd, get=None, buffer_size=10, multikey=None):
     if get is None:
         config = _get_config()
         get = _make_get(config)
-    
+
     if multikey is None:
         prefixer = lambda a, b: '%s:%s' % (a, b)
     else:
@@ -118,7 +121,7 @@ def _buffered(it, prefix, cmd, get=None, buffer_size=10, multikey=None):
             except StopIteration:
                 exhausted = True
                 break
-        
+
         bulk = '/'.join([prefixer(prefix, i) for i in items])
         if multikey:
             bulk = "%s/%s" % (multikey, bulk)
@@ -147,7 +150,7 @@ def _biom_from_samples(samples, output, get=None):
     # pull out the per-sample data
     table_data = []
     unique_indices = set()
-    
+
     getter = _buffered(samples, 'data', 'MGET', get=get, buffer_size=100)
     for (sample_set, sample_set_data) in getter:
         for sample, data in zip(sample_set, sample_set_data):
@@ -157,11 +160,15 @@ def _biom_from_samples(samples, output, get=None):
             # update our perspective of total unique observations
             unique_indices.update({int(i) for i in data[::2]})
 
-    # construct a mapping of {observation ID : index position in the BIOM table}
-    unique_indices_map = {observed: index for index, observed in enumerate(unique_indices)}
+    # construct a mapping of
+    # {observation ID : index position in the BIOM table}
+    unique_indices_map = {observed: index
+                          for index, observed in enumerate(unique_indices)}
 
     # pull out the observation and sample IDs in the desired ordering
-    obs_ids = [inverted_obs_index[k] for k, _ in sorted(unique_indices_map.items(), key=itemgetter(1))]
+    obs_ids = [inverted_obs_index[k]
+               for k, _ in sorted(unique_indices_map.items(),
+                                  key=itemgetter(1))]
     sample_ids = [d[0] for d in table_data]
 
     # fill in the matrix
@@ -183,7 +190,7 @@ def _samples_from_observations(it, exact, get=None):
     samples = None
     for _, block in _buffered(it, 'samples', cmd, get=get):
         block = set(block)
-        
+
         if not exact:
             if samples is None:
                 samples = set()
@@ -199,23 +206,23 @@ def _samples_from_observations(it, exact, get=None):
 def _summarize_samples(samples, category, value, get):
     """Summaryze an iterable of samples based on criteria"""
     key = 'category:%s' % category
-    getter = _buffered(iter(samples), None, 'HMGET', get=get, buffer_size=100, 
+    getter = _buffered(iter(samples), None, 'HMGET', get=get, buffer_size=100,
                        multikey=key)
-    
+
     results = []
     for samples, category_values in getter:
         for sample, observed_value in zip(samples, category_values):
             results.append((sample, observed_value))
-   
+
     if value is None:
         from collections import Counter
         from operator import itemgetter
-        
+
         cat_stats = Counter([v for s, v in results])
-        for val, count in sorted(cat_stats.items(), key=itemgetter(1), 
+        for val, count in sorted(cat_stats.items(), key=itemgetter(1),
                                  reverse=True):
             click.echo("%s\t%s" % (val, count))
-        click.echo("\n%s\t%s" % ("Total samples", len(samples)))
+        click.echo("\n%s\t%s" % ("Total samples", len(results)))
     else:
         import shlex
         tokens = list(shlex.shlex(value))
@@ -230,15 +237,16 @@ def _summarize_samples(samples, category, value, get):
                   '>': lambda a, b: a >= b}
             operator = op.get(tokens[0])
             if operator is None:
-                raise ValueError("Cannot parse: %s" % value)
-            if tokens[0] in ('in', 'notin'):
+                click.echo("Matching with exact string", err=True)
+                func = lambda to_test: to_test == value
+            elif tokens[0] in ('in', 'notin'):
                 rh = [t.strip("'").strip('"') for t in tokens[1:] if t != ',']
                 tokens = set(rh)
                 func = lambda to_test: operator(to_test, rh)
             else:
                 rh = tokens[1]
                 if len(tokens) > 2:
-                    raise ValueError("Unexpected additional criteria: %s" % value)
+                    raise ValueError("Unexpected criteria: %s" % value)
                 try:
                     rh = float(rh)
                 except TypeError:
@@ -248,7 +256,10 @@ def _summarize_samples(samples, category, value, get):
                 func = lambda to_test: operator(_float_or_nan(to_test), rh)
         else:
             func = lambda to_test: to_test == value
-        click.echo("\n".join([s for s, v in results if func(v)]))
+
+        for s, v in results:
+            if func(v):
+                click.echo(s)
 
 
 @click.group()
@@ -335,7 +346,6 @@ def load_sample_data(table):
     get = _make_get(config)
 
     tab = biom.load_table(table)
-    samples = tab.ids()[:]
     obs = tab.ids(axis='observation')
 
     acquired = False
@@ -400,7 +410,7 @@ def load_sample_metadata(metadata):
     indexed_columns = md.columns
     for idx, row in md.iterrows():
         # denote what columns contain information
-        columns = [c for c, i in zip(md.columns, row.values) 
+        columns = [c for c, i in zip(md.columns, row.values)
                    if _indexable(i, null_values)]
         key = "metadata-categories:%s" % idx
 
@@ -418,7 +428,7 @@ def load_sample_metadata(metadata):
 
 @fetch.command(name='sample-metadata')
 @click.option('--table', required=False, type=click.Path(exists=True))
-@click.option('--from', 'from_', type=click.File('r'), required=False, 
+@click.option('--from', 'from_', type=click.File('r'), required=False,
               default=None)
 @click.option('--output', required=True, type=click.Path(exists=False))
 @click.argument('samples', nargs=-1)
@@ -430,7 +440,7 @@ def fetch_sample_metadata(table, from_, samples, output):
                        err=True)
             import sys
             sys.exit(1)
-        
+
         import h5py
         it = iter(h5py.File(table)['sample/ids'][:])
     else:
@@ -447,7 +457,7 @@ def fetch_sample_metadata(table, from_, samples, output):
     # and then this can be done with SINTER
     all_columns = []
     all_samples = []
-    getter = _buffered(it, 'metadata-categories', 'MGET', get=get, 
+    getter = _buffered(it, 'metadata-categories', 'MGET', get=get,
                        buffer_size=100)
     for samples, columns_by_sample in getter:
         all_samples.extend(samples)
@@ -455,30 +465,30 @@ def fetch_sample_metadata(table, from_, samples, output):
             if column_set is not None:
                 column_set = json.loads(column_set)
                 all_columns.append(set(column_set))
-    
+
     common_columns = set(all_columns[0])
     for columns in all_columns[1:]:
         common_columns = common_columns.intersection(columns)
-    
+
     metadata = defaultdict(dict)
     for sample in all_samples:
         metadata[sample]['#SampleID'] = sample
 
     for category in common_columns:
         key = 'category:%s' % category
-        getter = _buffered(iter(all_samples), None, 'HMGET', get=get, 
+        getter = _buffered(iter(all_samples), None, 'HMGET', get=get,
                            buffer_size=100, multikey=key)
 
         for samples, category_values in getter:
             for sample, value in zip(samples, category_values):
                 metadata[sample][category] = value
-    
+
     md = pd.DataFrame(metadata).T
     md.to_csv(output, sep='\t', header=True, index=False)
 
 
 @fetch.command(name='observations')
-@click.option('--from', 'from_', type=click.File('r'), required=False, 
+@click.option('--from', 'from_', type=click.File('r'), required=False,
               default=None)
 @click.option('--output', required=True, type=click.Path(exists=False))
 @click.option('--exact', is_flag=True, default=False,
@@ -493,12 +503,12 @@ def fetch_samples_from_obserations(observations, exact, from_, output):
 
     # determine the samples which contain the observations of interest
     samples = _samples_from_observations(it, exact, get=get)
-    
+
     _biom_from_samples(iter(samples), output, get=get)
 
 
 @fetch.command(name='samples')
-@click.option('--from', 'from_', type=click.File('r'), required=False, 
+@click.option('--from', 'from_', type=click.File('r'), required=False,
               default=None)
 @click.option('--output', required=True, type=click.Path(exists=False))
 @click.argument('samples', nargs=-1)
@@ -509,7 +519,7 @@ def fetch_samples_from_samples(samples, from_, output):
 
 
 @search.command(name="observations")
-@click.option('--from', 'from_', type=click.File('r'), required=False, 
+@click.option('--from', 'from_', type=click.File('r'), required=False,
               default=None)
 @click.option('--exact', is_flag=True, default=False,
               help="All found samples must contain all specified observations")
@@ -553,12 +563,9 @@ def samples(category, operator, value):
         except:
             pass
 
-    import time
-    start = time.time()
+    # TODO hscan
     sample_values = get('HGETALL', 'category:%s' % category)
-    print(time.time() - start)
 
-    import pandas as pd
     for sample, obs_value in sample_values.items():
         try:
             obs_value = float(obs_value)
@@ -574,10 +581,10 @@ def samples(category, operator, value):
 
 
 @summarize.command(name='observations')
-@click.option('--from', 'from_', type=click.File('r'), required=False, 
+@click.option('--from', 'from_', type=click.File('r'), required=False,
               default=None)
 @click.option('--category', type=str, required=True)
-@click.option('--value', type=str, required=False, default=None, 
+@click.option('--value', type=str, required=False, default=None,
               help="Restrict to a specific value; prints the sample IDs")
 @click.option('--exact', is_flag=True, default=False,
               help="All found samples must contain all specified observations")
@@ -594,16 +601,16 @@ def summarize_observations(from_, category, exact, value, observations):
 
 
 @summarize.command(name='samples')
-@click.option('--from', 'from_', type=click.File('r'), required=False, 
+@click.option('--from', 'from_', type=click.File('r'), required=False,
               default=None)
 @click.option('--category', type=str, required=True)
-@click.option('--value', type=str, required=False, default=None, 
+@click.option('--value', type=str, required=False, default=None,
               help="Restrict to a specific value; prints the sample IDs")
 @click.argument('samples', nargs=-1)
 def summarize_samples(from_, category, value, samples):
     """Summarize samples over a metadata category."""
     it = _from_or_nargs(from_, samples)
-    _summarize_samples(it, category, value, get)
+    _summarize_samples(it, category, value)
 
 
 if __name__ == '__main__':
