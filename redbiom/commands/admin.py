@@ -8,9 +8,25 @@ def admin():
     pass
 
 
+@admin.command(name='create-context')
+@click.option('--name', required=True, type=str)
+@click.option('--description', required=True, type=str)
+def create_db(name, description):
+    """Create context for sample data"""
+    import redbiom
+    import redbiom.requests
+    import redbiom.util
+
+    config = redbiom.get_config()
+    post = redbiom.requests.make_post(config)
+
+    post('state', 'HSET', "contexts/%s/%s" % (name, description))
+
+
 @admin.command(name='load-observations')
 @click.option('--table', required=True, type=click.Path(exists=True))
-def load_observations(table):
+@click.option('--context', required=True, type=str)
+def load_observations(table, context):
     """Load observation to sample mappings.
 
     For each observation, all samples in the table associated with the
@@ -25,22 +41,29 @@ def load_observations(table):
     post = redbiom.requests.make_post(config)
     get = redbiom.requests.make_get(config)
 
+    redbiom.requests.valid(context, get)
+
     tab = biom.load_table(table)
     samples = tab.ids()[:]
 
-    if redbiom.util.exists(samples, get=get):
-        raise ValueError("%s contains sample IDs already stored" % table)
+    if redbiom.util.exists(samples, context, get=get):
+        raise ValueError("%s contains sample IDs already stored in %s" %
+                         (context, table))
+
+    if not redbiom.util.has_sample_metadata(samples):
+        raise ValueError("Sample metadata must be loaded first.")
 
     for values, id_, _ in tab.iter(axis='observation', dense=False):
         observed = samples[values.indices]
 
         payload = "samples:%s/%s" % (id_, "/".join(observed))
-        post('SADD', payload)
+        post(context, 'SADD', payload)
 
 
 @admin.command(name='load-sample-data')
 @click.option('--table', required=True, type=click.Path(exists=True))
-def load_sample_data(table):
+@click.option('--context', required=True, type=str)
+def load_sample_data(table, context):
     """Load nonzero entries per sample.
 
     WARNING: this method does not support non count data.
@@ -73,24 +96,30 @@ def load_sample_data(table):
     post = redbiom.requests.make_post(config)
     get = redbiom.requests.make_get(config)
 
+    redbiom.requests.valid(context, get)
+
     tab = biom.load_table(table)
     obs = tab.ids(axis='observation')
     samples = tab.ids()
 
-    if redbiom.util.exists(samples, get=get):
-        raise ValueError("%s contains sample IDs already stored" % table)
+    if redbiom.util.exists(samples, context, get=get):
+        raise ValueError("%s contains sample IDs already stored in %s" %
+                         (context, table))
+
+    if not redbiom.util.has_sample_metadata(samples):
+        raise ValueError("Sample metadata must be loaded first.")
 
     acquired = False
     while not acquired:
         # not using redlock as time interval isn't that critical
-        acquired = get('SETNX', '__load_table_lock/1') == 1
+        acquired = get(context, 'SETNX', '__load_table_lock/1') == 1
         if not acquired:
             click.echo("%s is blocked" % table)
             time.sleep(1)
 
     try:
         # load the observation index
-        obs_index = get('GET', '__observation_index')
+        obs_index = get(context, 'GET', '__observation_index')
         if obs_index is None:
             obs_index = {}
         else:
@@ -110,15 +139,15 @@ def load_sample_data(table):
             packed = '\t'.join(["%s\t%d" % (i, v)
                                 for i, v in zip(remapped,
                                                 int_values.data)])
-            post('SET', 'data:%s/%s' % (id_, packed))
+            post(context, 'SET', 'data:%s/%s' % (id_, packed))
 
         # store the index following the load of the table
-        post('SET', '__observation_index/%s' % json.dumps(obs_index))
+        post(context, 'SET', '__observation_index/%s' % json.dumps(obs_index))
     except:
         raise
     finally:
         # release the lock no matter what
-        get('DEL', '__load_table_lock')
+        get(context, 'DEL', '__load_table_lock')
 
 
 @admin.command(name='load-sample-metadata')
@@ -138,7 +167,7 @@ def load_sample_metadata(metadata):
 
     md = pd.read_csv(metadata, sep='\t', dtype=str).set_index('#SampleID')
     samples = md.index
-    if redbiom.util.exists(samples, get=get):
+    if redbiom.util.has_sample_metadata(samples, get=get):
         raise ValueError("%s contains sample IDs already stored" % metadata)
 
     null_values = {'Not applicable', 'Unknown', 'Unspecified',
@@ -152,18 +181,21 @@ def load_sample_metadata(metadata):
         # denote what columns contain information
         columns = [c for c, i in zip(md.columns, row.values)
                    if _indexable(i, null_values)]
-        key = "metadata-categories:%s" % idx
+        key = "categories:%s" % idx
 
         # TODO: express metadata-categories using redis sets
         # TODO: dumps is expensive relative to just, say, '\t'.join
-        put('SET', key, json.dumps(columns))
+        put('metadata', 'SET', key, json.dumps(columns))
 
     for col in indexed_columns:
         bulk_set = ["%s/%s" % (idx, v) for idx, v in zip(md.index, md[col])
                     if _indexable(v, null_values)]
 
         payload = "category:%s/%s" % (col, '/'.join(bulk_set))
-        post('HMSET', payload)
+        post('metadata', 'HMSET', payload)
+
+    payload = "samples-represented/%s" % '/'.join(md.index)
+    post('metadata', 'SADD', payload)
 
 
 def _indexable(value, nullables):

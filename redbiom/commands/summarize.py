@@ -9,7 +9,7 @@ def summarize():
     pass
 
 
-@summarize.command(name='caches')
+@summarize.command(name='contexts')
 def summarize_caches():
     """List names of available caches"""
     # db0 needs map of "cachename" -> db idx
@@ -37,8 +37,10 @@ def summarize_metadata_category():
               help="Restrict to a specific value; prints the sample IDs")
 @click.option('--exact', is_flag=True, default=False,
               help="All found samples must contain all specified observations")
+@click.option('--context', required=True, type=str)
 @click.argument('observations', nargs=-1)
-def summarize_observations(from_, category, exact, value, observations):
+def summarize_observations(from_, category, exact, value, context,
+                           observations):
     """Summarize observations over a metadata category."""
     import redbiom
     import redbiom.requests
@@ -49,7 +51,8 @@ def summarize_observations(from_, category, exact, value, observations):
     config = redbiom.get_config()
     get = redbiom.requests.make_get(config)
 
-    samples = redbiom.util.samples_from_observations(it, exact, get=get)
+    samples = redbiom.util.samples_from_observations(it, exact, context,
+                                                     get=get)
     _summarize_samples(samples, category, value, get)
 
 
@@ -72,7 +75,7 @@ def _summarize_samples(samples, category, value, get):
     from redbiom.requests import buffered
 
     key = 'category:%s' % category
-    getter = buffered(iter(samples), None, 'HMGET', get=get, buffer_size=100,
+    getter = buffered(iter(samples), None, 'HMGET', 'metadata', get=get, buffer_size=100,
                       multikey=key)
 
     results = []

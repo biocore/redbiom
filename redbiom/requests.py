@@ -5,8 +5,11 @@ def _parse_validate_request(req, command):
     return req.json()[command]
 
 
-def _format_request(command, other):
-    return "%s/%s" % (command, other)
+def _format_request(context, command, other):
+    if context is None:
+        return "%s/%s" % (command, other)
+    else:
+        return "%s/%s:%s" % (command, context, other)
 
 
 def make_post(config):
@@ -16,8 +19,9 @@ def make_post(config):
     redbiom.active_sessions.append(s)
     s.auth = config['auth']
 
-    def f(cmd, payload):
-        req = s.post(config['hostname'], data=_format_request(cmd, payload))
+    def f(context, cmd, payload):
+        req = s.post(config['hostname'],
+                     data=_format_request(context, cmd, payload))
         return _parse_validate_request(req, cmd)
     return f
 
@@ -29,8 +33,9 @@ def make_put(config):
     redbiom.active_sessions.append(s)
     s.auth = config['auth']
 
-    def f(cmd, key, data):
-        url = '/'.join([config['hostname'], _format_request(cmd, key)])
+    def f(context, cmd, key, data):
+        url = '/'.join([config['hostname'],
+                        _format_request(context, cmd, key)])
         req = s.put(url, data=data)
         return _parse_validate_request(req, cmd)
     return f
@@ -43,14 +48,14 @@ def make_get(config):
     redbiom.active_sessions.append(s)
     s.auth = config['auth']
 
-    def f(cmd, data):
-        payload = _format_request(cmd, data)
+    def f(context, cmd, data):
+        payload = _format_request(context, cmd, data)
         url = '/'.join([config['hostname'], payload])
         return _parse_validate_request(s.get(url), cmd)
     return f
 
 
-def buffered(it, prefix, cmd, get=None, buffer_size=10, multikey=None):
+def buffered(it, prefix, cmd, context, get=None, buffer_size=10, multikey=None):
     """Bulk fetch data
 
     Parameters
@@ -61,6 +66,8 @@ def buffered(it, prefix, cmd, get=None, buffer_size=10, multikey=None):
         A key prefix such as "data"
     cmd : string, a Redis command
         The command to request be executed
+    context : string
+        The context to operate under (ie another prefix).
     get : function, optional
         An existing get function
     buffer_size: int, optional
@@ -78,9 +85,9 @@ def buffered(it, prefix, cmd, get=None, buffer_size=10, multikey=None):
         get = redbiom.requests.make_get(config)
 
     if multikey is None:
-        prefixer = lambda a, b: '%s:%s' % (a, b)
+        prefixer = lambda a, b, c: '%s:%s:%s' % (a, b, c)
     else:
-        prefixer = lambda a, b: b
+        prefixer = lambda a, b, c: c
 
     exhausted = False
     while not exhausted:
@@ -91,8 +98,17 @@ def buffered(it, prefix, cmd, get=None, buffer_size=10, multikey=None):
             except StopIteration:
                 exhausted = True
                 break
-
-        bulk = '/'.join([prefixer(prefix, i) for i in items])
+        bulk = '/'.join([prefixer(context, prefix, i) for i in items])
         if multikey:
-            bulk = "%s/%s" % (multikey, bulk)
-        yield items, get(cmd, bulk)
+            bulk = "%s:%s/%s" % (context, multikey, bulk)
+        yield items, get(None, cmd, bulk)
+
+
+def valid(context, get=None):
+    if get is None:
+        import redbiom.requests
+        config = redbiom.get_config()
+        get = redbiom.requests.make_get(config)
+
+    if not get('state', 'HEXISTS', 'contexts/%s' % context):
+        raise ValueError("Unknown context: %s" % context)

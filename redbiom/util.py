@@ -16,7 +16,7 @@ def from_or_nargs(from_, nargs_variable):
     return iter(nargs_variable)
 
 
-def exists(samples, get=None):
+def exists(samples, context, get=None):
     """Test if any of the samples already exist in the resource"""
     import redbiom.requests
     if get is None:
@@ -24,21 +24,22 @@ def exists(samples, get=None):
         config = redbiom.get_config()
         get = redbiom.requests.make_get(config)
 
-    getter = redbiom.requests.buffered(iter(samples), 'data', 'EXISTS', get=get,
+    getter = redbiom.requests.buffered(iter(samples), 'data', 'EXISTS',
+                                       context, get=get,
                                        buffer_size=100)
     exists = sum([res for _, res in getter])
     return exists > 0
 
 
-def samples_from_observations(it, exact, get=None):
+def samples_from_observations(it, exact, context, get=None):
     """Grab samples from an iterable of observations"""
     import redbiom.requests
 
     cmd = 'SINTER' if exact else 'SUNION'
     samples = None
-    for _, block in redbiom.requests.buffered(it, 'samples', cmd, get=get):
+    for _, block in redbiom.requests.buffered(it, 'samples', cmd, context,
+                                              get=get):
         block = set(block)
-
         if not exact:
             if samples is None:
                 samples = set()
@@ -59,3 +60,13 @@ def float_or_nan(t):
         return math.nan
 
 
+def has_sample_metadata(samples, get=None):
+    """Test if all samples have sample metadata"""
+    import redbiom.requests
+    if get is None:
+        import redbiom
+        config = redbiom.get_config()
+        get = redbiom.requests.make_get(config)
+
+    represented = get('metadata', 'SMEMBERS', 'samples-represented')
+    return set(samples).issubset(represented)

@@ -19,25 +19,25 @@ def get(cmd, remainder):
 
 
 # database integrity tests
-class redbiomtests(unittest.TestCase):
+class RESTTests(unittest.TestCase):
     def test_observation_sample_associations(self):
         sample_ids = table.ids()
         for values, id_, _ in table.iter(axis='observation'):
             exp = set(sample_ids[values > 0])
-            obs = set(get('SMEMBERS', 'samples:%s' % id_))
+            obs = set(get('SMEMBERS', 'test:samples:%s' % id_))
             self.assertEqual(obs, exp)
 
     def test_sample_data(self):
         observation_ids = table.ids(axis='observation')
 
-        obs_index = json.loads(get('GET', '__observation_index'))
+        obs_index = json.loads(get('GET', 'test:__observation_index'))
         inv_index = {v: k for k, v in obs_index.items()}
 
         for values, id_, _ in table.iter():
             exp_data = values[values > 0]
             exp_ids = observation_ids[values > 0]
 
-            obs = get('GET', 'data:%s' % id_).split('\t')
+            obs = get('GET', 'test:data:%s' % id_).split('\t')
 
             obs_data = np.array([float(i) for i in obs[1::2]])
             obs_ids = np.array([inv_index[int(i)] for i in obs[::2]])
@@ -55,7 +55,7 @@ class redbiomtests(unittest.TestCase):
         for idx, row in md.iterrows():
             exp = [c for c, v in zip(md.columns, row.values)
                    if v not in null_values and '/' not in str(v)]
-            obs = json.loads(get('GET', 'metadata-categories:%s' % idx))
+            obs = json.loads(get('GET', 'metadata:categories:%s' % idx))
 
             self.assertEqual(obs, exp)
 
@@ -71,9 +71,23 @@ class redbiomtests(unittest.TestCase):
                     if v not in null_values and '/' not in str(v)]
             for c in cats:
                 exp = row[c]
-                obs = get('HGET', 'category:%s/%s' % (c, idx))
+                obs = get('HGET', 'metadata:category:%s/%s' % (c, idx))
                 self.assertEqual(obs, str(exp))
 
 
+class MethodTests(unittest.TestCase):
+    def test_float_or_nan(self):
+        import math
+
+        self.assertEqual(_float_or_nan('123', 123))
+        self.assertEqual(_float_or_nan('.123', 123))
+        self.assertEqual(_float_or_nan('x.123', math.nan))
+        self.assertEqual(_float_or_nan('0.123', 0.123))
+        self.assertEqual(_float_or_nan('', math.nan))
+
+
+class Bugs(unittest.TestCase):
+    def test_duplicate_ids_on_load(self):
+        self.fail()
 if __name__ == '__main__':
     unittest.main()

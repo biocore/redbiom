@@ -42,8 +42,8 @@ def fetch_sample_metadata(table, from_, samples, output):
     # and then this can be done with SINTER
     all_columns = []
     all_samples = []
-    getter = redbiom.requests.buffered(it, 'metadata-categories', 'MGET',
-                                       get=get, buffer_size=100)
+    getter = redbiom.requests.buffered(it, 'categories', 'MGET',
+                                       'metadata', get=get, buffer_size=100)
     for samples, columns_by_sample in getter:
         all_samples.extend(samples)
         for column_set in columns_by_sample:
@@ -62,7 +62,7 @@ def fetch_sample_metadata(table, from_, samples, output):
     for category in common_columns:
         key = 'category:%s' % category
         getter = redbiom.requests.buffered(iter(all_samples), None, 'HMGET',
-                                           get=get, buffer_size=100,
+                                           'metadata', get=get, buffer_size=100,
                                            multikey=key)
 
         for samples, category_values in getter:
@@ -79,8 +79,9 @@ def fetch_sample_metadata(table, from_, samples, output):
 @click.option('--output', required=True, type=click.Path(exists=False))
 @click.option('--exact', is_flag=True, default=False,
               help="All found samples must contain all specified observations")
+@click.option('--context', required=True, type=str)
 @click.argument('observations', nargs=-1)
-def fetch_samples_from_obserations(observations, exact, from_, output):
+def fetch_samples_from_obserations(observations, exact, from_, output, context):
     """Fetch sample data containing observations."""
     import redbiom
     import redbiom.requests
@@ -92,24 +93,26 @@ def fetch_samples_from_obserations(observations, exact, from_, output):
     get = redbiom.requests.make_get(config)
 
     # determine the samples which contain the observations of interest
-    samples = redbiom.util.samples_from_observations(it, exact, get=get)
+    samples = redbiom.util.samples_from_observations(it, exact, context,
+                                                     get=get)
 
-    _biom_from_samples(iter(samples), output, get=get)
+    _biom_from_samples(iter(samples), context, output, get=get)
 
 
 @fetch.command(name='samples')
 @click.option('--from', 'from_', type=click.File('r'), required=False,
               default=None)
 @click.option('--output', required=True, type=click.Path(exists=False))
+@click.option('--context', required=True, type=str)
 @click.argument('samples', nargs=-1)
-def fetch_samples_from_samples(samples, from_, output):
+def fetch_samples_from_samples(samples, from_, output, context):
     """Fetch sample data."""
     import redbiom.util
     it = redbiom.util.from_or_nargs(from_, samples)
-    _biom_from_samples(it, output)
+    _biom_from_samples(it, context, output)
 
 
-def _biom_from_samples(samples, output, get=None):
+def _biom_from_samples(samples, context, output, get=None):
     """Create a BIOM table from an iterable of samples"""
     import json
     from operator import itemgetter
@@ -124,7 +127,7 @@ def _biom_from_samples(samples, output, get=None):
         get = redbiom.requests.make_get(config)
 
     # pull out the observation index so the IDs can be remapped
-    obs_index = json.loads(get('GET', '__observation_index'))
+    obs_index = json.loads(get(context, 'GET', '__observation_index'))
 
     # redis contains {observation ID -> internal ID}, and we need
     # {internal ID -> observation ID}
@@ -133,8 +136,8 @@ def _biom_from_samples(samples, output, get=None):
     # pull out the per-sample data
     table_data = []
     unique_indices = set()
-    getter = redbiom.requests.buffered(samples, 'data', 'MGET', get=get,
-                                       buffer_size=100)
+    getter = redbiom.requests.buffered(samples, 'data', 'MGET', context,
+                                       get=get, buffer_size=100)
     for (sample_set, sample_set_data) in getter:
         for sample, data in zip(sample_set, sample_set_data):
             data = data.split('\t')
