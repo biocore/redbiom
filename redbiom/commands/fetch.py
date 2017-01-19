@@ -26,7 +26,8 @@ def fetch_sample_metadata(table, from_, samples, output):
         import h5py
         it = iter(h5py.File(table)['sample/ids'][:])
     else:
-        it = _from_or_nargs(from_, samples)
+        import redbiom.util
+        it = redbiom.util.from_or_nargs(from_, samples)
 
     import json
     from collections import defaultdict
@@ -60,8 +61,9 @@ def fetch_sample_metadata(table, from_, samples, output):
 
     for category in common_columns:
         key = 'category:%s' % category
-        getter = _buffered(iter(all_samples), None, 'HMGET', get=get,
-                           buffer_size=100, multikey=key)
+        getter = redbiom.requests.buffered(iter(all_samples), None, 'HMGET',
+                                           get=get, buffer_size=100,
+                                           multikey=key)
 
         for samples, category_values in getter:
             for sample, value in zip(samples, category_values):
@@ -114,10 +116,12 @@ def _biom_from_samples(samples, output, get=None):
     import scipy.sparse as ss
     import biom
     import h5py
+    import redbiom.requests
 
     if get is None:
-        config = _get_config()
-        get = _make_get(config)
+        import redbiom
+        config = redbiom.get_config()
+        get = redbiom.requests.make_get(config)
 
     # pull out the observation index so the IDs can be remapped
     obs_index = json.loads(get('GET', '__observation_index'))
@@ -129,7 +133,8 @@ def _biom_from_samples(samples, output, get=None):
     # pull out the per-sample data
     table_data = []
     unique_indices = set()
-    getter = _buffered(samples, 'data', 'MGET', get=get, buffer_size=100)
+    getter = redbiom.requests.buffered(samples, 'data', 'MGET', get=get,
+                                       buffer_size=100)
     for (sample_set, sample_set_data) in getter:
         for sample, data in zip(sample_set, sample_set_data):
             data = data.split('\t')

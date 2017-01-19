@@ -49,7 +49,7 @@ def summarize_observations(from_, category, exact, value, observations):
     config = redbiom.get_config()
     get = redbiom.requests.make_get(config)
 
-    samples = _samples_from_observations(it, exact, get=get)
+    samples = redbiom.util.samples_from_observations(it, exact, get=get)
     _summarize_samples(samples, category, value, get)
 
 

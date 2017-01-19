@@ -31,11 +31,11 @@ def search_metadata(category, unique, percentiles, counter):
 @click.argument('observations', nargs=-1)
 def search_observations(from_, exact, observations):
     """Find samples containing observations."""
-    import requests.util
-    it = requests.util.from_or_nargs(from_, observations)
+    import redbiom.util
+    it = redbiom.util.from_or_nargs(from_, observations)
 
     # determine the samples which contain the observations of interest
-    samples = requests.util.samples_from_observations(it, exact)
+    samples = redbiom.util.samples_from_observations(it, exact)
 
     for sample in samples:
         click.echo(sample)

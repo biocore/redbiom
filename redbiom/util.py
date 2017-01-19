@@ -1,5 +1,5 @@
 def from_or_nargs(from_, nargs_variable):
-    """In support of _buffered: determine whether to use from_ or nargs"""
+    """In support of buffered: determine whether to use from_ or nargs"""
     import sys
     if from_ is None and not nargs_variable:
         click.echo('Need at least 1 item', err=True)

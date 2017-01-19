@@ -21,6 +21,7 @@ install:
   - ./webdis &
   - popd
   - alias md5=md5sum
+  - pip install -e . --no-deps
 script:
   - flake8 --ignore=E731 redbiom test.py
   - make test

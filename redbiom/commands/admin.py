@@ -114,7 +114,8 @@ def load_sample_data(table):
 
         # store the index following the load of the table
         post('SET', '__observation_index/%s' % json.dumps(obs_index))
-
+    except:
+        raise
     finally:
         # release the lock no matter what
         get('DEL', '__load_table_lock')
@@ -138,7 +139,7 @@ def load_sample_metadata(metadata):
     md = pd.read_csv(metadata, sep='\t', dtype=str).set_index('#SampleID')
     samples = md.index
     if redbiom.util.exists(samples, get=get):
-        raise ValueError("%s contains sample IDs already stored" % table)
+        raise ValueError("%s contains sample IDs already stored" % metadata)
 
     null_values = {'Not applicable', 'Unknown', 'Unspecified',
                    'Missing: Not collected',

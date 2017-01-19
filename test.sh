@@ -21,34 +21,35 @@ function md5test ()
 
 query="TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG"
 
-### 
+# verify we're getting back the expected samples for a simple query
 exp="exp_test_query_results.txt"
 obs="obs_test_query_results.txt"
 echo "10317.000033804" > ${exp}
 echo "10317.000047188" >> ${exp} 
 echo "10317.000046868" >> ${exp} 
 
-./redbiom search observations ${query} | sort - > ${obs}
+redbiom search observations ${query} | sort - > ${obs}
 md5test ${obs} ${exp}
 
-###
-echo ${query} | ./redbiom search observations --from - | sort - > ${obs}
+# verify we're getting the expected samples back for a simple query when going via a pipe
+echo ${query} | redbiom search observations --from - | sort - > ${obs}
 md5test ${obs} ${exp}
 
-###
-echo ${query} | ./redbiom fetch observations --output pipetest.biom --from -
+# fetch samples based on observations and sanity check
+echo ${query} | redbiom fetch observations --output pipetest.biom --from -
 python -c "import biom; t = biom.load_table('pipetest.biom'); assert len(t.ids() == 3)"
+python -c "import biom; t = biom.load_table('pipetest.biom'); exp = biom.load_table('test.biom').filter(t.ids()).filter(lambda v, i, md: (v > 0).sum() > 0, axis='observation').sort_order(t.ids()).sort_order(t.ids(axis='observation'), axis='observation'); assert t == exp"
 
-###
-./redbiom fetch samples --output cmdlinetest.biom 10317.000033804 10317.000047188 10317.000046868
+# fetch data via sample
+redbiom fetch samples --output cmdlinetest.biom 10317.000033804 10317.000047188 10317.000046868
 python -c "import biom; t = biom.load_table('cmdlinetest.biom'); assert sorted(t.ids()) == ['10317.000033804', '10317.000046868', '10317.000047188']"
 
-###
-cat exp_test_query_results.txt | ./redbiom fetch samples --output pipetest.biom --from -
+# fetch data via sample and via pipe
+cat exp_test_query_results.txt | redbiom fetch samples --output pipetest.biom --from -
 python -c "import biom; t = biom.load_table('pipetest.biom'); assert sorted(t.ids()) == ['10317.000033804', '10317.000046868', '10317.000047188']"
 
-###
-./redbiom fetch sample-metadata --output cmdlinetest.txt 10317.000033804 10317.000047188 10317.000046868
+# fetch sample metadata
+redbiom fetch sample-metadata --output cmdlinetest.txt 10317.000033804 10317.000047188 10317.000046868
 obs=$(grep -c FECAL cmdlinetest.txt)
 exp=3
 if [[ "${obs}" != "${exp}" ]]; then
@@ -56,8 +57,8 @@ if [[ "${obs}" != "${exp}" ]]; then
     exit 1
 fi
 
-###
-cat exp_test_query_results.txt | ./redbiom fetch sample-metadata --output cmdlinetest.txt --from -
+# fetch sample metadata via pipe
+cat exp_test_query_results.txt | redbiom fetch sample-metadata --output cmdlinetest.txt --from -
 obs=$(grep -c FECAL cmdlinetest.txt)
 exp=3
 if [[ "${obs}" != "${exp}" ]]; then
@@ -65,29 +66,31 @@ if [[ "${obs}" != "${exp}" ]]; then
     exit 1
 fi
 
-###
+# summarize samples from observations
 echo "FECAL	4" > exp_summarize.txt
 echo "SKIN	1" >> exp_summarize.txt
 echo "" >> exp_summarize.txt
 echo "Total samples	5" >> exp_summarize.txt
 
-./redbiom summarize observations --category SIMPLE_BODY_SITE TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
+redbiom summarize observations --category SIMPLE_BODY_SITE TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
 md5test obs_summarize.txt exp_summarize.txt
 
-###
+# summarize samples from observations in which all samples contain all requested observations
 echo "FECAL	2" > exp_summarize.txt
 echo "" >> exp_summarize.txt
 echo "Total samples	2" >> exp_summarize.txt
 
-./redbiom summarize observations --exact --category SIMPLE_BODY_SITE TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
+redbiom summarize observations --exact --category SIMPLE_BODY_SITE TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
 md5test obs_summarize.txt exp_summarize.txt
 
-###
+# pull out a selection of the summarized samples
 echo "10317.000047188"  > exp_summarize.txt
 echo "10317.000033804" >> exp_summarize.txt
 
-./redbiom summarize observations --exact --category SIMPLE_BODY_SITE --value "in FECAL,'SKIN'" TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
+redbiom summarize observations --exact --category SIMPLE_BODY_SITE --value "in FECAL,'SKIN'" TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
 md5test obs_summarize.txt exp_summarize.txt
 
-
+# round trip the sample data
+python -c "import biom; t = biom.load_table('test.biom'); print('\n'.join(t.ids()))" | redbiom fetch samples --from - --output observed.biom
+python -c "import biom; obs = biom.load_table('observed.biom'); exp = biom.load_table('test.biom').sort_order(obs.ids()).sort_order(obs.ids(axis='observation'), axis='observation'); assert obs == exp"
 
