@@ -1,4 +1,5 @@
 # ![redbiom](logo.png)
+# ![build-status](https://travis-ci.org/wasade/redbiom.svg?branch=master)
 
 # What is this?
 
