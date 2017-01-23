@@ -160,6 +160,7 @@ def load_sample_metadata(metadata):
     import redbiom
     import redbiom.requests
     import redbiom.util
+    import time
 
     config = redbiom.get_config()
     post = redbiom.requests.make_post(config)
@@ -223,6 +224,7 @@ def load_sample_metadata(metadata):
         get('metadata', 'DEL', '__load_md_lock')
 
     click.echo("Loaded %d samples" % len(samples))
+
 
 def _indexable(value, nullables):
     """Returns true if the value appears to be something that storable
