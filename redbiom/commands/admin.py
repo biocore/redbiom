@@ -166,41 +166,63 @@ def load_sample_metadata(metadata):
     put = redbiom.requests.make_put(config)
     get = redbiom.requests.make_get(config)
 
-    md = pd.read_csv(metadata, sep='\t', dtype=str).set_index('#SampleID')
-    samples = md.index
-    if redbiom.util.has_sample_metadata(samples, get=get):
-        raise ValueError("%s contains sample IDs already stored" % metadata)
-
     null_values = {'Not applicable', 'Unknown', 'Unspecified',
                    'Missing: Not collected',
                    'Missing: Not provided',
                    'Missing: Restricted access',
                    'null', 'NULL', 'no_data', 'None', 'nan'}
 
-    indexed_columns = md.columns
-    for idx, row in md.iterrows():
-        # denote what columns contain information
-        columns = [c for c, i in zip(md.columns, row.values)
-                   if _indexable(i, null_values)]
-        key = "categories:%s" % idx
+    md = pd.read_csv(metadata, sep='\t', dtype=str).set_index('#SampleID')
 
-        # TODO: express metadata-categories using redis sets
-        # TODO: dumps is expensive relative to just, say, '\t'.join
-        put('metadata', 'SET', key, json.dumps(columns))
+    acquired = False
+    while not acquired:
+        # not using redlock as time interval isn't that critical
+        acquired = get('metadata', 'SETNX', '__load_md_lock/1') == 1
+        if not acquired:
+            click.echo("%s is blocked" % metadata)
+            time.sleep(1)
 
-    for col in indexed_columns:
-        bulk_set = ["%s/%s" % (idx, v) for idx, v in zip(md.index, md[col])
-                    if _indexable(v, null_values)]
+    try:
+        # subset to only the novel IDs
+        represented = get('metadata', 'SMEMBERS', 'samples-represented')
+        md = md.loc[set(md.index) - set(represented)]
+        if len(md) == 0:
+            click.echo("No new sample IDs found in: %s" % metadata, err=True)
+            import sys
+            sys.exit(1)
 
-        payload = "category:%s/%s" % (col, '/'.join(bulk_set))
-        post('metadata', 'HMSET', payload)
+        samples = md.index
 
-    payload = "samples-represented/%s" % '/'.join(md.index)
-    post('metadata', 'SADD', payload)
+        indexed_columns = md.columns
+        for idx, row in md.iterrows():
+            # denote what columns contain information
+            columns = [c for c, i in zip(md.columns, row.values)
+                       if _indexable(i, null_values)]
+            key = "categories:%s" % idx
 
-    payload = "categories-represented/%s" % '/'.join(md.columns)
-    post('metadata', 'SADD', payload)
+            # TODO: express metadata-categories using redis sets
+            # TODO: dumps is expensive relative to just, say, '\t'.join
+            put('metadata', 'SET', key, json.dumps(columns))
 
+        for col in indexed_columns:
+            bulk_set = ["%s/%s" % (idx, v) for idx, v in zip(md.index, md[col])
+                        if _indexable(v, null_values)]
+
+            payload = "category:%s/%s" % (col, '/'.join(bulk_set))
+            post('metadata', 'HMSET', payload)
+
+        payload = "samples-represented/%s" % '/'.join(md.index)
+        post('metadata', 'SADD', payload)
+
+        payload = "categories-represented/%s" % '/'.join(md.columns)
+        post('metadata', 'SADD', payload)
+    except:
+        raise
+    finally:
+        # release the lock no matter what
+        get('metadata', 'DEL', '__load_md_lock')
+
+    click.echo("Loaded %d samples" % len(samples))
 
 def _indexable(value, nullables):
     """Returns true if the value appears to be something that storable

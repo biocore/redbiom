@@ -116,9 +116,15 @@ def summarize_observations(from_, category, exact, value, context,
 @click.argument('samples', nargs=-1)
 def summarize_samples(from_, category, value, samples):
     """Summarize samples over a metadata category."""
+    import redbiom
+    import redbiom.requests
     import redbiom.util
+
+    config = redbiom.get_config()
+    get = redbiom.requests.make_get(config)
+
     it = redbiom.util.from_or_nargs(from_, samples)
-    _summarize_samples(it, category, value)
+    _summarize_samples(it, category, value, get)
 
 
 def _summarize_samples(samples, category, value, get):
