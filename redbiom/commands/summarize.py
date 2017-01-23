@@ -28,8 +28,9 @@ def summarize_caches():
 @summarize.command(name='metadata-category')
 @click.option('--category', required=True)
 @click.option('--counter', required=False, is_flag=True, default=False)
+@click.option('--descending', is_flag=True, required=False, default=False)
 @click.option('--dump', required=False, is_flag=True, default=False)
-def summarize_metadata_category(category, counter, histogram, dump):
+def summarize_metadata_category(category, counter, descending, dump):
     """Summarize the values within a metadata category"""
     import redbiom
     import redbiom.requests
@@ -42,7 +43,7 @@ def summarize_metadata_category(category, counter, histogram, dump):
 
     if counter:
         click.echo("Category value\tcount")
-        counts = md.value_counts()
+        counts = md.value_counts(ascending=not descending)
         for idx, val in zip(counts.index, counts):
             click.echo("%s\t%s" % (idx, val))
     elif dump:

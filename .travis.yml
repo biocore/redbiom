@@ -23,5 +23,5 @@ install:
   - alias md5=md5sum
   - pip install -e . --no-deps
 script:
-  - flake8 --ignore=E731 redbiom test.py
+  - flake8 --ignore=E731 redbiom 
   - make test

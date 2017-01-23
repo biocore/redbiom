@@ -94,3 +94,25 @@ md5test obs_summarize.txt exp_summarize.txt
 python -c "import biom; t = biom.load_table('test.biom'); print('\n'.join(t.ids()))" | redbiom fetch samples --context test --from - --output observed.biom
 python -c "import biom; obs = biom.load_table('observed.biom'); exp = biom.load_table('test.biom').sort_order(obs.ids()).sort_order(obs.ids(axis='observation'), axis='observation'); assert obs == exp"
 
+# pull out a metadata category
+echo "Category value	count" > exp_metadata_categories.txt
+echo "2	1" >> exp_metadata_categories.txt
+echo "21.0	1" >> exp_metadata_categories.txt
+echo "24.0	1" >> exp_metadata_categories.txt
+echo "32.0	1" >> exp_metadata_categories.txt
+echo "33	1" >> exp_metadata_categories.txt
+echo "33.0	1" >> exp_metadata_categories.txt
+echo "39.0	1" >> exp_metadata_categories.txt
+echo "48.0	1" >> exp_metadata_categories.txt
+echo "59	1" >> exp_metadata_categories.txt
+redbiom summarize metadata-category --category AGE_YEARS --counter > obs_metadata_categories.txt
+sort exp_metadata_categories.txt > exp_metadata_categories_sorted.txt
+sort obs_metadata_categories.txt > obs_metadata_categories_sorted.txt
+md5test obs_metadata_categories_sorted.txt exp_metadata_categories_sorted.txt
+
+# check counts for a few metadata categories
+echo "AGE_YEARS	9" > exp_metadata_counts.txt
+echo "BODY_SITE	10" >> exp_metadata_counts.txt
+redbiom summarize metadata | grep AGE_YEARS > obs_metadata_counts.txt
+redbiom summarize metadata | grep "^BODY_SITE" >> obs_metadata_counts.txt
+md5test obs_metadata_counts.txt exp_metadata_counts.txt
