@@ -133,5 +133,6 @@ class MethodTests(unittest.TestCase):
         for i in range(1, 5):
             self.assertTrue(has_sample_metadata(sample_ids[:i]))
 
+
 if __name__ == '__main__':
     unittest.main()
