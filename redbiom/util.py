@@ -1,3 +1,6 @@
+import click
+
+
 def from_or_nargs(from_, nargs_variable):
     """In support of buffered: determine whether to use from_ or nargs"""
     import sys

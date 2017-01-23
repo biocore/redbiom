@@ -12,22 +12,49 @@ def summarize():
 @summarize.command(name='contexts')
 def summarize_caches():
     """List names of available caches"""
-    # db0 needs map of "cachename" -> db idx
-    # basically all commands need to accept where to operate in
-    pass
+    import redbiom
+    import redbiom.requests
+    get = redbiom.requests.make_get(redbiom.get_config())
+
+    contexts = get('state', 'HGETALL', 'contexts')
+    if contexts:
+        click.echo("Name\tDescription\n")
+        for name, desc in sorted(contexts.items()):
+            click.echo("%s\t%s" % (name, desc))
+    else:
+        click.echo("No available contexts")
+
 
 @summarize.command(name='metadata-category')
-@click.option('--category')
-@click.option('--unique')
-@click.option('--counter')
-@click.option('--histogram')
-def summarize_metadata_category():
+@click.option('--category', required=True)
+@click.option('--counter', required=False, is_flag=True, default=False)
+@click.option('--dump', required=False, is_flag=True, default=False)
+def summarize_metadata_category(category, counter, histogram, dump):
     """Summarize the values within a metadata category"""
-    pass
+    import redbiom
+    import redbiom.requests
+    import pandas as pd
 
+    get = redbiom.requests.make_get(redbiom.get_config())
 
-    ## need a easy means to discover all category:* keys. pack into DB0.
-    ## scan/hscan etc does not seem to work with webdis.
+    keys_vals = get('metadata', 'HGETALL', 'category:%s' % category)
+    md = pd.Series(keys_vals)
+
+    if counter:
+        click.echo("Category value\tcount")
+        counts = md.value_counts()
+        for idx, val in zip(counts.index, counts):
+            click.echo("%s\t%s" % (idx, val))
+    elif dump:
+        click.echo("#SampleID\t%s" % category)
+        for idx, val in zip(md.index, md):
+            click.echo("%s\t%s" % (idx, val))
+    else:
+        click.echo("Please specify either --counter or --dump",
+                   err=True)
+        import sys
+        sys.exit(1)
+
 
 @summarize.command(name='observations')
 @click.option('--from', 'from_', type=click.File('r'), required=False,
