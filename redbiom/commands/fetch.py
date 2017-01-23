@@ -2,6 +2,7 @@ import click
 
 from . import cli
 
+
 @cli.group()
 def fetch():
     """Sample data and metadata retrieval."""
@@ -62,7 +63,8 @@ def fetch_sample_metadata(table, from_, samples, output):
     for category in common_columns:
         key = 'category:%s' % category
         getter = redbiom.requests.buffered(iter(all_samples), None, 'HMGET',
-                                           'metadata', get=get, buffer_size=100,
+                                           'metadata', get=get,
+                                           buffer_size=100,
                                            multikey=key)
 
         for samples, category_values in getter:
@@ -81,7 +83,8 @@ def fetch_sample_metadata(table, from_, samples, output):
               help="All found samples must contain all specified observations")
 @click.option('--context', required=True, type=str)
 @click.argument('observations', nargs=-1)
-def fetch_samples_from_obserations(observations, exact, from_, output, context):
+def fetch_samples_from_obserations(observations, exact, from_, output,
+                                   context):
     """Fetch sample data containing observations."""
     import redbiom
     import redbiom.requests

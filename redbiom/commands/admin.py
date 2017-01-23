@@ -2,6 +2,7 @@ import click
 
 from . import cli
 
+
 @cli.group()
 def admin():
     """Update database, etc."""
@@ -195,6 +196,9 @@ def load_sample_metadata(metadata):
         post('metadata', 'HMSET', payload)
 
     payload = "samples-represented/%s" % '/'.join(md.index)
+    post('metadata', 'SADD', payload)
+
+    payload = "categories-represented/%s" % '/'.join(md.columns)
     post('metadata', 'SADD', payload)
 
 

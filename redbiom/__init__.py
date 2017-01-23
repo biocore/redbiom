@@ -16,10 +16,14 @@ import atexit
 __version__ = '2017.0.1.dev0'
 
 active_sessions = []
+
+
 def _close_sessions():
     # be polite
     for s in active_sessions:
         s.close()
+
+
 atexit.register(_close_sessions)
 
 

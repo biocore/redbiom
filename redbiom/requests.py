@@ -55,7 +55,8 @@ def make_get(config):
     return f
 
 
-def buffered(it, prefix, cmd, context, get=None, buffer_size=10, multikey=None):
+def buffered(it, prefix, cmd, context, get=None, buffer_size=10,
+             multikey=None):
     """Bulk fetch data
 
     Parameters

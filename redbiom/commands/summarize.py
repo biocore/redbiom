@@ -56,6 +56,29 @@ def summarize_metadata_category(category, counter, histogram, dump):
         sys.exit(1)
 
 
+@summarize.command(name='metadata')
+@click.option('--descending', is_flag=True, required=False, default=False)
+def summarize_metadata(descending):
+    """Get the known metadata categories and associated sample counts"""
+    import redbiom
+    import redbiom.requests
+    import pandas as pd
+
+    get = redbiom.requests.make_get(redbiom.get_config())
+
+    categories = list(get('metadata', 'SMEMBERS', 'categories-represented'))
+    results = []
+    for category in categories:
+        key = 'category:%s' % category
+        results.append(int(get('metadata', 'HLEN', key)))
+
+    md = pd.Series(results, index=categories)
+    md = md.sort_values(ascending=not descending)
+
+    for idx, val in zip(md.index, md):
+        click.echo("%s\t%s" % (idx, val))
+
+
 @summarize.command(name='observations')
 @click.option('--from', 'from_', type=click.File('r'), required=False,
               default=None)
@@ -102,8 +125,8 @@ def _summarize_samples(samples, category, value, get):
     from redbiom.requests import buffered
 
     key = 'category:%s' % category
-    getter = buffered(iter(samples), None, 'HMGET', 'metadata', get=get, buffer_size=100,
-                      multikey=key)
+    getter = buffered(iter(samples), None, 'HMGET', 'metadata', get=get,
+                      buffer_size=100, multikey=key)
 
     results = []
     for samples, category_values in getter:
@@ -121,6 +144,7 @@ def _summarize_samples(samples, category, value, get):
         click.echo("\n%s\t%s" % ("Total samples", len(results)))
     else:
         import shlex
+        from redbiom.util import float_or_nan
         tokens = list(shlex.shlex(value))
         if len(tokens) > 1:
             # < 5
@@ -149,7 +173,7 @@ def _summarize_samples(samples, category, value, get):
                     if operator in {'<=', '>='}:
                         raise ValueError("Right hand does not look numeric")
 
-                func = lambda to_test: operator(_float_or_nan(to_test), rh)
+                func = lambda to_test: operator(float_or_nan(to_test), rh)
         else:
             func = lambda to_test: to_test == value
 
