@@ -19,21 +19,6 @@ def from_or_nargs(from_, nargs_variable):
     return iter(nargs_variable)
 
 
-def exists(samples, context, get=None):
-    """Test if any of the samples already exist in the resource"""
-    import redbiom.requests
-    if get is None:
-        import redbiom
-        config = redbiom.get_config()
-        get = redbiom.requests.make_get(config)
-
-    getter = redbiom.requests.buffered(iter(samples), 'data', 'EXISTS',
-                                       context, get=get,
-                                       buffer_size=100)
-    exists = sum([res for _, res in getter])
-    return exists > 0
-
-
 def samples_from_observations(it, exact, context, get=None):
     """Grab samples from an iterable of observations"""
     import redbiom.requests

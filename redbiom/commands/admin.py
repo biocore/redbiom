@@ -47,9 +47,9 @@ def load_observations(table, context):
     tab = biom.load_table(table)
     samples = tab.ids()[:]
 
-    if redbiom.util.exists(samples, context, get=get):
-        raise ValueError("%s contains sample IDs already stored in %s" %
-                         (context, table))
+    represented = get(context, 'SMEMBERS', 'samples-represented-observations')
+    if set(samples).intersection(set(represented)):
+        raise ValueError("At least one sample to load already exists")
 
     if not redbiom.util.has_sample_metadata(samples):
         raise ValueError("Sample metadata must be loaded first.")
@@ -59,6 +59,9 @@ def load_observations(table, context):
 
         payload = "samples:%s/%s" % (id_, "/".join(observed))
         post(context, 'SADD', payload)
+
+    payload = "samples-represented-observations/%s" % '/'.join(samples)
+    post(context, 'SADD', payload)
 
 
 @admin.command(name='load-sample-data')
@@ -103,12 +106,12 @@ def load_sample_data(table, context):
     obs = tab.ids(axis='observation')
     samples = tab.ids()
 
-    if redbiom.util.exists(samples, context, get=get):
-        raise ValueError("%s contains sample IDs already stored in %s" %
-                         (context, table))
-
     if not redbiom.util.has_sample_metadata(samples):
         raise ValueError("Sample metadata must be loaded first.")
+
+    represented = get(context, 'SMEMBERS', 'samples-represented-data')
+    if set(samples).intersection(set(represented)):
+        raise ValueError("At least one sample to load already exists")
 
     acquired = False
     while not acquired:
@@ -149,6 +152,9 @@ def load_sample_data(table, context):
     finally:
         # release the lock no matter what
         get(context, 'DEL', '__load_table_lock')
+
+    payload = "samples-represented-data/%s" % '/'.join(samples)
+    post(context, 'SADD', payload)
 
 
 @admin.command(name='load-sample-metadata')

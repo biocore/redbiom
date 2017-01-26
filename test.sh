@@ -106,9 +106,7 @@ echo "39.0	1" >> exp_metadata_categories.txt
 echo "48.0	1" >> exp_metadata_categories.txt
 echo "59	1" >> exp_metadata_categories.txt
 redbiom summarize metadata-category --category AGE_YEARS --counter > obs_metadata_categories.txt
-sort exp_metadata_categories.txt > exp_metadata_categories_sorted.txt
-sort obs_metadata_categories.txt > obs_metadata_categories_sorted.txt
-md5test obs_metadata_categories_sorted.txt exp_metadata_categories_sorted.txt
+md5test obs_metadata_categories.txt exp_metadata_categories.txt
 
 # check counts for a few metadata categories
 echo "AGE_YEARS	9" > exp_metadata_counts.txt
@@ -116,3 +114,14 @@ echo "BODY_SITE	10" >> exp_metadata_counts.txt
 redbiom summarize metadata | grep AGE_YEARS > obs_metadata_counts.txt
 redbiom summarize metadata | grep "^BODY_SITE" >> obs_metadata_counts.txt
 md5test obs_metadata_counts.txt exp_metadata_counts.txt
+
+# load table with some duplicate sample IDs
+head -n 1 test.txt > test.with_dups.txt
+tail -n 2 test.txt >> test.with_dups.txt
+tail -n 1 test.txt | sed -s 's/^10317\.[0-9]*/anewID/' >> test.with_dups.txt
+echo "Loaded 1 samples" > exp_load_count.txt
+redbiom admin load-sample-metadata --metadata test.with_dups.txt > obs_load_count.txt
+md5test obs_load_count.txt exp_load_count.txt
+echo "SKIN	1" > exp_anewid.txt
+redbiom summarize samples --category SIMPLE_BODY_SITE anewID | grep SKIN > obs_anewid.txt
+md5test obs_anewid.txt exp_anewid.txt

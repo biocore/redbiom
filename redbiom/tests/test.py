@@ -6,7 +6,7 @@ import numpy as np
 import numpy.testing as npt
 import pandas as pd
 import random
-from redbiom.util import (float_or_nan, from_or_nargs, exists,
+from redbiom.util import (float_or_nan, from_or_nargs,
                           samples_from_observations, has_sample_metadata)
 
 
@@ -96,13 +96,6 @@ class MethodTests(unittest.TestCase):
 
         self.assertEqual([1, 2, 3], list(from_or_nargs([1, 2, 3], None)))
         self.assertEqual([1, 2, 3], list(from_or_nargs(None, [1, 2, 3])))
-
-    def test_exists(self):
-        self.assertTrue(exists(['10317.000001405'], 'test'))
-        self.assertTrue(exists(['10317.000001405', '10317.000046868'], 'test'))
-        self.assertTrue(exists(['foo', '10317.000046868'], 'test'))
-        self.assertFalse(exists(['foo', 'bar'], 'test'))
-        self.assertFalse(exists([], 'test'))
 
     def test_samples_from_observations(self):
         from functools import reduce
