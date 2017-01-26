@@ -12,7 +12,7 @@ before_install:
   - ./miniconda.sh -b
   - export PATH=/home/travis/miniconda3/bin:$PATH
 install:
-  - conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7
+  - conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose
   - source activate test-env
   - pip install flake8
   - git clone https://github.com/nicolasff/webdis
