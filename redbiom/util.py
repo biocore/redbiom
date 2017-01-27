@@ -4,7 +4,7 @@ import click
 def from_or_nargs(from_, nargs_variable):
     """In support of buffered: determine whether to use from_ or nargs"""
     import sys
-    if from_ is None and not nargs_variable:
+    if (from_ is None or from_ == '-') and not nargs_variable:
         # let's assume the user wants to use stdin
         from_ = sys.stdin
 
