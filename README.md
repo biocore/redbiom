@@ -3,17 +3,57 @@
 
 # What is this?
 
-Load BIOM tables and sample metadata from a lot of studies into Redis to facilitate search using observation IDs or metadata.
+Load BIOM tables and sample metadata from a lot of studies into Redis to facilitate search using observation IDs or metadata. redbiom is intended as a caching layer. The command line application, for many of the commands, supports Unix pipes allowing for a fair bit of composability. As a hypothetical example, let's say we had loaded a bunch of microbiome data picked againts Greengenes 13_8 at 97% (and into an appropriately named context). To obtain a BIOM table representing all samples in which either OTUs 367523 or 3064251 exist, you can perform the following set of querys:
+
+    $ redbiom search observations --context "greengenes-13_8-97" 367523 3064251 | redbiom fetch samples --from - --output result.biom
+
+Additionally, assuming a comprehensive set of metadata are available, you can obtain summarized environment information:
+    
+    $ redbiom search observations --context "greengenes-13_8-97" 367523 3064251 | redbiom summarize samples --from - --category "env_biome"
 
 # Installation
 
-Needs Redis (tested with 3.2.6) and Webdis (just clone the repo). Also depends on BIOM (tested on 2.1.5), Pandas (tested on 0.19.0), Click (required >= 6.7) and scipy (whatever BIOM is happy with).
+Needs Redis (tested with 3.2.6) and Webdis (just clone the repo). Also depends on BIOM (tested on 2.1.5), Pandas (tested on 0.19.0), Click (required >= 6.7) and scipy (whatever BIOM is happy with). It is not necessary to have super user access.
 
-# Load some data
+For Redis, the following has worked on OSX and multiple flavors of Linux without issue.
+
+    $ http://download.redis.io/releases/redis-3.2.6.tar.gz
+    $ tar xzf redis-3.2.6.tar.gz
+    $ pushd redis-3.2.6
+    $ make
+    $ ./src/redis-server --daemonize
+    $ popd
+
+Webdis packages its dependencies with the exception of libevent. It is entirely likely that libevent is already available on your system. If so, the following should work. If libevent is not available, compilation will die quickly. However, libevent is in all the common repositories (e.g., yum, apt, brew, etc), and compiling by source is straight forward. 
+
+    $ git clone https://github.com/nicolasff/webdis.git
+    $ pushd webdis
+    $ make
+    $ ./webdis &
+    $ popd
+
+Last, redbiom itself can be installed as a normal Python package.
+
+    $ git clone https://github.com/wasade/redbiom.git
+    $ pip install -e .    
+
+# Examples
+
+The first example block surrounds loading data, because without anything in the cache, there is nothing fun to do. The second block highlights some example commands that can be run, or chained together, for querying the data loaded.
+
+## Load some data
 
 To make use of this cache, we need to load things. Loading can be done in parallel. First, we'll load up metadata. This will create keys in Redis which describe all of the columns associated with a sample (e.g., `metadata:categories:<sample_id>`, hash buckets for each category and sample combination (e.g., `metadata:category:<category_name>` as the hash and `<sample_id>` as the field), a set of all known categories (e.g., `metadata:categories-represented`), and a set of all known sample IDs (e.g., `metadata:samples-represented`):
 
 	$ redbiom admin load-sample-metadata --metadata path/to/qiime/compat/mapping.txt
+
+**IMPORTANT**: values containing `/` characters cannot be represented the forward slash is used to denote arguments with Webdis. At present, these values are omitted. This is more generally a problem for dates which have not been normalized into an ISO standard. See issue #9.
+
+**IMPORTANT**: values which appear to be null are not stored. The set of values currently considered nulls are: 
+    
+    {'Not applicable', 'Unknown', 'Unspecified', 'Missing: Not collected',
+     'Missing: Not provided', 'Missing: Restricted access',
+     'null', 'NULL', 'no_data', 'None', 'nan'}
 
 redbiom supports 1-many mappings between sample metadata and actual sample data. This is done as there may be multiple types of processing performed on the same data (e.g., different nucleotide trims). Or, a physical sample may have been run through multiple protocols (e.g., 16S, WGS, etc). So before we load any data, we need to create a context for the data to be placed. The following action will add an entry into the `state:contexts` hash bucket keyed by `name` and valued by `description`:
 
@@ -27,7 +67,7 @@ Last, let's load up all of the BIOM table data. We'll only store the non-zero va
 
 	$ redbiom load-sample-data --context deblur-100nt --table /path/to/biom/table.biom
 
-# Query for content
+## Query for content
 
 Now that things are loaded, we can search for stuff. Let's say you have a few OTUs of interest, and you are curious about what other samples they exist in. You can find that out with:
 
