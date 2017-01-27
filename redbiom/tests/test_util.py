@@ -23,12 +23,13 @@ class UtilTests(unittest.TestCase):
 
     def test_from_or_nargs(self):
         with self.assertRaises(SystemExit):
-            from_or_nargs(None, None)
-        with self.assertRaises(SystemExit):
             from_or_nargs(['foo'], ['bar'])
 
         self.assertEqual([1, 2, 3], list(from_or_nargs([1, 2, 3], None)))
         self.assertEqual([1, 2, 3], list(from_or_nargs(None, [1, 2, 3])))
+
+        # deferring validation of inference of stdin to integration tests
+        # as it would require overriding that standard file descriptor.
 
     def test_samples_from_observations(self):
         sample_ids = table.ids()

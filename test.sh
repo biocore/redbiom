@@ -32,7 +32,7 @@ redbiom search observations --context test ${query} | sort - > ${obs}
 md5test ${obs} ${exp}
 
 # verify we're getting the expected samples back for a simple query when going via a pipe
-echo ${query} | redbiom search observations --context test --from - | sort - > ${obs}
+echo ${query} | redbiom search observations --context test | sort - > ${obs}
 md5test ${obs} ${exp}
 
 # fetch samples based on observations and sanity check

@@ -5,8 +5,8 @@ def from_or_nargs(from_, nargs_variable):
     """In support of buffered: determine whether to use from_ or nargs"""
     import sys
     if from_ is None and not nargs_variable:
-        click.echo('Need at least 1 item', err=True)
-        sys.exit(1)  # should be doable from click but need ctx i think...?
+        # let's assume the user wants to use stdin
+        from_ = sys.stdin
 
     if from_ is not None and nargs_variable:
         click.echo("Unable to handle --from as well as cmdline items",
