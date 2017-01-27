@@ -99,5 +99,6 @@ class RequestsTests(unittest.TestCase):
         with self.assertRaises(StopIteration):
             next(gen)
 
+
 if __name__ == '__main__':
     unittest.main()
