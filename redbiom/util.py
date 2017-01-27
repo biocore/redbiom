@@ -4,9 +4,9 @@ import click
 def from_or_nargs(from_, nargs_variable):
     """In support of buffered: determine whether to use from_ or nargs"""
     import sys
-    if from_ is None and not nargs_variable:
-        click.echo('Need at least 1 item', err=True)
-        sys.exit(1)  # should be doable from click but need ctx i think...?
+    if (from_ is None or from_ == '-') and not nargs_variable:
+        # let's assume the user wants to use stdin
+        from_ = sys.stdin
 
     if from_ is not None and nargs_variable:
         click.echo("Unable to handle --from as well as cmdline items",
@@ -17,21 +17,6 @@ def from_or_nargs(from_, nargs_variable):
         nargs_variable = from_
 
     return iter(nargs_variable)
-
-
-def exists(samples, context, get=None):
-    """Test if any of the samples already exist in the resource"""
-    import redbiom.requests
-    if get is None:
-        import redbiom
-        config = redbiom.get_config()
-        get = redbiom.requests.make_get(config)
-
-    getter = redbiom.requests.buffered(iter(samples), 'data', 'EXISTS',
-                                       context, get=get,
-                                       buffer_size=100)
-    exists = sum([res for _, res in getter])
-    return exists > 0
 
 
 def samples_from_observations(it, exact, context, get=None):

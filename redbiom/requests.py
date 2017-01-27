@@ -1,4 +1,5 @@
 def _parse_validate_request(req, command):
+    """Assert 200, parse, pull out the content"""
     import requests
     if req.status_code != 200:
         raise requests.HTTPError("%s : %s" % (command, req.content))
@@ -6,6 +7,7 @@ def _parse_validate_request(req, command):
 
 
 def _format_request(context, command, other):
+    """Merge commands, context and payload"""
     if context is None:
         return "%s/%s" % (command, other)
     else:
@@ -13,6 +15,7 @@ def _format_request(context, command, other):
 
 
 def make_post(config):
+    """Factory function: produce a post() method"""
     import requests
     import redbiom
     s = requests.Session()
@@ -27,6 +30,11 @@ def make_post(config):
 
 
 def make_put(config):
+    """Factory function: produce a put() method
+
+    Within Webdis, PUT is generally used to provide content in the body for
+    use as a file upload.
+    """
     import requests
     import redbiom
     s = requests.Session()
@@ -42,6 +50,7 @@ def make_put(config):
 
 
 def make_get(config):
+    """Factory function: produce a get() method"""
     import requests
     import redbiom
     s = requests.Session()
@@ -58,6 +67,14 @@ def make_get(config):
 def buffered(it, prefix, cmd, context, get=None, buffer_size=10,
              multikey=None):
     """Bulk fetch data
+
+    Many of the commands within REDIS accept multiple arguments (e.g., MGET).
+    This method facilitates the use of these bulk commands over an iterable
+    of items. The method will additionally "chunk" by a buffer_size as to
+    limit the size of the URL being constructed. The URLs have an upper bound
+    of around 100kb from testing -- this is limit is dependent on the client
+    and the server. It is not clear what the actual limit is for Webdis. As a
+    rule of thumb, the aim is to target requests for a few kb at a time.
 
     Parameters
     ----------
@@ -99,6 +116,8 @@ def buffered(it, prefix, cmd, context, get=None, buffer_size=10,
             except StopIteration:
                 exhausted = True
                 break
+
+        # it may be possible to use _format_request here
         bulk = '/'.join([prefixer(context, prefix, i) for i in items])
         if multikey:
             bulk = "%s:%s/%s" % (context, multikey, bulk)
@@ -106,6 +125,7 @@ def buffered(it, prefix, cmd, context, get=None, buffer_size=10,
 
 
 def valid(context, get=None):
+    """Test if a context exists"""
     if get is None:
         import redbiom.requests
         config = redbiom.get_config()
