@@ -4,7 +4,7 @@ import requests
 
 from redbiom import get_config
 from redbiom.requests import (valid, _parse_validate_request, _format_request,
-                              make_post, make_get)
+                              make_post, make_get, make_put, buffered)
 
 
 config = get_config()
@@ -67,6 +67,37 @@ class RequestsTests(unittest.TestCase):
         obs = get('metadata', 'HGET', 'category:BODY_SITE/10317.000033804')
         self.assertEqual(obs, exp)
 
+    def test_make_put(self):
+        put = make_put(config)
+
+        exp = [True, "OK"]
+        obs = put('test', 'SET', 'bar', '1234')
+        self.assertEqual(obs, exp)
+
+    def test_buffered_not_multi(self):
+        samples = iter(['10317.000033804', 'does not exist'])
+        exp_items = ['10317.000033804', 'does not exist']
+        exp = 1  # because only 1 exists
+        gen = buffered(samples, 'data', 'EXISTS', 'test')
+        obs_items, obs = next(gen)
+        self.assertEqual(obs, exp)
+        self.assertEqual(obs_items, exp_items)
+
+        with self.assertRaises(StopIteration):
+            next(gen)
+
+    def test_buffered_multi(self):
+        samples = iter(['10317.000033804', 'does not exist'])
+        exp_items = ['10317.000033804', 'does not exist']
+        exp = ['UBERON:feces', None]
+        gen = buffered(samples, None, 'HMGET', 'metadata',
+                       multikey='category:BODY_SITE')
+        obs_items, obs = next(gen)
+        self.assertEqual(obs, exp)
+        self.assertEqual(obs_items, exp_items)
+
+        with self.assertRaises(StopIteration):
+            next(gen)
 
 if __name__ == '__main__':
     unittest.main()
