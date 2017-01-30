@@ -124,5 +124,3 @@ def summarize_samples(from_, category, value, samples):
         selected = redbiom.select.samples(md, value)
         for s in selected:
             click.echo(s)
-
-

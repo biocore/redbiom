@@ -235,7 +235,7 @@ def category_sample_values(category, samples=None):
 
         # there is probably some niftier method than this.
         keys_vals = [(sample, obs_val) for idx, vals in getter
-                                       for sample, obs_val in zip(idx, vals)]
+                     for sample, obs_val in zip(idx, vals)]
 
     index = (v[0] for v in keys_vals)
     data = (v[1] for v in keys_vals)
