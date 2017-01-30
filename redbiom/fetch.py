@@ -94,6 +94,8 @@ def data_from_observations(context, observations, exact):
     config = redbiom.get_config()
     get = redbiom.requests.make_get(config)
 
+    redbiom.requests.valid(context, get)
+
     # determine the samples which contain the observations of interest
     samples = redbiom.util.samples_from_observations(observations, exact,
                                                      context, get=get)
@@ -153,6 +155,8 @@ def _biom_from_samples(context, samples, get=None):
         config = redbiom.get_config()
         get = redbiom.requests.make_get(config)
 
+    redbiom.requests.valid(context, get)
+
     # pull out the observation index so the IDs can be remapped
     obs_index = json.loads(get(context, 'GET', '__observation_index'))
 
@@ -192,3 +196,76 @@ def _biom_from_samples(context, samples, get=None):
             mat[unique_indices_map[int(index)], col] = value
 
     return biom.Table(mat, obs_ids, sample_ids)
+
+
+def category_sample_values(category, samples=None):
+    """Obtain the samples and their corresponding category values
+
+    Parameters
+    ----------
+    category : str
+        A metadata column of interest.
+    samples : Iterable of str, optional
+        If provided, only the specified samples and their values are obtained.
+
+    Returns
+    -------
+    pandas.Series
+        A Series indexed by the Sample ID and valued by the metadata value for
+        that sample for the specified category.
+
+    Redis command summary
+    ---------------------
+    HGETALL metadata:category:<category>
+    HMGET metadata:category:<category> <sample_id> ... <sample_id>
+    """
+    import redbiom
+    import redbiom.requests
+    import pandas as pd
+
+    get = redbiom.requests.make_get(redbiom.get_config())
+
+    key = 'category:%s' % category
+    if samples is None:
+        keys_vals = list(get('metadata', 'HGETALL', key).items())
+    else:
+        getter = redbiom.requests.buffered(iter(samples), None, 'HMGET',
+                                           'metadata', get=get,
+                                           buffer_size=100, multikey=key)
+
+        # there is probably some niftier method than this.
+        keys_vals = [(sample, obs_val) for idx, vals in getter
+                                       for sample, obs_val in zip(idx, vals)]
+
+    index = (v[0] for v in keys_vals)
+    data = (v[1] for v in keys_vals)
+    return pd.Series(data=data, index=index)
+
+
+def sample_counts_per_category():
+    """Get the number of samples with usable metadata per category
+
+    Returns
+    -------
+    pandas.Series
+        A series keyed by the category and valued by the number of samples
+        which have metadata for that category.
+
+    Redis command summary
+    ---------------------
+    SMEMBERS metadata:categories-represented
+    HLEN metadata:category:<category>
+    """
+    import redbiom
+    import redbiom.requests
+    import pandas as pd
+
+    get = redbiom.requests.make_get(redbiom.get_config())
+
+    categories = list(get('metadata', 'SMEMBERS', 'categories-represented'))
+    results = []
+    for category in categories:
+        key = 'category:%s' % category
+        results.append(int(get('metadata', 'HLEN', key)))
+
+    return pd.Series(results, index=categories)
