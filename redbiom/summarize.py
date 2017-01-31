@@ -17,11 +17,6 @@ def contexts():
     return get('state', 'HGETALL', 'contexts')
 
 
-def sample_category_values(series):
-    """Get the counts of the values in the series"""
-    return series.value_counts()
-
-
 def category_from_observations(context, category, observations, exact):
     """Summarize a metadata category from samples from a set of observations
 
