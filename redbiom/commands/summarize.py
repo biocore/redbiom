@@ -88,7 +88,7 @@ def summarize_observations(from_, category, exact, value, context,
                                                       iterable, exact)
 
     if value is None:
-        cat_stats = redbiom.summarize.sample_category_values(md)
+        cat_stats = md.value_counts()
         for val, count in zip(cat_stats.index, cat_stats.values):
             click.echo("%s\t%s" % (val, count))
         click.echo("\n%s\t%s" % ("Total samples", sum(cat_stats.values)))
@@ -115,7 +115,7 @@ def summarize_samples(from_, category, value, samples):
     md = redbiom.summarize.category_from_samples(category, iterable)
 
     if value is None:
-        cat_stats = redbiom.summarize.sample_category_values(md)
+        cat_stats = md.value_counts()
         for val, count in zip(cat_stats.index, cat_stats.values):
             click.echo("%s\t%s" % (val, count))
         click.echo("\n%s\t%s" % ("Total samples", sum(cat_stats.values)))

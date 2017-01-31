@@ -158,13 +158,11 @@ def load_sample_data(table, context):
     if set(samples).intersection(set(represented)):
         raise ValueError("At least one sample to load already exists")
 
-    acquired = False
+    acquired = get(context, 'SETNX', '__load_table_lock/1') == 1
     while not acquired:
         # not using redlock as time interval isn't that critical
+        time.sleep(1)
         acquired = get(context, 'SETNX', '__load_table_lock/1') == 1
-        if not acquired:
-            # TODO: support verbose
-            time.sleep(1)
 
     try:
         # load the observation index

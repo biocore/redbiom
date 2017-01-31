@@ -7,7 +7,7 @@ def samples(sample_values, criteria):
         A series indexed by the Sample ID and valued by something.
     criteria : str
         Selection criteria. Simple logic can be specified, but cannot be
-        chained. The following operators are possible available:
+        chained. The following operators are available:
 
             {<, >, in, notin}
 
@@ -58,7 +58,7 @@ def samples(sample_values, criteria):
             try:
                 rh = float(rh)
             except TypeError:
-                if operator in {'<=', '>='}:
+                if operator in {'<', '>'}:
                     raise ValueError("Right hand does not look numeric")
 
             func = lambda to_test: operator(float_or_nan(to_test), rh)
