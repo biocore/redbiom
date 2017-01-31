@@ -56,5 +56,35 @@ def has_sample_metadata(samples, get=None):
         config = redbiom.get_config()
         get = redbiom.requests.make_get(config)
 
-    represented = get('metadata', 'SMEMBERS', 'samples-represented')
-    return set(samples).issubset(represented)
+    untagged, tagged, _, tagged_clean = partition_samples_by_tags(samples)
+
+    # make sure all samples have metadata
+    represented = set(get('metadata', 'SMEMBERS', 'samples-represented'))
+    if not set(untagged).issubset(represented):
+        return False
+    if not set(tagged_clean).issubset(represented):
+        return False
+    if not set(tagged).issubset(represented):
+        return False
+
+    return True
+
+
+def partition_samples_by_tags(samples):
+    """Partition samples by the presence of a sample tag"""
+    # by example ['foo_123.3', 'xyz', '23_ss']
+    tagged = []  # ['foo_123.3', '23_s']
+    tagged_clean = []  # ['123.3', 'ss']
+    tags = []  # ['foo', '23']
+    untagged = []  # ['xyz']
+    for sample in samples:
+        parts = sample.split('_', 1)
+        if len(parts) == 2:
+            tag, sample_split = parts
+            tagged.append(sample)
+            tags.append(tag)
+            tagged_clean.append(sample_split)
+        else:
+            untagged.append(sample)
+
+    return untagged, tagged, tags, tagged_clean

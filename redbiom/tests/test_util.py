@@ -5,7 +5,8 @@ import random
 import biom
 
 from redbiom.util import (float_or_nan, from_or_nargs,
-                          samples_from_observations, has_sample_metadata)
+                          samples_from_observations, has_sample_metadata,
+                          partition_samples_by_tags)
 
 
 table = biom.load_table('test.biom')
@@ -58,6 +59,21 @@ class UtilTests(unittest.TestCase):
 
         for i in range(1, 5):
             self.assertTrue(has_sample_metadata(sample_ids[:i]))
+
+    def test_partition_samples_by_tags(self):
+        exp_untagged = ['1']
+        exp_tagged = ['xyz_2', 'xyz_3']
+        exp_tags = ['xyz', 'xyz']
+        exp_tagged_clean = ['2', '3']
+
+        testset = ['xyz_2', '1', 'xyz_3']
+        obs_untagged, obs_tagged, obs_tags, obs_tagged_clean = \
+                partition_samples_by_tags(testset)
+
+        self.assertEqual(obs_untagged, exp_untagged)
+        self.assertEqual(obs_tagged, exp_tagged)
+        self.assertEqual(obs_tags, exp_tags)
+        self.assertEqual(obs_tagged_clean, exp_tagged_clean)
 
 
 if __name__ == '__main__':

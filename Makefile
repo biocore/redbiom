@@ -6,6 +6,6 @@ test_db:
 	redbiom admin load-sample-data --table test.biom --context test
 
 test: test_db 
-	nosetests
 	/bin/bash test.sh
+	nosetests
 	/bin/bash test_failures.sh  # this blows away the db

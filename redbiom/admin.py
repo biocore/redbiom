@@ -28,7 +28,7 @@ def create_context(name, description):
     post('state', 'HSET', "contexts/%s/%s" % (name, description))
 
 
-def load_observations(table, context):
+def load_observations(table, context, tag=None):
     """Load observation to sample mappings.
 
     Parameters
@@ -37,6 +37,8 @@ def load_observations(table, context):
         The filepath to a BIOM table to load.
     context : str
         The context to load into.
+    tag : str
+        A tag to associated the samples with (e.g., a preparation ID).
 
     Raises
     ------
@@ -55,6 +57,7 @@ def load_observations(table, context):
     import redbiom
     import redbiom.requests
     import redbiom.util
+    import numpy as np
 
     config = redbiom.get_config()
     post = redbiom.requests.make_post(config)
@@ -64,6 +67,9 @@ def load_observations(table, context):
 
     tab = biom.load_table(table)
     samples = tab.ids()[:]
+
+    if tag is not None:
+        samples = np.array(["%s_%s" % (tag, id_) for id_ in samples])
 
     represented = get(context, 'SMEMBERS', 'samples-represented-observations')
     if set(samples).intersection(set(represented)):
@@ -82,7 +88,7 @@ def load_observations(table, context):
     post(context, 'SADD', payload)
 
 
-def load_sample_data(table, context):
+def load_sample_data(table, context, tag=None):
     """Load nonzero sample data.
 
     Parameters
@@ -91,6 +97,8 @@ def load_sample_data(table, context):
         The filepath to a BIOM table to load.
     context : str
         The context to load into.
+    tag : str
+        A tag to associated the samples with (e.g., a preparation ID).
 
     Raises
     ------
@@ -151,6 +159,9 @@ def load_sample_data(table, context):
     obs = tab.ids(axis='observation')
     samples = tab.ids()
 
+    if tag is not None:
+        tab.update_ids({i: "%s_%s" % (tag, i) for i in samples})
+
     if not redbiom.util.has_sample_metadata(samples):
         raise ValueError("Sample metadata must be loaded first.")
 
@@ -202,13 +213,16 @@ def load_sample_data(table, context):
     post(context, 'SADD', payload)
 
 
-def load_sample_metadata(metadata):
+def load_sample_metadata(metadata, tag=None):
     """Load sample metadata.
 
     Parameters
     ----------
     metadata : str, filepath
-        A filepath to QIIME compatible sample metadata.
+        A filepath to QIIME or Qiita compatible metadata.
+    tag : str, optional
+        A tag associated with the information being loaded such as a
+        preparation ID.
 
     Notes
     -----
@@ -259,52 +273,51 @@ def load_sample_metadata(metadata):
                    'Missing: Restricted access',
                    'null', 'NULL', 'no_data', 'None', 'nan'}
 
-    md = pd.read_csv(metadata, sep='\t', dtype=str).set_index('#SampleID')
+    md = pd.read_csv(metadata, sep='\t', dtype=str)
 
-    acquired = False
-    while not acquired:
-        # not using redlock as time interval isn't that critical
-        acquired = get('metadata', 'SETNX', '__load_md_lock/1') == 1
-        if not acquired:
-            # TODO: support verbose
-            time.sleep(1)
+    if tag is not None:
+        original_ids = md[md.columns[0]][:]
 
-    try:
-        # subset to only the novel IDs
-        represented = get('metadata', 'SMEMBERS', 'samples-represented')
-        md = md.loc[set(md.index) - set(represented)]
-        if len(md) == 0:
-            raise ValueError("No new sample IDs found in: %s" % metadata)
+        # if the metadata are tagged, they must have sample metadata already
+        # loaded
+        if not redbiom.util.has_sample_metadata(original_ids):
+            raise ValueError("Sample metadata must be loaded first.")
 
-        samples = md.index
-        indexed_columns = md.columns
-        for idx, row in md.iterrows():
-            # denote what columns contain information
-            columns = [c for c, i in zip(md.columns, row.values)
-                       if _indexable(i, null_values)]
-            key = "categories:%s" % idx
+        # tag the sample IDs
+        md[md.columns[0]] = ['%s_%s' % (tag, i) for i in md[md.columns[0]]]
 
-            # TODO: express metadata-categories using redis sets
-            # TODO: dumps is expensive relative to just, say, '\t'.join
-            put('metadata', 'SET', key, json.dumps(columns))
+    md.set_index(md.columns[0], inplace=True)
 
-        for col in indexed_columns:
-            bulk_set = ["%s/%s" % (idx, v) for idx, v in zip(md.index, md[col])
-                        if _indexable(v, null_values)]
+    # subset to only the novel IDs
+    represented = get('metadata', 'SMEMBERS', 'samples-represented')
+    md = md.loc[set(md.index) - set(represented)]
+    if len(md) == 0:
+        raise ValueError("No new sample IDs found in: %s" % metadata)
 
-            payload = "category:%s/%s" % (col, '/'.join(bulk_set))
-            post('metadata', 'HMSET', payload)
+    samples = md.index
+    indexed_columns = md.columns
+    for idx, row in md.iterrows():
+        # denote what columns contain information
+        columns = [c for c, i in zip(md.columns, row.values)
+                   if _indexable(i, null_values)]
+        key = "categories:%s" % idx
 
-        payload = "samples-represented/%s" % '/'.join(md.index)
-        post('metadata', 'SADD', payload)
+        # TODO: express metadata-categories using redis sets
+        # TODO: dumps is expensive relative to just, say, '\t'.join
+        put('metadata', 'SET', key, json.dumps(columns))
 
-        payload = "categories-represented/%s" % '/'.join(md.columns)
-        post('metadata', 'SADD', payload)
-    except:
-        raise
-    finally:
-        # release the lock no matter what
-        get('metadata', 'DEL', '__load_md_lock')
+    for col in indexed_columns:
+        bulk_set = ["%s/%s" % (idx, v) for idx, v in zip(md.index, md[col])
+                    if _indexable(v, null_values)]
+
+        payload = "category:%s/%s" % (col, '/'.join(bulk_set))
+        post('metadata', 'HMSET', payload)
+
+    payload = "samples-represented/%s" % '/'.join(md.index)
+    post('metadata', 'SADD', payload)
+
+    payload = "categories-represented/%s" % '/'.join(md.columns)
+    post('metadata', 'SADD', payload)
 
     return len(samples)
 
