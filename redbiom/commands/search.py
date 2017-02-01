@@ -11,10 +11,12 @@ def search():
 
 @search.command(name="observations")
 @click.option('--from', 'from_', type=click.File('r'), required=False,
+              help='A file or stdin which provides observations to search for',
               default=None)
 @click.option('--exact', is_flag=True, default=False,
               help="All found samples must contain all specified observations")
-@click.option('--context', required=True, type=str)
+@click.option('--context', required=True, type=str,
+              help="The context to search within.")
 @click.argument('observations', nargs=-1)
 def search_observations(from_, exact, context, observations):
     """Find samples containing observations."""
