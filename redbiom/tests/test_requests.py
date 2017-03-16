@@ -1,48 +1,64 @@
 import unittest
 
 import requests
+import biom
+import pandas as pd
 
 from redbiom import get_config
+import redbiom.admin
 from redbiom.requests import (valid, _parse_validate_request, _format_request,
                               make_post, make_get, make_put, buffered)
 
 
 config = get_config()
+table = biom.load_table('test.biom')
+metadata = pd.read_csv('test.txt', sep='\t', dtype=str)
 
 
 class RequestsTests(unittest.TestCase):
+    def setUp(self):
+        host = config['hostname']
+        req = requests.get(host + '/FLUSHALL')
+        assert req.status_code == 200
+
     def test_valid(self):
+        context = 'test'
+        redbiom.admin.create_context(context, 'foo')
         self.assertEqual(valid('test'), None)
         with self.assertRaises(ValueError):
             valid('doesnt exist')
 
     def test_parse_valid_request(self):
+        context = 'test'
+        redbiom.admin.create_context(context, 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, context, tag=None)
         # Webdis does not leverage status codes too aggressively.
         # This design decision makes sense as Webdis does not need to concern
         # itself with the specifics of the Redis commands, however it also
         # makes it somewhat annoying to sanity check a response. As is, the
         # checking is light. Since the test environment does not utilize ACLs,
         # it is bit difficult to trigger a non-200...
-        key = 'test:data:10317.000033804'
+        key = 'test:data:UNTAGGED_10317.000033804'
         req = requests.get('http://127.0.0.1:7379/EXISTS/%s' % key)
         exp = 1
         obs = _parse_validate_request(req, 'EXISTS')
         self.assertEqual(obs, exp)
 
-        key = 'test:data:10317.000033804foobar'
+        key = 'test:data:UNTAGGED_10317.000033804foobar'
         req = requests.get('http://127.0.0.1:7379/EXISTS/%s' % key)
         exp = 0
         obs = _parse_validate_request(req, 'EXISTS')
         self.assertEqual(obs, exp)
 
         # cram a massive URL
-        key = 'test:data:10317.000033804foobar' + 'asdasdasd' * 10000
+        key = 'test:data:UNTAGGED_10317.000033804foobar' + 'asdasdasd' * 10000
         req = requests.get('http://127.0.0.1:7379/EXISTS/%s' % key)
         with self.assertRaises(requests.HTTPError):
             _parse_validate_request(req, 'EXISTS')
 
         # issue a post against a URL
-        key = 'test:data:10317.000033804foobar' + 'asdasdasd' * 10000
+        key = 'test:data:UNTAGGED_10317.000033804foobar' + 'asdasdasd' * 10000
         req = requests.post('http://127.0.0.1:7379/EXISTS/%s' % key)
         with self.assertRaises(requests.HTTPError):
             _parse_validate_request(req, 'EXISTS')
@@ -61,6 +77,9 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(obs, exp)
 
     def test_make_get(self):
+        context = 'test'
+        redbiom.admin.create_context(context, 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
         get = make_get(config)
 
         exp = 'UBERON:feces'
@@ -75,8 +94,13 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(obs, exp)
 
     def test_buffered_not_multi(self):
-        samples = iter(['10317.000033804', 'does not exist'])
-        exp_items = ['10317.000033804', 'does not exist']
+        context = 'test'
+        redbiom.admin.create_context(context, 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, context, tag=None)
+
+        samples = iter(['UNTAGGED_10317.000033804', 'does not exist'])
+        exp_items = ['UNTAGGED_10317.000033804', 'does not exist']
         exp = 1  # because only 1 exists
         gen = buffered(samples, 'data', 'EXISTS', 'test')
         obs_items, obs = next(gen)
@@ -87,6 +111,9 @@ class RequestsTests(unittest.TestCase):
             next(gen)
 
     def test_buffered_multi(self):
+        context = 'test'
+        redbiom.admin.create_context(context, 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
         samples = iter(['10317.000033804', 'does not exist'])
         exp_items = ['10317.000033804', 'does not exist']
         exp = ['UBERON:feces', None]

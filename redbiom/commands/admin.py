@@ -21,6 +21,25 @@ def create_context(name, description):
     redbiom.admin.create_context(name, description)
 
 
+@admin.command(name='coherency')
+@click.option('--context', required=False, type=str, default=None,
+              help='The context to examine, do all if not specified.')
+def coherency(context):
+    """Assert coherency within contexts.
+
+    Coherency is defined as:
+
+    - each sample in each context has sample metadata
+    - each sample in each context has observation associations
+    - each sample in each context has sample data
+    """
+    # useful as this is not explicitly enforced. explicit enforcement would
+    # pose a massive challenge. should only be necessary to run _after_ a
+    # cache load. since the cache is read-only following low, follow up
+    # coherency checking is not critical.
+    raise ValueError("see inline comment")
+
+
 @admin.command(name='load-observations')
 @click.option('--table', required=True, type=click.Path(exists=True),
               help="The filepath to the table to load.")
@@ -29,6 +48,8 @@ def create_context(name, description):
 def load_observations(table, context):
     """Load observation to sample mappings."""
     import redbiom.admin
+    import biom
+    table = biom.load_table(table)
     redbiom.admin.load_observations(table, context)
 
 
@@ -40,6 +61,8 @@ def load_observations(table, context):
 def load_sample_data(table, context):
     """Load nonzero entries per sample."""
     import redbiom.admin
+    import biom
+    table = biom.load_table(table)
     redbiom.admin.load_sample_data(table, context)
 
 
@@ -49,5 +72,7 @@ def load_sample_data(table, context):
 def load_sample_metadata(metadata):
     """Load sample metadata."""
     import redbiom.admin
+    import pandas as pd
+    metadata = pd.read_csv(metadata, sep='\t', dtype=str)
     n_loaded = redbiom.admin.load_sample_metadata(metadata)
     click.echo("Loaded %d samples" % n_loaded)

@@ -32,7 +32,11 @@ def summarize_caches():
               help="If true, sort in descending order")
 @click.option('--dump', required=False, is_flag=True, default=False,
               help="If true, print the sample information.")
-def summarize_metadata_category(category, counter, descending, dump):
+@click.option('--sort-index', is_flag=True, required=False, default=False,
+              help=("If true, sort on the index instead of the values. This "
+                    "option is only relevant when --counter is specified."))
+def summarize_metadata_category(category, counter, descending, dump,
+                                sort_index):
     """Summarize the values within a metadata category"""
     if not counter and not dump:
         click.echo("Please specify either --counter or --dump",
@@ -46,6 +50,9 @@ def summarize_metadata_category(category, counter, descending, dump):
     if counter:
         click.echo("Category value\tcount")
         counts = md.value_counts(ascending=not descending)
+        if sort_index:
+            counts = counts.sort_index(ascending=not descending)
+
         for idx, val in zip(counts.index, counts):
             click.echo("%s\t%s" % (idx, val))
     else:

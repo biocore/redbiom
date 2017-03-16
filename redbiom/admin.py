@@ -20,7 +20,6 @@ def create_context(name, description):
     """
     import redbiom
     import redbiom.requests
-    import redbiom.util
 
     config = redbiom.get_config()
     post = redbiom.requests.make_post(config)
@@ -33,18 +32,22 @@ def load_observations(table, context, tag=None):
 
     Parameters
     ----------
-    table : str, filepath
-        The filepath to a BIOM table to load.
+    table : biom.Table
+        The BIOM table to load.
     context : str
         The context to load into.
     tag : str
         A tag to associated the samples with (e.g., a preparation ID).
 
+    Returns
+    -------
+    int
+        The number of samples in which observations where loaded from.
+
     Raises
     ------
     ValueError
         If the context to load into does not exist.
-        If any sample in the table already has been loaded.
         If a samples metadata has not already been loaded.
 
     Redis command summary
@@ -56,7 +59,6 @@ def load_observations(table, context, tag=None):
     import biom
     import redbiom
     import redbiom.requests
-    import redbiom.util
     import numpy as np
 
     config = redbiom.get_config()
@@ -65,20 +67,11 @@ def load_observations(table, context, tag=None):
 
     redbiom.requests.valid(context, get)
 
-    tab = biom.load_table(table)
-    samples = tab.ids()[:]
+    table = _stage_for_load(table, context, get, 'observations', tag)
 
-    if tag is not None:
-        samples = np.array(["%s_%s" % (tag, id_) for id_ in samples])
+    samples = table.ids()[:]
 
-    represented = get(context, 'SMEMBERS', 'samples-represented-observations')
-    if set(samples).intersection(set(represented)):
-        raise ValueError("At least one sample to load already exists")
-
-    if not redbiom.util.has_sample_metadata(samples):
-        raise ValueError("Sample metadata must be loaded first.")
-
-    for values, id_, _ in tab.iter(axis='observation', dense=False):
+    for values, id_, _ in table.iter(axis='observation', dense=False):
         observed = samples[values.indices]
 
         payload = "samples:%s/%s" % (id_, "/".join(observed))
@@ -87,14 +80,16 @@ def load_observations(table, context, tag=None):
     payload = "samples-represented-observations/%s" % '/'.join(samples)
     post(context, 'SADD', payload)
 
+    return len(samples)
+
 
 def load_sample_data(table, context, tag=None):
     """Load nonzero sample data.
 
     Parameters
     ----------
-    table : str, filepath
-        The filepath to a BIOM table to load.
+    table : biom.Table
+        The BIOM table to load.
     context : str
         The context to load into.
     tag : str
@@ -104,7 +99,6 @@ def load_sample_data(table, context, tag=None):
     ------
     ValueError
         If the context to load into does not exist.
-        If any sample in the table already has been loaded.
         If a samples metadata has not already been loaded.
 
     Notes
@@ -141,33 +135,23 @@ def load_sample_data(table, context, tag=None):
     SET <context>:__observation_index <revised-observation-mappings>
     DEL <context>:__load_table_lock
     SADD <context>:samples-represented-data <sample_id> ... <sample_id>
+
+    Returns
+    -------
+    int
+        The number of samples loaded.
     """
     import biom
     import time
     import json
     import redbiom
     import redbiom.requests
-    import redbiom.util
 
     config = redbiom.get_config()
     post = redbiom.requests.make_post(config)
     get = redbiom.requests.make_get(config)
 
     redbiom.requests.valid(context, get)
-
-    tab = biom.load_table(table)
-    obs = tab.ids(axis='observation')
-    samples = tab.ids()
-
-    if tag is not None:
-        tab.update_ids({i: "%s_%s" % (tag, i) for i in samples})
-
-    if not redbiom.util.has_sample_metadata(samples):
-        raise ValueError("Sample metadata must be loaded first.")
-
-    represented = get(context, 'SMEMBERS', 'samples-represented-data')
-    if set(samples).intersection(set(represented)):
-        raise ValueError("At least one sample to load already exists")
 
     acquired = get(context, 'SETNX', '__load_table_lock/1') == 1
     while not acquired:
@@ -176,6 +160,10 @@ def load_sample_data(table, context, tag=None):
         acquired = get(context, 'SETNX', '__load_table_lock/1') == 1
 
     try:
+        table = _stage_for_load(table, context, get, 'data', tag)
+        samples = table.ids()[:]
+        obs = table.ids(axis='observation')
+
         # load the observation index
         obs_index = get(context, 'GET', '__observation_index')
         if obs_index is None:
@@ -190,7 +178,7 @@ def load_sample_data(table, context, tag=None):
             obs_index[id_] = idx
 
         # load up the table per-sample
-        for values, id_, _ in tab.iter(dense=False):
+        for values, id_, _ in table.iter(dense=False):
             int_values = values.astype(int)
             remapped = [obs_index[i] for i in obs[values.indices]]
 
@@ -210,14 +198,16 @@ def load_sample_data(table, context, tag=None):
     payload = "samples-represented-data/%s" % '/'.join(samples)
     post(context, 'SADD', payload)
 
+    return len(samples)
 
-def load_sample_metadata(metadata, tag=None):
+
+def load_sample_metadata(md, tag=None):
     """Load sample metadata.
 
     Parameters
     ----------
-    metadata : str, filepath
-        A filepath to QIIME or Qiita compatible metadata.
+    md : pd.DataFrame
+        QIIME or Qiita compatible metadata.
     tag : str, optional
         A tag associated with the information being loaded such as a
         preparation ID.
@@ -231,11 +221,6 @@ def load_sample_metadata(metadata, tag=None):
     A lock is obtained for loading the sample metadata forcing this to be a
     serial operation. However, this limitation is slated to be removed upon
     support for "tags", or in qiita parlance, the prep ID.
-
-    Raises
-    ------
-    ValueError
-        If no new samples are found to load.
 
     Returns
     -------
@@ -271,8 +256,7 @@ def load_sample_metadata(metadata, tag=None):
                    'Missing: Restricted access',
                    'null', 'NULL', 'no_data', 'None', 'nan'}
 
-    md = pd.read_csv(metadata, sep='\t', dtype=str)
-
+    md = md.copy()
     if tag is not None:
         original_ids = md[md.columns[0]][:]
 
@@ -290,7 +274,7 @@ def load_sample_metadata(metadata, tag=None):
     represented = get('metadata', 'SMEMBERS', 'samples-represented')
     md = md.loc[set(md.index) - set(represented)]
     if len(md) == 0:
-        raise ValueError("No new sample IDs found in: %s" % metadata)
+        return 0
 
     samples = md.index
     indexed_columns = md.columns
@@ -333,3 +317,51 @@ def _indexable(value, nullables):
         return True
     else:
         return '/' not in value
+
+
+def _stage_for_load(table, context, get, memberkey, tag=None):
+    """Tag samples, reduce to only those relevant to load
+
+    Parameters
+    ----------
+    table : biom.Table
+        The table to operate on
+    context : str
+        The context to load into
+    get : make_get instance
+        A getter
+    memberkey : str
+        The redis set to check for membership in
+    tag : str, optional
+        The tag to apply to the samples
+
+    Raises
+    ------
+    ValueError
+        If a samples metadata has not already been loaded.
+
+    Returns
+    -------
+    biom.Table
+        A copy of the input table, filtered to only those samples which are
+        novel to the context. Sample IDs reflect tag.
+    """
+    import redbiom.util
+
+    if tag is None:
+        tag = 'UNTAGGED'
+
+    table = table.update_ids({i: "%s_%s" % (tag, i) for i in table.ids()},
+                             inplace=False)
+    samples = set(table.ids())
+
+    represented = get(context, 'SMEMBERS',
+                      'samples-represented-%s' % memberkey)
+    represented = set(represented)
+    to_load = samples - represented
+
+    if not redbiom.util.has_sample_metadata(to_load):
+        raise ValueError("Sample metadata must be loaded first.")
+
+    table.filter(to_load)
+    return table.filter(lambda v, i, md: v.sum() > 0, axis='observation')

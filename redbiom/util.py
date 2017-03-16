@@ -16,7 +16,7 @@ def from_or_nargs(from_, nargs_variable):
     if from_ is not None:
         nargs_variable = from_
 
-    return iter(nargs_variable)
+    return iter((s.strip() for s in nargs_variable))
 
 
 def samples_from_observations(it, exact, context, get=None):
@@ -64,8 +64,6 @@ def has_sample_metadata(samples, get=None):
         return False
     if not set(tagged_clean).issubset(represented):
         return False
-    if not set(tagged).issubset(represented):
-        return False
 
     return True
 
@@ -88,3 +86,117 @@ def partition_samples_by_tags(samples):
             untagged.append(sample)
 
     return untagged, tagged, tags, tagged_clean
+
+
+def resolve_ambiguities(context, samples, get):
+    """Determine mappings for requested samples
+
+    This method accepts samples in the form of "sampleid" or "rid_sampleid". It
+    then attempts to resolve any sample ambiguities which may exist in the
+    context. For a "sampleid" there may be multiple "rid_sampleid" values which
+    exists, for instance, the same sample may have multiple preps within the
+    same study and datatype (e.g., biological replicates).
+
+    Parameters
+    ----------
+    context : str
+        The context to search within
+    samples : Iterable of str
+        The samples to resolve. The samples must be in the form of "sampleid"
+        or "rid_sampleid". The former is an ambiguous association as it does
+        not have a tag affixed (e.g., a sample preparation ID). The latter is
+        fully specified and assured to be unique within the context.
+    get : redbiom.requests.make_get instance
+        A getter
+
+    Returns
+    -------
+    stable
+        A dict of stable QIIME compatible sample IDs, keyed by the QIIME
+        compatible ID and valued by the redbiom ID.
+    unobserved
+        A list of any requested ID which was not observed in the context.
+    ambituities
+        A dict of untagged sample IDs (e.g., "sampleid") to a list of the
+        observed "rid_sampleid" values within the context. In other words,
+        this dict associated an unspecific ID to a unique redbiom ID.
+    redbiomids
+        A dict keyed by "rid_sampleid" and valued by a QIIME compatible sample
+        ID.
+    """
+    from collections import defaultdict
+
+    # split the requested samples into what is and is not tagged
+    untagged, tagged, _, tagged_clean = partition_samples_by_tags(samples)
+
+    # get all known tagged samples in the context
+    ctx = get(context, 'SMEMBERS', 'samples-represented-data')
+    _, ctx_tagged, _, ctx_tagged_clean = partition_samples_by_tags(ctx)
+
+    # create a map of known ambiguous ID -> known stable IDs
+    ctx_with_ambig = defaultdict(list)
+    for with_tag, without_tag in zip(ctx_tagged, ctx_tagged_clean):
+        ctx_with_ambig[without_tag].append(with_tag)
+    ctx_known_stable = set(ctx_tagged)
+
+    # what is ambiguous and exists
+    unobserved = []
+    known_ambiguous = {}
+    for i in untagged:
+        if i in ctx_with_ambig:
+            known_ambiguous[i] = ctx_with_ambig[i]
+        else:
+            unobserved.append(i)
+
+    stable, ri = _stable_ids_from_ambig(known_ambiguous)
+
+    # what is unambiguous and exists
+    unambiguous = []
+    for t, tc in zip(tagged, tagged_clean):
+        if t in ctx_known_stable:
+            unambiguous.append(t)
+            known_ambiguous[tc] = [t]
+        else:
+            unobserved.append(t)
+
+    stable_unamb, ri_unamb = _stable_ids_from_unambig(unambiguous)
+    stable.update(stable_unamb)
+    ri.update(ri_unamb)
+
+    return stable, unobserved, known_ambiguous, ri
+
+
+def _stable_ids_from_ambig(ambig_map):
+    """Create stable IDs from an ambiguity map"""
+    from collections import defaultdict
+
+    # {sampleid: [stableid]}
+    ambig_assoc = defaultdict(list)
+
+    # {rid: sampleid}
+    ri = {}
+
+    for k, v in ambig_map.items():
+        for unambig in v:
+            tag, untagged = unambig.split('_', 1)
+            stab = "%s.%s" % (untagged, tag)
+            ambig_assoc[stab] = k
+            ri[unambig] = stab
+
+    return ambig_assoc, ri
+
+
+def _stable_ids_from_unambig(unambig):
+    """Create stable IDs from an unambiguous IDs"""
+    # {sampleid: [stableid]}
+    assoc = {}
+
+    # {rid: sampleid}
+    ri = {}
+
+    for k in unambig:
+        tag, untagged = k.split('_', 1)
+        stab = "%s.%s" % (untagged, tag)
+        assoc[stab] = k
+        ri[k] = stab
+    return assoc, ri

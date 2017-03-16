@@ -4,8 +4,32 @@ test_db:
 	redbiom admin load-sample-metadata --metadata test.txt 
 	redbiom admin load-observations --table test.biom --context test
 	redbiom admin load-sample-data --table test.biom --context test
+	
+	# with test_has_alts, the input has some overlapping samples (i.e., a 
+	# different prep) and some novel IDs. 
+	
+	# this metadata file contains some new entries and some overlap with the
+	# test context above, so we expect that 2 samples will load
+	redbiom admin load-sample-metadata --metadata test_with_alts.txt 
+	
+	# only the "novel" samples should load. 
+	redbiom admin load-observations --table test_with_alts.biom --context test
+	redbiom admin load-sample-data --table test_with_alts.biom --context test
 
+	# now lets create a separate context to represent a totally different prep
+	# and lets just cram it full of the alt data. No additional metadata
+	# should get loaded as it is already represented.
+	redbiom admin create-context --name "test-alt" --description "test context"
+
+	# we can load metadata, but nothing will get loaded since it already got
+	# loaded above. **IMPORTANT** prep specific information is not yet 
+	# supported, so this means **ONLY** sample metadata is stored
+	redbiom admin load-sample-metadata --metadata test_with_alts.txt 
+	redbiom admin load-observations --table test_with_alts.biom --context test-alt
+	redbiom admin load-sample-data --table test_with_alts.biom --context test-alt
+	
 test: test_db 
 	/bin/bash test.sh
 	nosetests
 	/bin/bash test_failures.sh  # this blows away the db
+	#/bin/bash test_tags.sh

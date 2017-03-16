@@ -107,6 +107,7 @@ def buffered(it, prefix, cmd, context, get=None, buffer_size=10,
     else:
         prefixer = lambda a, b, c: c
 
+    it = iter(it)
     exhausted = False
     while not exhausted:
         items = []
@@ -121,6 +122,7 @@ def buffered(it, prefix, cmd, context, get=None, buffer_size=10,
         bulk = '/'.join([prefixer(context, prefix, i) for i in items])
         if multikey:
             bulk = "%s:%s/%s" % (context, multikey, bulk)
+
         yield items, get(None, cmd, bulk)
 
 
