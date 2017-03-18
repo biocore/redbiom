@@ -60,6 +60,7 @@ def load_observations(table, context, tag=None):
     import redbiom
     import redbiom.requests
     import numpy as np
+    import redbiom.util
 
     config = redbiom.get_config()
     post = redbiom.requests.make_post(config)
@@ -146,6 +147,7 @@ def load_sample_data(table, context, tag=None):
     import json
     import redbiom
     import redbiom.requests
+    import redbiom.util
 
     config = redbiom.get_config()
     post = redbiom.requests.make_post(config)

@@ -96,5 +96,3 @@ def _write_ambig(map_, output):
                    err=True)
         with open(output + '.ambiguities', 'w') as fp:
             fp.write(json.dumps(ambig))
-
-
