@@ -1,9 +1,7 @@
 import unittest
-import os
 
 import pandas as pd
 import biom
-import numpy.testing as npt
 import requests
 
 import redbiom
@@ -29,7 +27,6 @@ class AdminTests(unittest.TestCase):
         obs = self.get('state', 'HGETALL', 'contexts')
         self.assertNotIn('another test', list(obs.keys()))
         redbiom.admin.create_context('another test', 'a nice test')
-        exp = ['another test', 'test']
         obs = self.get('state', 'HGETALL', 'contexts')
         self.assertIn('another test', list(obs.keys()))
 
@@ -99,6 +96,7 @@ class AdminTests(unittest.TestCase):
 
     def test_load_sample_data_partial(self):
         pass
+
 
 if __name__ == '__main__':
     unittest.main()

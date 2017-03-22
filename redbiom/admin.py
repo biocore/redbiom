@@ -56,10 +56,8 @@ def load_observations(table, context, tag=None):
     SADD <context>:samples:<observation_id> <sample_id> ... <sample_id>
     SADD <context>:samples-represented-observations <sample_id> ... <sample_id>
     """
-    import biom
     import redbiom
     import redbiom.requests
-    import numpy as np
     import redbiom.util
 
     config = redbiom.get_config()
@@ -142,7 +140,6 @@ def load_sample_data(table, context, tag=None):
     int
         The number of samples loaded.
     """
-    import biom
     import time
     import json
     import redbiom
@@ -240,12 +237,10 @@ def load_sample_metadata(md, tag=None):
     DEL metadata:__load_md_lock
 
     """
-    import pandas as pd
     import json
     import redbiom
     import redbiom.requests
     import redbiom.util
-    import time
 
     config = redbiom.get_config()
     post = redbiom.requests.make_post(config)

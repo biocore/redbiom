@@ -39,13 +39,10 @@ def sample_metadata(samples, common=True, context=None):
 
     # resolve ambiguities
     if context is not None:
-        unambig, stable_ids, ambig_assoc, rimap = \
+        _, _, ambig_assoc, _ = \
             redbiom.util.resolve_ambiguities(context, samples, get)
     else:
-        unambig = list(samples)
-        stable_ids = {k: k for k in samples}
         ambig_assoc = {k: [k] for k in samples}
-        rimap = stable_ids
 
     # TODO: express metadata-categories using redis sets
     # and then this can be done with SINTER
@@ -192,7 +189,7 @@ def _biom_from_samples(context, samples, get=None):
 
     # resolve ambiguities
     stable_ids, unobserved, ambig_assoc, rimap = \
-            redbiom.util.resolve_ambiguities(context, samples, get)
+        redbiom.util.resolve_ambiguities(context, samples, get)
 
     # pull out the observation index so the IDs can be remapped
     obs_index = json.loads(get(context, 'GET', '__observation_index'))

@@ -54,7 +54,7 @@ class UtilTests(unittest.TestCase):
     def test_samples_from_observations(self):
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        n = redbiom.admin.load_observations(table, 'test', tag=None)
+        redbiom.admin.load_observations(table, 'test', tag=None)
 
         sample_ids = table.ids()[:]
         sample_ids = np.array(["UNTAGGED_%s" % i for i in sample_ids])
@@ -95,7 +95,7 @@ class UtilTests(unittest.TestCase):
 
         testset = ['xyz_2', '1', 'xyz_3']
         obs_untagged, obs_tagged, obs_tags, obs_tagged_clean = \
-                partition_samples_by_tags(testset)
+            partition_samples_by_tags(testset)
 
         self.assertEqual(obs_untagged, exp_untagged)
         self.assertEqual(obs_tagged, exp_tagged)
@@ -110,7 +110,7 @@ class UtilTests(unittest.TestCase):
 
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        n = redbiom.admin.load_sample_data(table, 'test', tag=None)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
 
         # all samples as ambiguous
         samples = {'10317.000047188', '10317.000046868', '10317.000051129',
@@ -137,7 +137,7 @@ class UtilTests(unittest.TestCase):
 
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        n = redbiom.admin.load_sample_data(table, 'test', tag=None)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
 
         samples = {'10317.000047188', '10317.000046868', '10317.000051129',
                    '10317.000012975', '10317.000033804', '10317.000001405',
@@ -186,8 +186,8 @@ class UtilTests(unittest.TestCase):
         redbiom.admin.load_sample_metadata(metadata)
         n = redbiom.admin.load_sample_data(table, 'test', tag='fromtest')
         redbiom.admin.load_sample_metadata(metadata_with_alt)
-        n = redbiom.admin.load_sample_data(table_with_alt, 'test',
-                                           tag='fromalt')
+        redbiom.admin.load_sample_data(table_with_alt, 'test',
+                                       tag='fromalt')
 
         # 000047188 is both fromtest and fromalt, but fully specified here
         # 000005080 is in both and ambiguouus
