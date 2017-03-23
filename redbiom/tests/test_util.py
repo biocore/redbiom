@@ -184,7 +184,7 @@ class UtilTests(unittest.TestCase):
 
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        n = redbiom.admin.load_sample_data(table, 'test', tag='fromtest')
+        redbiom.admin.load_sample_data(table, 'test', tag='fromtest')
         redbiom.admin.load_sample_metadata(metadata_with_alt)
         redbiom.admin.load_sample_data(table_with_alt, 'test',
                                        tag='fromalt')
@@ -208,7 +208,8 @@ class UtilTests(unittest.TestCase):
 
         self.assertEqual(obs_stable, exp_stable)
         self.assertEqual(obs_unobserved, exp_unobserved)
-        self.assertEqual(obs_ambiguous, exp_ambiguous)
+        self.assertEqual({k: set(v) for k, v in obs_ambiguous.items()},
+                         {k: set(v) for k, v in exp_ambiguous.items()})
         self.assertEqual(obs_ri, exp_ri)
 
     def test_stable_ids_from_ambig(self):
