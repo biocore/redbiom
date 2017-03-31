@@ -98,9 +98,8 @@ def buffered(it, prefix, cmd, context, get=None, buffer_size=10,
     """
     if get is None:
         import redbiom
-        import redbiom.requests
         config = redbiom.get_config()
-        get = redbiom.requests.make_get(config)
+        get = make_get(config)
 
     if multikey is None:
         prefixer = lambda a, b, c: '%s:%s:%s' % (a, b, c)
@@ -129,9 +128,9 @@ def buffered(it, prefix, cmd, context, get=None, buffer_size=10,
 def valid(context, get=None):
     """Test if a context exists"""
     if get is None:
-        import redbiom.requests
+        import redbiom
         config = redbiom.get_config()
-        get = redbiom.requests.make_get(config)
+        get = make_get(config)
 
     if not get('state', 'HEXISTS', 'contexts/%s' % context):
         raise ValueError("Unknown context: %s" % context)

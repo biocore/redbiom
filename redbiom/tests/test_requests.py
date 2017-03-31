@@ -6,8 +6,8 @@ import pandas as pd
 
 from redbiom import get_config
 import redbiom.admin
-from redbiom.requests import (valid, _parse_validate_request, _format_request,
-                              make_post, make_get, make_put, buffered)
+from redbiom._requests import (valid, _parse_validate_request, _format_request,
+                               make_post, make_get, make_put, buffered)
 
 
 config = get_config()

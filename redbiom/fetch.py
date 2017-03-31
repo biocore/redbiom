@@ -28,10 +28,10 @@ def sample_metadata(samples, common=True, context=None):
     from collections import defaultdict
     import pandas as pd
     import redbiom
-    import redbiom.requests
+    import redbiom._requests
 
     config = redbiom.get_config()
-    get = redbiom.requests.make_get(config)
+    get = redbiom._requests.make_get(config)
 
     untagged, _, _, tagged_clean = \
         redbiom.util.partition_samples_by_tags(samples)
@@ -49,8 +49,9 @@ def sample_metadata(samples, common=True, context=None):
     all_columns = []
     all_samples = []
 
-    getter = redbiom.requests.buffered(list(ambig_assoc), 'categories', 'MGET',
-                                       'metadata', get=get, buffer_size=100)
+    getter = redbiom._requests.buffered(list(ambig_assoc), 'categories',
+                                        'MGET', 'metadata', get=get,
+                                        buffer_size=100)
     for samples, columns_by_sample in getter:
         all_samples.extend(samples)
         for column_set in columns_by_sample:
@@ -72,10 +73,10 @@ def sample_metadata(samples, common=True, context=None):
 
     for category in columns_to_get:
         key = 'category:%s' % category
-        getter = redbiom.requests.buffered(iter(all_samples), None, 'HMGET',
-                                           'metadata', get=get,
-                                           buffer_size=100,
-                                           multikey=key)
+        getter = redbiom._requests.buffered(iter(all_samples), None, 'HMGET',
+                                            'metadata', get=get,
+                                            buffer_size=100,
+                                            multikey=key)
 
         for samples, category_values in getter:
             for sample, value in zip(samples, category_values):
@@ -110,12 +111,12 @@ def data_from_observations(context, observations, exact):
     """
     import redbiom
     import redbiom.util
-    import redbiom.requests
+    import redbiom._requests
 
     config = redbiom.get_config()
-    get = redbiom.requests.make_get(config)
+    get = redbiom._requests.make_get(config)
 
-    redbiom.requests.valid(context, get)
+    redbiom._requests.valid(context, get)
 
     # determine the samples which contain the observations of interest
     samples = redbiom.util.samples_from_observations(observations, exact,
@@ -174,16 +175,16 @@ def _biom_from_samples(context, samples, get=None):
     from operator import itemgetter
     import scipy.sparse as ss
     import biom
-    import redbiom.requests
+    import redbiom._requests
     import redbiom.util
 
     # TODO: centralize this as it's boilerplate
     if get is None:
         import redbiom
         config = redbiom.get_config()
-        get = redbiom.requests.make_get(config)
+        get = redbiom._requests.make_get(config)
 
-    redbiom.requests.valid(context, get)
+    redbiom._requests.valid(context, get)
 
     samples = list(samples)  # unroll iterator if necessary
 
@@ -201,8 +202,8 @@ def _biom_from_samples(context, samples, get=None):
     # pull out the per-sample data
     table_data = []
     unique_indices = set()
-    getter = redbiom.requests.buffered(list(rimap), 'data', 'MGET', context,
-                                       get=get, buffer_size=100)
+    getter = redbiom._requests.buffered(list(rimap), 'data', 'MGET', context,
+                                        get=get, buffer_size=100)
     for (sample_set, sample_set_data) in getter:
         for sample, data in zip(sample_set, sample_set_data):
             data = data.split('\t')
@@ -257,10 +258,10 @@ def category_sample_values(category, samples=None):
     HMGET metadata:category:<category> <sample_id> ... <sample_id>
     """
     import redbiom
-    import redbiom.requests
+    import redbiom._requests
     import pandas as pd
 
-    get = redbiom.requests.make_get(redbiom.get_config())
+    get = redbiom._requests.make_get(redbiom.get_config())
 
     key = 'category:%s' % category
     if samples is None:
@@ -269,9 +270,9 @@ def category_sample_values(category, samples=None):
         untagged, _, _, tagged_clean = \
             redbiom.util.partition_samples_by_tags(samples)
         samples = untagged + tagged_clean
-        getter = redbiom.requests.buffered(iter(samples), None, 'HMGET',
-                                           'metadata', get=get,
-                                           buffer_size=100, multikey=key)
+        getter = redbiom._requests.buffered(iter(samples), None, 'HMGET',
+                                            'metadata', get=get,
+                                            buffer_size=100, multikey=key)
 
         # there is probably some niftier method than this.
         keys_vals = [(sample, obs_val) for idx, vals in getter
@@ -297,10 +298,10 @@ def sample_counts_per_category():
     HLEN metadata:category:<category>
     """
     import redbiom
-    import redbiom.requests
+    import redbiom._requests
     import pandas as pd
 
-    get = redbiom.requests.make_get(redbiom.get_config())
+    get = redbiom._requests.make_get(redbiom.get_config())
 
     categories = list(get('metadata', 'SMEMBERS', 'categories-represented'))
     results = []

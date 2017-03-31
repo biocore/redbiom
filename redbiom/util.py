@@ -21,12 +21,12 @@ def from_or_nargs(from_, nargs_variable):
 
 def samples_from_observations(it, exact, context, get=None):
     """Grab samples from an iterable of observations"""
-    import redbiom.requests
+    import redbiom._requests
 
     cmd = 'SINTER' if exact else 'SUNION'
     samples = None
-    for _, block in redbiom.requests.buffered(it, 'samples', cmd, context,
-                                              get=get):
+    for _, block in redbiom._requests.buffered(it, 'samples', cmd, context,
+                                               get=get):
         block = set(block)
         if not exact:
             if samples is None:
@@ -50,11 +50,11 @@ def float_or_nan(t):
 
 def has_sample_metadata(samples, get=None):
     """Test if all samples have sample metadata"""
-    import redbiom.requests
+    import redbiom._requests
     if get is None:
         import redbiom
         config = redbiom.get_config()
-        get = redbiom.requests.make_get(config)
+        get = redbiom._requests.make_get(config)
 
     untagged, tagged, _, tagged_clean = partition_samples_by_tags(samples)
 
@@ -106,7 +106,7 @@ def resolve_ambiguities(context, samples, get):
         or "rid_sampleid". The former is an ambiguous association as it does
         not have a tag affixed (e.g., a sample preparation ID). The latter is
         fully specified and assured to be unique within the context.
-    get : redbiom.requests.make_get instance
+    get : redbiom._requests.make_get instance
         A getter
 
     Returns

@@ -19,10 +19,10 @@ def create_context(name, description):
     HSET state:context <name> <description>
     """
     import redbiom
-    import redbiom.requests
+    import redbiom._requests
 
     config = redbiom.get_config()
-    post = redbiom.requests.make_post(config)
+    post = redbiom._requests.make_post(config)
 
     post('state', 'HSET', "contexts/%s/%s" % (name, description))
 
@@ -57,14 +57,14 @@ def load_observations(table, context, tag=None):
     SADD <context>:samples-represented-observations <sample_id> ... <sample_id>
     """
     import redbiom
-    import redbiom.requests
+    import redbiom._requests
     import redbiom.util
 
     config = redbiom.get_config()
-    post = redbiom.requests.make_post(config)
-    get = redbiom.requests.make_get(config)
+    post = redbiom._requests.make_post(config)
+    get = redbiom._requests.make_get(config)
 
-    redbiom.requests.valid(context, get)
+    redbiom._requests.valid(context, get)
 
     table = _stage_for_load(table, context, get, 'observations', tag)
 
@@ -143,14 +143,14 @@ def load_sample_data(table, context, tag=None):
     import time
     import json
     import redbiom
-    import redbiom.requests
+    import redbiom._requests
     import redbiom.util
 
     config = redbiom.get_config()
-    post = redbiom.requests.make_post(config)
-    get = redbiom.requests.make_get(config)
+    post = redbiom._requests.make_post(config)
+    get = redbiom._requests.make_get(config)
 
-    redbiom.requests.valid(context, get)
+    redbiom._requests.valid(context, get)
 
     acquired = get(context, 'SETNX', '__load_table_lock/1') == 1
     while not acquired:
@@ -239,13 +239,13 @@ def load_sample_metadata(md, tag=None):
     """
     import json
     import redbiom
-    import redbiom.requests
+    import redbiom._requests
     import redbiom.util
 
     config = redbiom.get_config()
-    post = redbiom.requests.make_post(config)
-    put = redbiom.requests.make_put(config)
-    get = redbiom.requests.make_get(config)
+    post = redbiom._requests.make_post(config)
+    put = redbiom._requests.make_put(config)
+    get = redbiom._requests.make_get(config)
 
     null_values = {'Not applicable', 'Unknown', 'Unspecified',
                    'Missing: Not collected',

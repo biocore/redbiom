@@ -6,7 +6,7 @@ import requests
 
 import redbiom
 import redbiom.admin
-import redbiom.requests
+import redbiom._requests
 import redbiom.fetch
 
 
@@ -21,7 +21,7 @@ class AdminTests(unittest.TestCase):
         host = redbiom.get_config()['hostname']
         req = requests.get(host + '/FLUSHALL')
         assert req.status_code == 200
-        self.get = redbiom.requests.make_get(redbiom.get_config())
+        self.get = redbiom._requests.make_get(redbiom.get_config())
 
     def test_create_context(self):
         obs = self.get('state', 'HGETALL', 'contexts')
