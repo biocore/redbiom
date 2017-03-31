@@ -130,10 +130,10 @@ class UtilTests(unittest.TestCase):
         self.assertEqual(obs_ri, exp_ri)
 
     def test_resolve_ambiguities_mixed(self):
-        import redbiom.requests
+        import redbiom._requests
         import redbiom
         config = redbiom.get_config()
-        get = redbiom.requests.make_get(config)
+        get = redbiom._requests.make_get(config)
 
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
@@ -177,10 +177,10 @@ class UtilTests(unittest.TestCase):
         self.assertEqual(obs_ri, exp_ri)
 
     def test_resolve_ambiguities_has_ambig(self):
-        import redbiom.requests
+        import redbiom._requests
         import redbiom
         config = redbiom.get_config()
-        get = redbiom.requests.make_get(config)
+        get = redbiom._requests.make_get(config)
 
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
