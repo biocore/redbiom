@@ -23,6 +23,7 @@ def get_session():
 
     return redbiom.active_session
 
+
 def make_post(config):
     """Factory function: produce a post() method"""
     import redbiom

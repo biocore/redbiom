@@ -31,7 +31,7 @@ def fetch_sample_metadata(from_, samples, all_columns, context, output):
     md, map_ = redbiom.fetch.sample_metadata(iterator, context=context,
                                              common=not all_columns)
 
-    md.to_csv(output, sep='\t', header=True, index=False)
+    md.to_csv(output, sep='\t', header=True, index=False, encoding='utf-8')
 
     _write_ambig(map_, output)
 
