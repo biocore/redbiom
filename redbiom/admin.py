@@ -217,10 +217,6 @@ def load_sample_metadata(md, tag=None):
 
     TODO: expose a stable list of the nullables
 
-    A lock is obtained for loading the sample metadata forcing this to be a
-    serial operation. However, this limitation is slated to be removed upon
-    support for "tags", or in qiita parlance, the prep ID.
-
     Returns
     -------
     int
@@ -248,12 +244,15 @@ def load_sample_metadata(md, tag=None):
     get = redbiom._requests.make_get(config)
 
     null_values = {'Not applicable', 'Unknown', 'Unspecified',
-                   'Missing: Not collected',
+                   'Missing: Not collected', None,
                    'Missing: Not provided',
                    'Missing: Restricted access',
                    'null', 'NULL', 'no_data', 'None', 'nan'}
 
     md = md.copy()
+    if md.columns[0] not in ['#SampleID', 'sample_name']:
+        md = md.reset_index()
+
     if tag is not None:
         original_ids = md[md.columns[0]][:]
 

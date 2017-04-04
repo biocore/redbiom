@@ -14,13 +14,20 @@ def _format_request(context, command, other):
         return "%s/%s:%s" % (command, context, other)
 
 
+def get_session():
+    import redbiom
+    if redbiom.active_session is None:
+        import requests
+        redbiom.active_session = requests.Session()
+        redbiom.active_session.auth = redbiom.get_config()['auth']
+
+    return redbiom.active_session
+
 def make_post(config):
     """Factory function: produce a post() method"""
-    import requests
     import redbiom
-    s = requests.Session()
-    redbiom.active_sessions.append(s)
-    s.auth = config['auth']
+    s = get_session()
+    config = redbiom.get_config()
 
     def f(context, cmd, payload):
         req = s.post(config['hostname'],
@@ -35,11 +42,9 @@ def make_put(config):
     Within Webdis, PUT is generally used to provide content in the body for
     use as a file upload.
     """
-    import requests
     import redbiom
-    s = requests.Session()
-    redbiom.active_sessions.append(s)
-    s.auth = config['auth']
+    s = get_session()
+    config = redbiom.get_config()
 
     def f(context, cmd, key, data):
         url = '/'.join([config['hostname'],
@@ -51,11 +56,9 @@ def make_put(config):
 
 def make_get(config):
     """Factory function: produce a get() method"""
-    import requests
     import redbiom
-    s = requests.Session()
-    redbiom.active_sessions.append(s)
-    s.auth = config['auth']
+    s = get_session()
+    config = redbiom.get_config()
 
     def f(context, cmd, data):
         payload = _format_request(context, cmd, data)
