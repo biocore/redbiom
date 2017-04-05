@@ -18,6 +18,8 @@ def sample_metadata(samples, common=True, context=None):
     -------
     pandas.DataFrame
         A DataFrame indexed by the sample IDs, with the sample metadata
+    dict
+        ambiguous associations {sample_id: [tagged_sample_ids]}
 
     Redis command summary
     ---------------------
@@ -84,6 +86,13 @@ def sample_metadata(samples, common=True, context=None):
                     metadata[sample_ambiguity][category] = value
 
     md = pd.DataFrame(metadata).T
+
+    if context is not None:
+        new_ids = []
+        for i in md['#SampleID']:
+            tag, id_ = i.split('_', 1)
+            new_ids.append("%s.%s" % (id_, tag))
+        md['#SampleID'] = new_ids
 
     return md, ambig_assoc
 
