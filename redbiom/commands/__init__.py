@@ -7,7 +7,8 @@ from redbiom import __version__
 
 def _terribly_handle_brokenpipeerror():
     # based off http://stackoverflow.com/a/34299346
-    import os, sys
+    import os
+    import sys
     sys.stdout = os.fdopen(1, 'w')
 
 
