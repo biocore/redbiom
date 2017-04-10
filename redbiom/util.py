@@ -41,11 +41,11 @@ def samples_from_observations(it, exact, context, get=None):
 
 
 def float_or_nan(t):
-    import math
+    import numpy as np
     try:
         return float(t)
     except:
-        return math.nan
+        return np.nan
 
 
 def has_sample_metadata(samples, get=None):

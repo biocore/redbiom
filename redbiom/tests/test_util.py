@@ -28,13 +28,13 @@ class UtilTests(unittest.TestCase):
         assert req.status_code == 200
 
     def test_float_or_nan(self):
-        import math
+        import numpy as np
 
         self.assertEqual(float_or_nan('123'), 123)
         self.assertEqual(float_or_nan('.123'), 0.123)
-        self.assertIs(float_or_nan('x.123'), math.nan)
+        self.assertIs(float_or_nan('x.123'), np.nan)
         self.assertEqual(float_or_nan('0.123'), 0.123)
-        self.assertIs(float_or_nan(''), math.nan)
+        self.assertIs(float_or_nan(''), np.nan)
 
     def test_from_or_nargs(self):
         with self.assertRaises(SystemExit):
