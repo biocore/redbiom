@@ -22,8 +22,6 @@
 
 import sqlite3
 
-import pandas as pd
-
 
 class Metadata:
     def __init__(self, dataframe):

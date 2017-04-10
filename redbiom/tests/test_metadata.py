@@ -11,12 +11,10 @@
 
 # The license for this code can be found within the licenses/ directory.
 
-import pkg_resources
 import sqlite3
 import unittest
 
 import pandas as pd
-import pandas.util.testing as pdt
 
 from redbiom.metadata import Metadata
 
@@ -152,4 +150,3 @@ class TestIDs(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

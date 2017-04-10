@@ -117,7 +117,8 @@ class FetchTests(unittest.TestCase):
         exp.set_index('#SampleID', inplace=True)
         exp = exp[['BMI', 'AGE_YEARS']]
         exp = exp.sort_values('BMI')
-        obs, ambig = sample_metadata(table.ids(), restrict_to=['BMI', 'AGE_YEARS'])
+        obs, ambig = sample_metadata(table.ids(),
+                                     restrict_to=['BMI', 'AGE_YEARS'])
         obs.set_index('#SampleID', inplace=True)
         obs = obs.sort_values('BMI')
         obs = obs[['BMI', 'AGE_YEARS']]
