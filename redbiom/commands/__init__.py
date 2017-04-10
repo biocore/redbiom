@@ -5,10 +5,16 @@ import click
 from redbiom import __version__
 
 
+def _terribly_handle_brokenpipeerror():
+    import os, sys
+    sys.stdout = os.fdopen(1, 'w')
+
+
 @click.group()
 @click.version_option(version=__version__)
-def cli():
-    pass
+@click.pass_context
+def cli(ctx):
+    ctx.call_on_close(_terribly_handle_brokenpipeerror)
 
 
 import_module('redbiom.commands.admin')
