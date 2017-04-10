@@ -6,6 +6,7 @@ import pandas as pd
 import pandas.util.testing as pdt
 
 import redbiom.admin
+import redbiom.fetch
 from redbiom.fetch import _biom_from_samples, sample_metadata
 
 
@@ -109,6 +110,95 @@ class FetchTests(unittest.TestCase):
                             for v in obs['AGE_YEARS']]
         pdt.assert_series_equal(obs['AGE_YEARS'], exp['AGE_YEARS'])
         pdt.assert_series_equal(obs['SAMPLE_TYPE'], exp['SAMPLE_TYPE'])
+
+    def test_sample_metadata_restrict(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        exp = metadata.copy()
+        exp.set_index('#SampleID', inplace=True)
+        exp = exp[['BMI', 'AGE_YEARS']]
+        exp = exp.sort_values('BMI')
+        obs, ambig = sample_metadata(table.ids(), restrict_to=['BMI', 'AGE_YEARS'])
+        obs.set_index('#SampleID', inplace=True)
+        obs = obs.sort_values('BMI')
+        obs = obs[['BMI', 'AGE_YEARS']]
+        obs['AGE_YEARS'] = [v if v is not None else 'Unknown'
+                            for v in obs['AGE_YEARS']]
+        pdt.assert_frame_equal(obs, exp)
+
+    def test_sample_metadata_restrict_bad_cols(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        with self.assertRaises(KeyError):
+            sample_metadata(table.ids(), restrict_to=['BMI', 'foo'])
+
+    def test_metadata_tag(self):
+        primary = metadata.copy().set_index('#SampleID')
+        primary.columns = [c + '_primary' for c in primary.columns]
+        redbiom.admin.load_sample_metadata(primary)
+
+        redbiom.admin.load_sample_metadata(metadata, 'foo')
+        exp = metadata.copy().set_index('#SampleID')['AGE_YEARS']
+        exp = {"foo_%s" % i for i, v in zip(exp.index, exp.values)
+               if not v == 'Unknown' and float(v) > 40}
+        obs = redbiom.fetch.metadata("CAST(AGE_YEARS AS FLOAT) > 40",
+                                     tag='foo', restrict_to=['AGE_YEARS'])
+        self.assertEqual(obs, set(exp))
+
+        exp = set()
+        obs = redbiom.fetch.metadata("CAST(AGE_YEARS AS FLOAT) > 40",
+                                     restrict_to=['AGE_YEARS'])
+        self.assertEqual(obs, exp)
+
+    def test_metadata_restrict(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        exp = metadata.copy().set_index('#SampleID')['AGE_YEARS']
+        exp = {i for i, v in zip(exp.index, exp.values)
+               if not v == 'Unknown' and float(v) > 40}
+        obs = redbiom.fetch.metadata("CAST(AGE_YEARS AS FLOAT) > 40",
+                                     restrict_to=['AGE_YEARS'])
+        self.assertEqual(obs, exp)
+
+        obs = redbiom.fetch.metadata("CAST(AGE_YEARS AS FLOAT) > 40",
+                                     restrict_to=['BMI', 'AGE_YEARS'])
+        self.assertEqual(obs, exp)
+
+        exp = set()
+        obs = redbiom.fetch.metadata("CAST(AGE_YEARS AS FLOAT) > 40",
+                                     restrict_to=[])
+        self.assertEqual(obs, exp)
+
+        with self.assertRaises(ValueError):
+            # without a rational means to determine the columns the where
+            # is applied to, it is not possible to assert prior to query
+            # execution that a given column exists.
+            redbiom.fetch.metadata("CAST(AGE_YEARS AS FLOAT) > 40",
+                                   restrict_to=['BMI'])
+
+    def test_metadata_restrict_unknown(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        with self.assertRaises(KeyError):
+            redbiom.fetch.metadata("CAST(AGE_YEARS AS FLOAT) > 40",
+                                   restrict_to=['bad'])
+
+    def test_metadata_restrict_tag_unknown(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_metadata(metadata, tag='foo')
+        with self.assertRaises(KeyError):
+            redbiom.fetch.metadata("CAST(AGE_YEARS AS FLOAT) > 40",
+                                   restrict_to=['bad'], tag='foo')
+
+    def test_metadata_nowhere(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_metadata(metadata, tag='foo')
+        exp = {'foo_%s' % s for s in metadata['#SampleID']
+               # remove the entry which has an unknown value for AGE_YEARS
+               if s != '10317.000003302'}
+
+        obs = redbiom.fetch.metadata(tag='foo', restrict_to=['AGE_YEARS'])
+        self.assertEqual(obs, exp)
+
+    def test_metadata_restrict_to_not_set(self):
+        with self.assertRaises(ValueError):
+            redbiom.fetch.metadata()
 
 
 if __name__ == '__main__':

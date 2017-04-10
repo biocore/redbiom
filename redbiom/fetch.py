@@ -1,4 +1,4 @@
-def sample_metadata(samples, common=True, context=None):
+def sample_metadata(samples, common=True, context=None, restrict_to=None):
     """Fetch metadata for the corresponding samples
 
     Parameters
@@ -13,6 +13,9 @@ def sample_metadata(samples, common=True, context=None):
     context : str, optional
         If provided, resolve possible ambiguities in the sample identifiers
         relative to a context.
+    restrict_to : Iterable of str, optional
+        Restrict the retrieval of metadata to a subset of columns. If this
+        parameter is specified, it will override the use of `common`.
 
     Returns
     -------
@@ -20,6 +23,11 @@ def sample_metadata(samples, common=True, context=None):
         A DataFrame indexed by the sample IDs, with the sample metadata
     dict
         ambiguous associations {sample_id: [tagged_sample_ids]}
+
+    Raises
+    ------
+    KeyError
+        If a key in `restrict_to` is not found.
 
     Redis command summary
     ---------------------
@@ -63,10 +71,16 @@ def sample_metadata(samples, common=True, context=None):
 
     columns_to_get = set(all_columns[0])
     for columns in all_columns[1:]:
-        if common:
-            columns_to_get = columns_to_get.intersection(columns)
-        else:
+        if (restrict_to is not None) or (not common):
             columns_to_get = columns_to_get.union(columns)
+        else:
+            columns_to_get = columns_to_get.intersection(columns)
+
+    if restrict_to is not None:
+        if not set(restrict_to).issubset(columns_to_get):
+            raise KeyError("The following columns were not observed: "
+                           "%s" % (set(restrict_to) - set(columns_to_get)))
+        columns_to_get = restrict_to
 
     metadata = defaultdict(dict)
     for sample in all_samples:
@@ -319,3 +333,100 @@ def sample_counts_per_category():
         results.append(int(get('metadata', 'HLEN', key)))
 
     return pd.Series(results, index=categories)
+
+
+def metadata(where=None, tag=None, restrict_to=None):
+    """Find samples from metadata
+
+    Parameters
+    ----------
+    where : str, optional
+        SQLite WHERE clause specifying criteria IDs must meet to be
+        included in the results. All IDs are included by default.
+    tag : str, optional
+        A tag specific search. Defaults to sample metadata.
+    restrict_to : list of str
+        Restrict the retrieval of metadata to a subset of columns.
+
+    Raises
+    ------
+    KeyError
+        If a `restrict_to` column does not appear to be valid
+    ValueError
+        `restrict_to` must be specified
+
+    Returns
+    -------
+    list
+        A list of sample IDs
+
+    Redis command summary
+    ---------------------
+    MGET metadata:categories:<sample_id> ... metadata:categories:<sample_id>
+    HMGET metadata:category:<column> <sample_id> ... <sample_id>
+    """
+    import json
+    from collections import defaultdict
+    import pandas as pd
+    import redbiom
+    import redbiom._requests
+    import redbiom.metadata
+
+    if restrict_to is None:
+        raise ValueError("restrict_to must be set")
+
+    config = redbiom.get_config()
+    get = redbiom._requests.make_get(config)
+
+    categories = set(get('metadata', 'SMEMBERS', 'categories-represented'))
+    if restrict_to is not None:
+        if not set(restrict_to).issubset(categories):
+            diff = set(restrict_to) - categories
+            raise KeyError("The following requested categories are not "
+                           "not found: %s" % ','.join(diff))
+        else:
+            categories = set(restrict_to)
+
+    samples = set(get('metadata', 'SMEMBERS', 'samples-represented'))
+    if tag is None:
+        samples = {s for s in samples if '_' not in s}
+    else:
+        samples = {s for s in samples if s.startswith('%s_' % tag)}
+
+    getter = redbiom._requests.buffered(samples, 'categories',
+                                        'MGET', 'metadata', get=get,
+                                        buffer_size=100)
+
+    samples_to_get = []
+    for chunk in getter:
+        for sample, column_set in zip(*chunk):
+            if sample in samples:
+                # only keep the sample if it has a category of interest
+                if column_set is not None:
+                    column_set = set(json.loads(column_set))
+                    if column_set.intersection(categories):
+                        samples_to_get.append(sample)
+
+    metadata = defaultdict(dict)
+    for sample in samples_to_get:
+        metadata[sample]['#SampleID'] = sample
+
+    for category in categories:
+        key = 'category:%s' % category
+        getter = redbiom._requests.buffered(iter(samples_to_get), None,
+                                            'HMGET',
+                                            'metadata', get=get,
+                                            buffer_size=100,
+                                            multikey=key)
+
+        for chunk in getter:
+            for sample, value in zip(*chunk):
+                metadata[sample][category] = value
+
+    md = pd.DataFrame(metadata).T
+
+    if len(md.columns) == 0:
+        return set()
+    else:
+        md = redbiom.metadata.Metadata(md.set_index('#SampleID'))
+        return md.ids(where=where)

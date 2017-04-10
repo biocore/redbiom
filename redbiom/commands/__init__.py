@@ -13,5 +13,6 @@ def cli():
 
 import_module('redbiom.commands.admin')
 import_module('redbiom.commands.search')
+import_module('redbiom.commands.select')
 import_module('redbiom.commands.summarize')
 import_module('redbiom.commands.fetch')
