@@ -32,4 +32,3 @@ test: test_db
 	/bin/bash test.sh
 	nosetests
 	/bin/bash test_failures.sh  # this blows away the db
-	#/bin/bash test_tags.sh
