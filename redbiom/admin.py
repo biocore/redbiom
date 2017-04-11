@@ -1,7 +1,3 @@
-# TODO: with decoupled logic, it may make sense to have returns from some of
-# these methods more than just from load_sample_metadata.
-
-
 def create_context(name, description):
     """Create a context within the cache
 
@@ -215,7 +211,7 @@ def load_sample_metadata(md, tag=None):
     -----
     Values considered to be non-informative are omitted from load.
 
-    TODO: expose a stable list of the nullables
+    TODO: expose a stable list of the nullables, see #19
 
     Returns
     -------
@@ -280,8 +276,7 @@ def load_sample_metadata(md, tag=None):
                    if _indexable(i, null_values)]
         key = "categories:%s" % idx
 
-        # TODO: express metadata-categories using redis sets
-        # TODO: dumps is expensive relative to just, say, '\t'.join
+        # TODO: express metadata-categories using redis sets, see #18
         put('metadata', 'SET', key, json.dumps(columns))
 
     for col in indexed_columns:
