@@ -11,8 +11,8 @@ def contexts():
     HGETALL state:contexts
     """
     import redbiom
-    import redbiom.requests
-    get = redbiom.requests.make_get(redbiom.get_config())
+    import redbiom._requests
+    get = redbiom._requests.make_get(redbiom.get_config())
 
     return get('state', 'HGETALL', 'contexts')
 
@@ -38,8 +38,8 @@ def category_from_observations(context, category, observations, exact):
         A series indexed by the sample ID and valued by its category value. A
         None is used if the sample does not have that piece of metadata.
     """
-    import redbiom.requests
-    redbiom.requests.valid(context)
+    import redbiom._requests
+    redbiom._requests.valid(context)
 
     import redbiom.util
     # TODO: should samples_from_observations be in redbiom.fetch?

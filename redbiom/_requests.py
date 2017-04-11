@@ -14,13 +14,21 @@ def _format_request(context, command, other):
         return "%s/%s:%s" % (command, context, other)
 
 
+def get_session():
+    import redbiom
+    if redbiom.active_session is None:
+        import requests
+        redbiom.active_session = requests.Session()
+        redbiom.active_session.auth = redbiom.get_config()['auth']
+
+    return redbiom.active_session
+
+
 def make_post(config):
     """Factory function: produce a post() method"""
-    import requests
     import redbiom
-    s = requests.Session()
-    redbiom.active_sessions.append(s)
-    s.auth = config['auth']
+    s = get_session()
+    config = redbiom.get_config()
 
     def f(context, cmd, payload):
         req = s.post(config['hostname'],
@@ -35,11 +43,9 @@ def make_put(config):
     Within Webdis, PUT is generally used to provide content in the body for
     use as a file upload.
     """
-    import requests
     import redbiom
-    s = requests.Session()
-    redbiom.active_sessions.append(s)
-    s.auth = config['auth']
+    s = get_session()
+    config = redbiom.get_config()
 
     def f(context, cmd, key, data):
         url = '/'.join([config['hostname'],
@@ -51,11 +57,9 @@ def make_put(config):
 
 def make_get(config):
     """Factory function: produce a get() method"""
-    import requests
     import redbiom
-    s = requests.Session()
-    redbiom.active_sessions.append(s)
-    s.auth = config['auth']
+    s = get_session()
+    config = redbiom.get_config()
 
     def f(context, cmd, data):
         payload = _format_request(context, cmd, data)
@@ -98,15 +102,15 @@ def buffered(it, prefix, cmd, context, get=None, buffer_size=10,
     """
     if get is None:
         import redbiom
-        import redbiom.requests
         config = redbiom.get_config()
-        get = redbiom.requests.make_get(config)
+        get = make_get(config)
 
     if multikey is None:
         prefixer = lambda a, b, c: '%s:%s:%s' % (a, b, c)
     else:
         prefixer = lambda a, b, c: c
 
+    it = iter(it)
     exhausted = False
     while not exhausted:
         items = []
@@ -121,15 +125,16 @@ def buffered(it, prefix, cmd, context, get=None, buffer_size=10,
         bulk = '/'.join([prefixer(context, prefix, i) for i in items])
         if multikey:
             bulk = "%s:%s/%s" % (context, multikey, bulk)
+
         yield items, get(None, cmd, bulk)
 
 
 def valid(context, get=None):
     """Test if a context exists"""
     if get is None:
-        import redbiom.requests
+        import redbiom
         config = redbiom.get_config()
-        get = redbiom.requests.make_get(config)
+        get = make_get(config)
 
     if not get('state', 'HEXISTS', 'contexts/%s' % context):
         raise ValueError("Unknown context: %s" % context)

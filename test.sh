@@ -24,9 +24,9 @@ query="TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTG
 # verify we're getting back the expected samples for a simple query
 exp="exp_test_query_results.txt"
 obs="obs_test_query_results.txt"
-echo "10317.000033804" > ${exp}
-echo "10317.000047188" >> ${exp} 
-echo "10317.000046868" >> ${exp} 
+echo "UNTAGGED_10317.000033804" > ${exp}
+echo "UNTAGGED_10317.000047188" >> ${exp} 
+echo "UNTAGGED_10317.000046868" >> ${exp} 
 
 redbiom search observations --context test ${query} | sort - > ${obs}
 md5test ${obs} ${exp}
@@ -38,18 +38,18 @@ md5test ${obs} ${exp}
 # fetch samples based on observations and sanity check
 echo ${query} | redbiom fetch observations --context test --output pipetest.biom --from -
 python -c "import biom; t = biom.load_table('pipetest.biom'); assert len(t.ids() == 3)"
-python -c "import biom; t = biom.load_table('pipetest.biom'); exp = biom.load_table('test.biom').filter(t.ids()).filter(lambda v, i, md: (v > 0).sum() > 0, axis='observation').sort_order(t.ids()).sort_order(t.ids(axis='observation'), axis='observation'); assert t == exp"
+python -c "import biom; t = biom.load_table('pipetest.biom'); exp = biom.load_table('pipetestexp.biom').filter(t.ids()).filter(lambda v, i, md: (v > 0).sum() > 0, axis='observation').sort_order(t.ids()).sort_order(t.ids(axis='observation'), axis='observation'); assert t == exp"
 
 # fetch data via sample
 redbiom fetch samples --context test --output cmdlinetest.biom 10317.000033804 10317.000047188 10317.000046868
-python -c "import biom; t = biom.load_table('cmdlinetest.biom'); assert sorted(t.ids()) == ['10317.000033804', '10317.000046868', '10317.000047188']"
+python -c "import biom; t = biom.load_table('cmdlinetest.biom'); assert sorted(t.ids()) == ['10317.000033804.UNTAGGED', '10317.000046868.UNTAGGED', '10317.000047188.UNTAGGED']"
 
 # fetch data via sample and via pipe
 cat exp_test_query_results.txt | redbiom fetch samples --context test --output pipetest.biom --from -
-python -c "import biom; t = biom.load_table('pipetest.biom'); assert sorted(t.ids()) == ['10317.000033804', '10317.000046868', '10317.000047188']"
+python -c "import biom; t = biom.load_table('pipetest.biom'); assert sorted(t.ids()) == ['10317.000033804.UNTAGGED', '10317.000046868.UNTAGGED', '10317.000047188.UNTAGGED']"
 
 # fetch sample metadata
-redbiom fetch sample-metadata --output cmdlinetest.txt 10317.000033804 10317.000047188 10317.000046868
+redbiom fetch sample-metadata --output cmdlinetest.txt UNTAGGED_10317.000033804 10317.000047188 10317.000046868
 obs=$(grep -c FECAL cmdlinetest.txt)
 exp=3
 if [[ "${obs}" != "${exp}" ]]; then
@@ -91,8 +91,9 @@ redbiom summarize observations --exact --context test --category SIMPLE_BODY_SIT
 md5test obs_summarize.txt exp_summarize.txt
 
 # round trip the sample data
-python -c "import biom; t = biom.load_table('test.biom'); print('\n'.join(t.ids()))" | redbiom fetch samples --context test --from - --output observed.biom
-python -c "import biom; obs = biom.load_table('observed.biom'); exp = biom.load_table('test.biom').sort_order(obs.ids()).sort_order(obs.ids(axis='observation'), axis='observation'); assert obs == exp"
+# Does not currently support passing in QIIME compatible versions of redbiom IDs
+#python -c "import biom; t = biom.load_table('test.biom'); print('\n'.join(t.ids()))" | redbiom fetch samples --context test --from - --output observed.biom
+#python -c "import biom; obs = biom.load_table('observed.biom'); exp = biom.load_table('test.biom').sort_order(obs.ids()).sort_order(obs.ids(axis='observation'), axis='observation'); assert obs == exp"
 
 # pull out a metadata category
 echo "Category value	count" > exp_metadata_categories.txt
@@ -100,17 +101,17 @@ echo "2	1" >> exp_metadata_categories.txt
 echo "21.0	1" >> exp_metadata_categories.txt
 echo "24.0	1" >> exp_metadata_categories.txt
 echo "32.0	1" >> exp_metadata_categories.txt
-echo "33	1" >> exp_metadata_categories.txt
+echo "33	2" >> exp_metadata_categories.txt
 echo "33.0	1" >> exp_metadata_categories.txt
-echo "39.0	1" >> exp_metadata_categories.txt
+echo "39.0	2" >> exp_metadata_categories.txt
 echo "48.0	1" >> exp_metadata_categories.txt
 echo "59	1" >> exp_metadata_categories.txt
-redbiom summarize metadata-category --category AGE_YEARS --counter > obs_metadata_categories.txt
+redbiom summarize metadata-category --category AGE_YEARS --counter --sort-index > obs_metadata_categories.txt
 md5test obs_metadata_categories.txt exp_metadata_categories.txt
 
 # check counts for a few metadata categories
-echo "AGE_YEARS	9" > exp_metadata_counts.txt
-echo "BODY_SITE	10" >> exp_metadata_counts.txt
+echo "AGE_YEARS	11" > exp_metadata_counts.txt
+echo "BODY_SITE	12" >> exp_metadata_counts.txt
 redbiom summarize metadata | grep AGE_YEARS > obs_metadata_counts.txt
 redbiom summarize metadata | grep "^BODY_SITE" >> obs_metadata_counts.txt
 md5test obs_metadata_counts.txt exp_metadata_counts.txt

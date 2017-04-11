@@ -20,10 +20,10 @@ def search():
 @click.argument('observations', nargs=-1)
 def search_observations(from_, exact, context, observations):
     """Find samples containing observations."""
-    import redbiom.requests
+    import redbiom._requests
     import redbiom.util
 
-    redbiom.requests.valid(context)
+    redbiom._requests.valid(context)
 
     it = redbiom.util.from_or_nargs(from_, observations)
 

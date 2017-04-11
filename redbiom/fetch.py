@@ -1,4 +1,4 @@
-def sample_metadata(samples, common=True):
+def sample_metadata(samples, common=True, context=None):
     """Fetch metadata for the corresponding samples
 
     Parameters
@@ -10,11 +10,16 @@ def sample_metadata(samples, common=True):
         samples is returned. If False, all columns for all samples are
         returned. If value is missing for a given column and sample, None is
         stored in its place in the resulting DataFrame.
+    context : str, optional
+        If provided, resolve possible ambiguities in the sample identifiers
+        relative to a context.
 
     Returns
     -------
     pandas.DataFrame
         A DataFrame indexed by the sample IDs, with the sample metadata
+    dict
+        ambiguous associations {sample_id: [tagged_sample_ids]}
 
     Redis command summary
     ---------------------
@@ -25,17 +30,30 @@ def sample_metadata(samples, common=True):
     from collections import defaultdict
     import pandas as pd
     import redbiom
-    import redbiom.requests
+    import redbiom._requests
 
     config = redbiom.get_config()
-    get = redbiom.requests.make_get(config)
+    get = redbiom._requests.make_get(config)
+
+    untagged, _, _, tagged_clean = \
+        redbiom.util.partition_samples_by_tags(samples)
+    samples = untagged + tagged_clean
+
+    # resolve ambiguities
+    if context is not None:
+        _, _, ambig_assoc, _ = \
+            redbiom.util.resolve_ambiguities(context, samples, get)
+    else:
+        ambig_assoc = {k: [k] for k in samples}
 
     # TODO: express metadata-categories using redis sets
     # and then this can be done with SINTER
     all_columns = []
     all_samples = []
-    getter = redbiom.requests.buffered(samples, 'categories', 'MGET',
-                                       'metadata', get=get, buffer_size=100)
+
+    getter = redbiom._requests.buffered(list(ambig_assoc), 'categories',
+                                        'MGET', 'metadata', get=get,
+                                        buffer_size=100)
     for samples, columns_by_sample in getter:
         all_samples.extend(samples)
         for column_set in columns_by_sample:
@@ -52,21 +70,31 @@ def sample_metadata(samples, common=True):
 
     metadata = defaultdict(dict)
     for sample in all_samples:
-        metadata[sample]['#SampleID'] = sample
+        for sample_ambiguity in ambig_assoc[sample]:
+            metadata[sample_ambiguity]['#SampleID'] = sample_ambiguity
 
     for category in columns_to_get:
         key = 'category:%s' % category
-        getter = redbiom.requests.buffered(iter(all_samples), None, 'HMGET',
-                                           'metadata', get=get,
-                                           buffer_size=100,
-                                           multikey=key)
+        getter = redbiom._requests.buffered(iter(all_samples), None, 'HMGET',
+                                            'metadata', get=get,
+                                            buffer_size=100,
+                                            multikey=key)
 
         for samples, category_values in getter:
             for sample, value in zip(samples, category_values):
-                metadata[sample][category] = value
+                for sample_ambiguity in ambig_assoc[sample]:
+                    metadata[sample_ambiguity][category] = value
 
     md = pd.DataFrame(metadata).T
-    return md
+
+    if context is not None:
+        new_ids = []
+        for i in md['#SampleID']:
+            tag, id_ = i.split('_', 1)
+            new_ids.append("%s.%s" % (id_, tag))
+        md['#SampleID'] = new_ids
+
+    return md, ambig_assoc
 
 
 def data_from_observations(context, observations, exact):
@@ -86,15 +114,18 @@ def data_from_observations(context, observations, exact):
     -------
     biom.Table
         A Table populated with the found samples.
+    dict
+        A map of {sample_id_in_table: original_id}. This map can be used to
+        identify what samples are ambiguous based off their original IDs.
     """
     import redbiom
     import redbiom.util
-    import redbiom.requests
+    import redbiom._requests
 
     config = redbiom.get_config()
-    get = redbiom.requests.make_get(config)
+    get = redbiom._requests.make_get(config)
 
-    redbiom.requests.valid(context, get)
+    redbiom._requests.valid(context, get)
 
     # determine the samples which contain the observations of interest
     samples = redbiom.util.samples_from_observations(observations, exact,
@@ -117,6 +148,9 @@ def data_from_samples(context, samples):
     -------
     biom.Table
         A Table populated with the found samples.
+    dict
+        A map of {sample_id_in_table: original_id}. This map can be used to
+        identify what samples are ambiguous based off their original IDs.
     """
     return _biom_from_samples(context, samples)
 
@@ -137,6 +171,9 @@ def _biom_from_samples(context, samples, get=None):
     -------
     biom.Table
         A Table populated with the found samples.
+    dict
+        A map of {sample_id_in_table: original_id}. This map can be used to
+        identify what samples are ambiguous based off their original IDs.
 
     Redis command summary
     ---------------------
@@ -147,15 +184,22 @@ def _biom_from_samples(context, samples, get=None):
     from operator import itemgetter
     import scipy.sparse as ss
     import biom
-    import redbiom.requests
+    import redbiom._requests
+    import redbiom.util
 
     # TODO: centralize this as it's boilerplate
     if get is None:
         import redbiom
         config = redbiom.get_config()
-        get = redbiom.requests.make_get(config)
+        get = redbiom._requests.make_get(config)
 
-    redbiom.requests.valid(context, get)
+    redbiom._requests.valid(context, get)
+
+    samples = list(samples)  # unroll iterator if necessary
+
+    # resolve ambiguities
+    stable_ids, unobserved, ambig_assoc, rimap = \
+        redbiom.util.resolve_ambiguities(context, samples, get)
 
     # pull out the observation index so the IDs can be remapped
     obs_index = json.loads(get(context, 'GET', '__observation_index'))
@@ -167,8 +211,8 @@ def _biom_from_samples(context, samples, get=None):
     # pull out the per-sample data
     table_data = []
     unique_indices = set()
-    getter = redbiom.requests.buffered(samples, 'data', 'MGET', context,
-                                       get=get, buffer_size=100)
+    getter = redbiom._requests.buffered(list(rimap), 'data', 'MGET', context,
+                                        get=get, buffer_size=100)
     for (sample_set, sample_set_data) in getter:
         for sample, data in zip(sample_set, sample_set_data):
             data = data.split('\t')
@@ -195,7 +239,10 @@ def _biom_from_samples(context, samples, get=None):
         for index, value in zip(col_data[::2], col_data[1::2]):
             mat[unique_indices_map[int(index)], col] = value
 
-    return biom.Table(mat, obs_ids, sample_ids)
+    table = biom.Table(mat, obs_ids, sample_ids)
+    table.update_ids(rimap)
+
+    return table, ambig_assoc
 
 
 def category_sample_values(category, samples=None):
@@ -220,18 +267,21 @@ def category_sample_values(category, samples=None):
     HMGET metadata:category:<category> <sample_id> ... <sample_id>
     """
     import redbiom
-    import redbiom.requests
+    import redbiom._requests
     import pandas as pd
 
-    get = redbiom.requests.make_get(redbiom.get_config())
+    get = redbiom._requests.make_get(redbiom.get_config())
 
     key = 'category:%s' % category
     if samples is None:
         keys_vals = list(get('metadata', 'HGETALL', key).items())
     else:
-        getter = redbiom.requests.buffered(iter(samples), None, 'HMGET',
-                                           'metadata', get=get,
-                                           buffer_size=100, multikey=key)
+        untagged, _, _, tagged_clean = \
+            redbiom.util.partition_samples_by_tags(samples)
+        samples = untagged + tagged_clean
+        getter = redbiom._requests.buffered(iter(samples), None, 'HMGET',
+                                            'metadata', get=get,
+                                            buffer_size=100, multikey=key)
 
         # there is probably some niftier method than this.
         keys_vals = [(sample, obs_val) for idx, vals in getter
@@ -257,10 +307,10 @@ def sample_counts_per_category():
     HLEN metadata:category:<category>
     """
     import redbiom
-    import redbiom.requests
+    import redbiom._requests
     import pandas as pd
 
-    get = redbiom.requests.make_get(redbiom.get_config())
+    get = redbiom._requests.make_get(redbiom.get_config())
 
     categories = list(get('metadata', 'SMEMBERS', 'categories-represented'))
     results = []
