@@ -134,3 +134,8 @@ echo "Num observations: 427" >> exp_metadata_search.txt
 echo "Total count: 21780" >> exp_metadata_search.txt
 biom summarize-table -i metadata_search_test.biom | head -n 3 > obs_metadata_search.txt
 md5test obs_metadata_search.txt exp_metadata_search.txt
+
+echo "#ContextName	SamplesWithData	SamplesWithObservations	Description" > exp_contexts.txt
+echo "test	12	12	test context" >> exp_contexts.txt
+echo "test_alt	5	5	test context" >> exp_contexts.txt
+redbiom summarize contexts > obs_contexts.txt
