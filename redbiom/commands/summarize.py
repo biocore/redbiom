@@ -15,10 +15,12 @@ def summarize_caches():
     import redbiom.summarize
     contexts = redbiom.summarize.contexts()
 
-    if contexts:
-        click.echo("Name\tDescription\n")
-        for name, desc in sorted(contexts.items()):
-            click.echo("%s\t%s" % (name, desc))
+    if len(contexts):
+        import io
+        out = io.StringIO()
+        contexts.to_csv(out, sep='\t', header=True, index=False)
+        out.seek(0)
+        click.echo(out.read())
     else:
         click.echo("No available contexts")
 
@@ -72,6 +74,61 @@ def summarize_metadata(descending):
 
     for idx, val in zip(md.index, md):
         click.echo("%s\t%s" % (idx, val))
+
+
+def _summarize_id(context, category, id):
+    """Summarize the ID over the category"""
+    from redbiom.summarize import category_from_observations
+    res = category_from_observations(context, category, [id], False)
+    res = res.value_counts()
+    counts = {i: c for i, c in zip(res.index, res)}
+    counts['feature'] = id
+    return counts
+
+
+@summarize.command(name='table')
+@click.option('--category', type=str, required=True)
+@click.option('--context', required=True, type=str)
+@click.option('--output', required=False, type=click.Path(exists=False),
+              default=None)
+@click.option('--threads', type=int, default=1)
+@click.option('--verbosity', type=int, default=0)
+@click.option('--table', type=click.Path(exists=True), required=True)
+def summarize_table(category, context, output, threads, verbosity, table):
+    """Summarize all observations in a BIOM table.
+
+    This command will assess, per observation, the number of samples that
+    observation is found in relative to the metadata category specified.
+    """
+    if threads == 1:
+        # TODO: requests.Session is apparently not threadsafe. Basically,
+        # if we just use this as is, with threads, it vomits horribly.
+        # But if you block the ability to spawn a session, it works.
+        import redbiom.util
+        if not redbiom.util.category_exists(category):
+            import sys
+            click.echo("%s is not found" % category, err=True)
+            sys.exit(1)
+
+    import biom
+    table = biom.load_table(table)
+
+    import joblib
+    with joblib.parallel.Parallel(n_jobs=threads, verbose=verbosity) as par:
+        mappings = par(joblib.delayed(_summarize_id)(context, category, id)
+                       for id in table.ids(axis='observation'))
+
+    import pandas as pd
+    df = pd.DataFrame(mappings)
+    df.set_index('feature', inplace=True)
+    df[df.isnull()] = 0
+
+    tsv = df.to_csv(None, sep='\t', header=True, index=True)
+    if output is None:
+        click.echo(tsv)
+    else:
+        with open(output, 'w') as fp:
+            fp.write(tsv)
 
 
 @summarize.command(name='observations')

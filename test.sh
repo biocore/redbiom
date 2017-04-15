@@ -88,7 +88,6 @@ echo "10317.000047188.UNTAGGED"  > exp_summarize.txt
 echo "10317.000033804.UNTAGGED" >> exp_summarize.txt
 
 redbiom search observations --exact --context test TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT | redbiom select samples-from-metadata --context test --where "SIMPLE_BODY_SITE IN ('FECAL', 'SKIN')" > obs_summarize.txt
-#redbiom summarize observations --exact --context test --category SIMPLE_BODY_SITE --value "in FECAL,'SKIN'" TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
 md5test obs_summarize.txt exp_summarize.txt
 
 # round trip the sample data
@@ -139,3 +138,13 @@ echo "#ContextName	SamplesWithData	SamplesWithObservations	Description" > exp_co
 echo "test	12	12	test context" >> exp_contexts.txt
 echo "test_alt	5	5	test context" >> exp_contexts.txt
 redbiom summarize contexts > obs_contexts.txt
+
+# exercise table summary
+redbiom summarize table --table test.biom --context test --category COUNTRY --output obs_tablesummary.txt
+echo "feature   Australia   USA United Kingdom" > exp_tablesummary.txt
+md5test obs_tablesummary.txt exp_tablesummary.txt
+if [[ $(wc -l obs_tablesummary.txt) != 930 ]];
+then
+    echo "fail"
+    exit 1
+fi

@@ -40,6 +40,36 @@ def samples_from_observations(it, exact, context, get=None):
     return samples
 
 
+def category_exists(category, get=None):
+    """Test if a category exists
+
+    Parameters
+    ----------
+    category : str
+        The category to test for
+    get : function
+        A get method
+
+    Returns
+    -------
+    bool
+        True if the category exists, False otherwise
+
+    Redis Command Summary
+    ---------------------
+    SISMEMBER <category> metadata:catetories-represented
+    """
+    if get is None:
+        import redbiom
+        import redbiom._requests
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    # this use highlights how get is being abused at the moment. this is a
+    # command which takes two arguments, they key and the member to test.
+    return get('metadata', 'SISMEMBER', 'categories-represented/%s' % category)
+
+
 def float_or_nan(t):
     import numpy as np
     try:
