@@ -1,6 +1,6 @@
 import unittest
 
-from redbiom.expr import seteval
+from redbiom.set_expr import seteval
 
 
 mock_db = {'W': {1, 2},

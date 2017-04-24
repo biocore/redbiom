@@ -7,7 +7,7 @@ def Expression(body):
 
 
 def Name(id, ctx):
-    return ctx('metadata', 'GET', id)
+    return set(ctx('metadata:stems:', 'SMEMBERS', id))
 
 
 def make_Load(get):

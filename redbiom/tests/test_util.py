@@ -12,7 +12,8 @@ import redbiom.admin
 from redbiom.util import (float_or_nan, from_or_nargs,
                           samples_from_observations, has_sample_metadata,
                           partition_samples_by_tags, resolve_ambiguities,
-                          _stable_ids_from_ambig, _stable_ids_from_unambig)
+                          _stable_ids_from_ambig, _stable_ids_from_unambig,
+                          category_exists)
 
 
 table = biom.load_table('test.biom')
@@ -26,6 +27,14 @@ class UtilTests(unittest.TestCase):
         host = redbiom.get_config()['hostname']
         req = requests.get(host + '/FLUSHALL')
         assert req.status_code == 200
+
+    def test_category_exists(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        self.assertTrue(category_exists('SIMPLE_BODY_SITE'))
+        self.assertTrue(category_exists('AGE_YEARS'))
+        self.assertFalse(category_exists('age_years'))
+        self.assertFalse(category_exists(''))
+        self.assertFalse(category_exists('foobar'))
 
     def test_float_or_nan(self):
         import numpy as np
