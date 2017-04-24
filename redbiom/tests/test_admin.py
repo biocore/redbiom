@@ -19,7 +19,7 @@ metadata_with_alt = pd.read_csv('test_with_alts.txt', sep='\t', dtype=str)
 class AdminTests(unittest.TestCase):
     def setUp(self):
         host = redbiom.get_config()['hostname']
-        req = requests.get(host + '/FLUSHALL')
+        req = requests.get(host + '/flushall')
         assert req.status_code == 200
         self.get = redbiom._requests.make_get(redbiom.get_config())
 
@@ -94,7 +94,16 @@ class AdminTests(unittest.TestCase):
             id_ = 'UNTAGGED_%s' % id_
             self.assertTrue(self.get(context, 'EXISTS', 'data:%s' % id_))
 
-    def test_load_sample_data_partial(self):
+    def test_load_sample_metadata(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        exp = set(metadata.columns) - set(['#SampleID'])
+        obs = set(self.get('metadata', 'SMEMBERS', 'categories-represented'))
+        self.assertEqual(obs, exp)
+        exp = set(metadata['#SampleID'])
+        obs = set(self.get('metadata', 'SMEMBERS', 'samples-represented'))
+        self.assertEqual(obs, exp)
+
+    def test_load_sample_metadata_full_search(self):
         pass
 
 
