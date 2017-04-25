@@ -20,7 +20,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=['click >= 6.7', 'biom-format >= 2.1.5', 'requests',
-                      'pandas', 'joblib'],
+                      'pandas', 'joblib', 'nltk'],
     #scripts=['bin/tab-redbiom'],
     entry_points='''
         [console_scripts]

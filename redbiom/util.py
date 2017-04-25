@@ -230,3 +230,53 @@ def _stable_ids_from_unambig(unambig):
         assoc[stab] = k
         ri[k] = stab
     return assoc, ri
+
+
+def df_to_stems(df):
+    """Convert a DataFrame to stem -> index associations
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        A pandas DataFrame to index
+
+    Returns
+    -------
+    dict
+        {stem: {set of indices}}
+    """
+    from collections import defaultdict
+
+    d = defaultdict(set)
+    for sample, row in df.iterrows():
+        for value in row.values:
+            for stem in stems(value):
+                d[stem].add(sample)
+
+    return dict(d)
+
+
+def stems(string):
+    """Gather stems from string"""
+    import re
+    import nltk
+    # not using nltk default as we want this to be portable so that, for
+    # instance, a javascript library can query
+    p = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
+    stops = set(nltk.corpus.stopwords.words('english'))
+    to_skip = set('()!@#$%^&*-+=|{}[]<>./?;:')
+
+    # match numbers (doesn't catch sci notation...)
+    numeric_regex = re.compile('(^\d+\.\d+$)|(^\d+$)')
+
+    # for each word
+    for word in nltk.tokenize.word_tokenize(string):
+        if word in to_skip or len(word) == 1:
+            continue
+
+        if word in stops or '/' in word:
+            # / is reserved as it's part of a URL
+            continue
+
+        if numeric_regex.match(word) is None:
+            yield p.stem(word)

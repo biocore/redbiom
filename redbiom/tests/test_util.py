@@ -13,7 +13,7 @@ from redbiom.util import (float_or_nan, from_or_nargs,
                           samples_from_observations, has_sample_metadata,
                           partition_samples_by_tags, resolve_ambiguities,
                           _stable_ids_from_ambig, _stable_ids_from_unambig,
-                          category_exists)
+                          category_exists, df_to_stems, stems)
 
 
 table = biom.load_table('test.biom')
@@ -240,6 +240,40 @@ class UtilTests(unittest.TestCase):
         obs_stable, obs_ri = _stable_ids_from_unambig(data)
         self.assertEqual(obs_stable, exp_stable)
         self.assertEqual(obs_ri, exp_ri)
+
+    def test_df_to_stems(self):
+        df = pd.DataFrame([('A', 'the lazy fox', '10', '1/2/3', 'infants are'),
+                           ('B', 'quickly', '11', '2/3/4', 'jump humans'),
+                           ('C', 'jumped over', '11', '2/3/4', 'tiny. humans'),
+                           ('D', 'the brown', '12', '2/3/4', 'large humans'),
+                           ('E', 'fence. LAzy', '14', '2/3/4', 'large ants.')],
+                          columns=['#SampleID', 'catA', 'catB', 'catC',
+                                   'catD']).set_index('#SampleID')
+        exp = {'ant': {'E', },
+               'lazi': {'A', 'E'},
+               'fox': {'A', },
+               'quickli': {'B', },
+               'jump': {'C', 'B'},
+               'brown': {'D', },
+               'fenc': {'E', },
+               'infant': {'A', },
+               'human': {'B', 'C', 'D'},
+               'tini': {'C', },
+               'larg': {'D', 'E'}}
+        obs = redbiom.util.df_to_stems(df)
+        self.assertEqual(obs, exp)
+
+    def test_stems(self):
+        tests = [("foo bar", ['foo', 'bar']),
+                 ("foo $1.23 is the bar", ['foo', 'bar']),
+                 ("a b c d", []),  # assume single char stems are useless
+                 ("ab cd", ['ab', 'cd']),
+                 ("ab. foo, then bar", ['ab', 'foo', 'bar']),
+                 ("crying infants", ["cry", "infant"]),
+                 ("drop 12 all 3.45 the 0.123 numbers", ['drop', 'number'])]
+        for test, exp in tests:
+            obs = list(stems(test))
+            self.assertEqual(obs, exp)
 
 
 if __name__ == '__main__':
