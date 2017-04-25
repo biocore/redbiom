@@ -1,6 +1,13 @@
 import click
 
 
+NULL_VALUES = {'Not applicable', 'Unknown', 'Unspecified',
+               'Missing: Not collected', None,
+               'Missing: Not provided',
+               'Missing: Restricted access',
+               'null', 'NULL', 'no_data', 'None', 'nan'}
+
+
 def from_or_nargs(from_, nargs_variable):
     """In support of buffered: determine whether to use from_ or nargs"""
     import sys
@@ -265,9 +272,13 @@ def stems(string):
     p = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
     stops = set(nltk.corpus.stopwords.words('english'))
     to_skip = set('()!@#$%^&*-+=|{}[]<>./?;:')
+    to_skip.update(NULL_VALUES)
 
     # match numbers (doesn't catch sci notation...)
     numeric_regex = re.compile('(^\d+\.\d+$)|(^\d+$)')
+
+    if string in to_skip:
+        return []
 
     # for each word
     for word in nltk.tokenize.word_tokenize(string):
@@ -279,4 +290,4 @@ def stems(string):
             continue
 
         if numeric_regex.match(word) is None:
-            yield p.stem(word)
+            yield p.stem(word).lower()

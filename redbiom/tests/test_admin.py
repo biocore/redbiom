@@ -1,4 +1,5 @@
 import unittest
+import json
 
 import pandas as pd
 import biom
@@ -12,7 +13,8 @@ import redbiom.fetch
 
 table = biom.load_table('test.biom')
 table_with_alt = biom.load_table('test_with_alts.biom')
-metadata = pd.read_csv('test.txt', sep='\t', dtype=str)
+metadata = pd.read_csv('test.txt', sep='\t', dtype=str, na_values=[],
+                       keep_default_na=False)
 metadata_with_alt = pd.read_csv('test_with_alts.txt', sep='\t', dtype=str)
 
 
@@ -104,7 +106,59 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(obs, exp)
 
     def test_load_sample_metadata_full_search(self):
-        self.fail()
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_metadata_full_search(metadata)
+        tests = [('agp-skin', {'10317.000003302', }),
+
+                 # an example of a misleading query. only those AG samples
+                 # which report as not having taken abx in the past year will
+                 # be returned, as recent use is "1 week" etc.
+                 ('antibiot', {'10317.000047188',
+                               '10317.000051129',
+                               '10317.000033804',
+                               '10317.000001378',
+                               '10317.000005080',
+                               '10317.000003302'}),
+
+                 ('australia', {'10317.000022252', }),
+
+                 # two people live in NY
+                 ('ny', {'10317.000033804',
+                         '10317.000001405'})]
+
+        for test, exp in tests:
+            obs = set(self.get('metadata:text-search', 'SMEMBERS', test))
+            self.assertEqual(obs, exp)
+
+        # test we can search over categories too
+        tests = [('antibiot', {'SUBSET_ANTIBIOTIC_HISTORY',
+                               'ANTIBIOTIC_HISTORY'}),
+                 ('hand', {'DOMINANT_HAND', }),
+                 ('diseas', {'LIVER_DISEASE',
+                              'CARDIOVASCULAR_DISEASE',
+                              'LUNG_DISEASE',
+                              'KIDNEY_DISEASE'}),
+
+                 # note: this does not get "SEAFOOD" categories as that is its
+                 # own stem. However, it will grab "SEA_FOOD" because that
+                 # that stem in the Vioscreen category is split...
+                 ('food', {'NON_FOOD_ALLERGIES_BEESTINGS',
+                           'VIOSCREEN_HEI2010_PROTIEN_FOODS',
+                           'ALLERGIC_TO_I_HAVE_NO_FOOD_ALLERGIES_THAT_I_KNOW_OF',  # noqa
+                           'VIOSCREEN_FRIED_FOOD_SERVINGS',
+                           'NON_FOOD_ALLERGIES_SUN',
+                           'NON_FOOD_ALLERGIES',
+                           'NON_FOOD_ALLERGIES_UNSPECIFIED',
+                           'SPECIALIZED_DIET_RAW_FOOD_DIET',
+                           'NON_FOOD_ALLERGIES_POISON_IVYOAK',
+                           'NON_FOOD_ALLERGIES_PET_DANDER',
+                           'NON_FOOD_ALLERGIES_DRUG_EG_PENICILLIN',
+                           'VIOSCREEN_HEI2010_SEA_FOODS_PLANT_PROTIENS'})]
+
+        for test, exp in tests:
+            obs = set(self.get('metadata:category-search', 'SMEMBERS', test))
+            self.assertEqual(obs, exp)
+
 
 
 if __name__ == '__main__':
