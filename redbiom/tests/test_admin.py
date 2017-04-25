@@ -104,7 +104,29 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(obs, exp)
 
     def test_load_sample_metadata_full_search(self):
-        pass
+        self.fail()
+
+    def test_df_to_stems(self):
+        df = pd.DataFrame([('A', 'the lazy fox', '10', '1/2/3', 'infants are'),
+                           ('B', 'quickly', '11', '2/3/4', 'jump humans'),
+                           ('C', 'jumped over', '11', '2/3/4', 'tiny. humans'),
+                           ('D', 'the brown', '12', '2/3/4', 'large humans'),
+                           ('E', 'fence. LAzy', '14', '2/3/4', 'large ants.')],
+                          columns=['#SampleID', 'catA', 'catB', 'catC',
+                                   'catD']).set_index('#SampleID')
+        exp = {'ant': {'E', },
+               'lazi': {'A', 'E'},
+               'fox': {'A', },
+               'quickli': {'B', },
+               'jump': {'C', 'B'},
+               'brown': {'D', },
+               'fenc': {'E', },
+               'infant': {'A', },
+               'human': {'B', 'C', 'D'},
+               'tini': {'C', },
+               'larg': {'D', 'E'}}
+        obs = redbiom.admin.df_to_stems(df)
+        self.assertEqual(obs, exp)
 
 
 if __name__ == '__main__':
