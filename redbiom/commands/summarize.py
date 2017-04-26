@@ -16,8 +16,12 @@ def summarize_caches():
     contexts = redbiom.summarize.contexts()
 
     if len(contexts):
+        import sys
         import io
-        out = io.StringIO()
+        if sys.version_info[0] < 3:
+            out = io.BytesIO()
+        else:
+            out = io.StringIO()
         contexts.to_csv(out, sep='\t', header=True, index=False)
         out.seek(0)
         click.echo(out.read())
