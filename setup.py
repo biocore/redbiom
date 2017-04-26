@@ -9,6 +9,17 @@
 # ----------------------------------------------------------------------------
 
 from setuptools import setup, find_packages
+from setuptools.command.install import install
+
+
+class PostInstallCommand(install):
+    """Post-installation for installation mode."""
+    def run(self):
+        install.run(self)
+        import nltk
+        nltk.download('stopwords')
+        nltk.download('punkt')
+
 
 # adapted from q2cli's setup.py
 
@@ -26,4 +37,5 @@ setup(
         [console_scripts]
         redbiom=redbiom.commands:cli
     ''',
+    cmdclass={'install': PostInstallCommand},
 )
