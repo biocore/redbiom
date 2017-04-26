@@ -24,6 +24,7 @@ def Str(s):
 def Tuple(elts, ctx):
     return tuple(elts)
 
+
 def _left_and_right(left, right):
     if isinstance(left, pd.Series) and isinstance(right, pd.Series):
         left, right = left.align(right, join='inner')
@@ -65,11 +66,15 @@ def GtE():
 
 def Eq():
     return functools.partial(_compare, operator.eq)
+
+
 Is = Eq
 
 
 def NotEq():
     return functools.partial(_compare, operator.ne)
+
+
 IsNot = NotEq
 
 

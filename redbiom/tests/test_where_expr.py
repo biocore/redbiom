@@ -6,6 +6,7 @@ from redbiom.where_expr import whereeval
 mock_db = {'age': {'A': '3', 'B': '20', 'C': '10', 'D': '5'},
            'sex': {'A': 'female', 'B': 'female', 'C': 'unknown', 'D': 'male'}}
 
+
 def mock_get(ignored1, ignored2, arg):
     return mock_db.get(arg, dict())
 

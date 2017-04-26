@@ -260,7 +260,7 @@ class UtilTests(unittest.TestCase):
                'human': {'B', 'C', 'D'},
                'tini': {'C', },
                'larg': {'D', 'E'}}
-        obs = redbiom.util.df_to_stems(df)
+        obs = df_to_stems(df)
         self.assertEqual(obs, exp)
 
     def test_stems(self):

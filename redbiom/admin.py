@@ -315,7 +315,6 @@ def load_sample_metadata_full_search(md, tag=None):
     SADD metadata:text-search:<stem> <sample-id> ... <sample-id>
     SADD metadata:category-search:<stem> <category> ... <category>
     """
-    import json
     import redbiom
     import redbiom._requests
     import redbiom.util
@@ -323,18 +322,12 @@ def load_sample_metadata_full_search(md, tag=None):
 
     config = redbiom.get_config()
     post = redbiom._requests.make_post(config)
-    put = redbiom._requests.make_put(config)
-    get = redbiom._requests.make_get(config)
-
-    null_values = redbiom.util.NULL_VALUES
 
     md = md.copy()
     if md.columns[0] not in ['#SampleID', 'sample_name']:
         md = md.reset_index()
 
     if tag is not None:
-        original_ids = md[md.columns[0]][:]
-
         # tag the sample IDs
         md[md.columns[0]] = ['%s_%s' % (tag, i) for i in md[md.columns[0]]]
 

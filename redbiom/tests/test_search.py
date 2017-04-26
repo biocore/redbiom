@@ -70,7 +70,8 @@ class SearchTests(unittest.TestCase):
             obs = redbiom.search.metadata_full(test)
             self.assertEqual(obs, exp)
 
-        self.fail("these should not return sets but instead dfs possibly with dummy columns for just set returns")
+        self.fail("these should not return sets but instead dfs possibly "
+                  "with dummy columns for just set returns")
 
     def test_metadata_values_fail(self):
         tests = [('antibiotics and NY', TypeError, "Unsupported node type"),
@@ -79,7 +80,6 @@ class SearchTests(unittest.TestCase):
         for test, ex, msg in tests:
             with self.assertRaisesRegex(ex, msg):
                 redbiom.search.metadata_full(test)
-
 
     def test_metadata_categories(self):
         test_cat = [('antibiotics', {'SUBSET_ANTIBIOTIC_HISTORY',
