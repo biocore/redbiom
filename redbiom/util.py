@@ -278,7 +278,7 @@ def stems(string):
     numeric_regex = re.compile('(^\d+\.\d+$)|(^\d+$)')
 
     if string in to_skip:
-        return []
+        raise StopIteration
 
     # for each word
     for word in nltk.tokenize.word_tokenize(string):

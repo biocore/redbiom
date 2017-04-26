@@ -150,7 +150,7 @@ then
     exit 1
 fi
 
-echo "10317.000033804" > exp_metadata_full.txt
-echo "10317.000001378" >> exp_metadata_full.txt
-redbiom search metadata-full "antibiotics where age < 25" > obs_metadata_full.txt
-md5test obs_metadata_full.txt exp_metadata_full.txt
+#echo "10317.000033804" > exp_metadata_full.txt
+#echo "10317.000001378" >> exp_metadata_full.txt
+#redbiom search metadata-full "antibiotics where age < 25" > obs_metadata_full.txt
+#md5test obs_metadata_full.txt exp_metadata_full.txt
