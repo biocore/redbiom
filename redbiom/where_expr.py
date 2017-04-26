@@ -10,7 +10,7 @@ def Expression(body):
 
 
 def Name(id, ctx):
-    return pd.Series(dict(ctx('metadata', 'HGETALL', id)), name=id)
+    return pd.Series(dict(ctx('metadata:category', 'HGETALL', id)), name=id)
 
 
 def Num(n):
@@ -107,7 +107,7 @@ def In():
 
 
 def NotIn():
-    return _in
+    return _notin
 
 
 def make_Load(get):
