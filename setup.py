@@ -9,7 +9,8 @@
 # ----------------------------------------------------------------------------
 
 from setuptools import setup, find_packages
-from setuptools.command.install import install, develop
+from setuptools.command.install import install
+from setuptools.command.develop import develop
 
 # based on http://stackoverflow.com/a/36902139
 
