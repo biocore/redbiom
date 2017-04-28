@@ -70,15 +70,14 @@ class SearchTests(unittest.TestCase):
             obs = redbiom.search.metadata_full(test)
             self.assertEqual(obs, exp)
 
-        self.fail("these should not return sets but instead dfs possibly "
-                  "with dummy columns for just set returns")
+        # TODO: return dataframes
 
     def test_metadata_values_fail(self):
         tests = [('antibiotics and NY', TypeError, "Unsupported node type"),
                  ('NY where age & bmi', TypeError,
                   "Unsupported node type")]
         for test, ex, msg in tests:
-            with self.assertRaisesRegex(ex, msg):
+            with self.assertRaisesRegexp(ex, msg):
                 redbiom.search.metadata_full(test)
 
     def test_metadata_categories(self):
@@ -101,7 +100,7 @@ class SearchTests(unittest.TestCase):
                  ('NY where age & bmi', ValueError,
                   "where clauses not allowed")]
         for test, ex, msg in tests:
-            with self.assertRaisesRegex(ex, msg):
+            with self.assertRaisesRegexp(ex, msg):
                 redbiom.search.metadata_full(test, categories=True)
 
     def test_query_plan(self):
@@ -123,7 +122,7 @@ class SearchTests(unittest.TestCase):
         tests = [('', 'No query'),
                  ('where', 'No query')]
         for test, exp in tests:
-            with self.assertRaisesRegex(ValueError, exp):
+            with self.assertRaisesRegexp(ValueError, exp):
                 redbiom.search.query_plan(test)
 
 

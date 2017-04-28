@@ -1,5 +1,4 @@
 import unittest
-import json
 
 import pandas as pd
 import biom
@@ -158,7 +157,6 @@ class AdminTests(unittest.TestCase):
         for test, exp in tests:
             obs = set(self.get('metadata:category-search', 'SMEMBERS', test))
             self.assertEqual(obs, exp)
-
 
 
 if __name__ == '__main__':
