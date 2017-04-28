@@ -46,6 +46,7 @@ def search_observations(from_, exact, context, observations):
               help="The WHERE clause to apply")
 def search_metadata(restrict_to, where):
     """Find samples by metadata"""
+    # TODO: deprecate
     import redbiom.fetch
 
     if restrict_to is not None:
@@ -53,4 +54,14 @@ def search_metadata(restrict_to, where):
 
     ids = redbiom.fetch.metadata(where=where, restrict_to=restrict_to)
     for i in ids:
+        click.echo(i)
+
+
+@search.command(name='metadata-full')
+@click.option('--categories', is_flag=True, required=False, default=False,
+              help="Search for metadata categories instead of metadata values")
+@click.argument('query', nargs=1)
+def search_metadata_full(query, categories):
+    import redbiom.search
+    for i in redbiom.search.metadata_full(query, categories):
         click.echo(i)
