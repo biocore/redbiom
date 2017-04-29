@@ -72,8 +72,8 @@ class SummarizeTests(unittest.TestCase):
                                     'SamplesWithObservations', 'Description'])
 
         obs = contexts()
-        obs = obs.sort_values('ContextName').reindex()
-        exp = exp.sort_values('ContextName').reindex()
+        obs = obs.sort_values('ContextName').set_index('ContextName')
+        exp = exp.sort_values('ContextName').set_index('ContextName')
         pdt.assert_frame_equal(obs, exp)
 
     def test_summarize_contexts_partial_load(self):
