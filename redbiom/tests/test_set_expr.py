@@ -25,8 +25,7 @@ class SetTests(unittest.TestCase):
     def test_eval_danger(self):
         tests = ["print('hi')",
                  "",
-                 "import sys",
-                 "None"]
+                 "import sys"]
         for test in tests:
             # both syntax and type can arise, and the critical thing is we just
             # dont want stupid code run
