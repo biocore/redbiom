@@ -119,8 +119,6 @@ def summarize_table(category, context, output, threads, verbosity, table):
     with joblib.parallel.Parallel(n_jobs=threads, verbose=verbosity) as par:
         mappings = par(joblib.delayed(_summarize_id)(context, category, id)
                        for id in table.ids(axis='observation'))
-    #mappings = [_summarize_id(context, category, id)
-    #            for id in table.ids(axis='observation')]
 
     import pandas as pd
     df = pd.DataFrame(mappings)
@@ -152,7 +150,7 @@ def summarize_observations(from_, category, exact, context,
 
     import redbiom.summarize
     md = redbiom.summarize.category_from_observations(context, category,
-                                                      terable, exact)
+                                                      iterable, exact)
 
     cat_stats = md.value_counts()
     for val, count in zip(cat_stats.index, cat_stats.values):
