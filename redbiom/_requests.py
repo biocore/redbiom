@@ -16,12 +16,11 @@ def _format_request(context, command, other):
 
 def get_session():
     import redbiom
-    if redbiom.active_session is None:
-        import requests
-        redbiom.active_session = requests.Session()
-        redbiom.active_session.auth = redbiom.get_config()['auth']
+    import requests
+    session = requests.Session()
+    redbiom.active_sessions.append(session)
 
-    return redbiom.active_session
+    return session
 
 
 def make_post(config):

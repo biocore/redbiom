@@ -96,14 +96,16 @@ def _summarize_id(context, category, id):
 @click.option('--context', required=True, type=str)
 @click.option('--output', required=False, type=click.Path(exists=False),
               default=None)
+@click.option('--threads', type=int, default=1)
 @click.option('--verbosity', type=int, default=0)
 @click.option('--table', type=click.Path(exists=True), required=True)
-def summarize_table(category, context, output, verbosity, table):
+def summarize_table(category, context, output, threads, verbosity, table):
     """Summarize all observations in a BIOM table.
 
     This command will assess, per observation, the number of samples that
     observation is found in relative to the metadata category specified.
     """
+
     import redbiom.util
     if not redbiom.util.category_exists(category):
         import sys
@@ -113,8 +115,12 @@ def summarize_table(category, context, output, verbosity, table):
     import biom
     table = biom.load_table(table)
 
-    mappings = [_summarize_id(context, category, id)
-                for id in table.ids(axis='observation')]
+    import joblib
+    with joblib.parallel.Parallel(n_jobs=threads, verbose=verbosity) as par:
+        mappings = par(joblib.delayed(_summarize_id)(context, category, id)
+                       for id in table.ids(axis='observation'))
+    #mappings = [_summarize_id(context, category, id)
+    #            for id in table.ids(axis='observation')]
 
     import pandas as pd
     df = pd.DataFrame(mappings)
@@ -146,7 +152,7 @@ def summarize_observations(from_, category, exact, context,
 
     import redbiom.summarize
     md = redbiom.summarize.category_from_observations(context, category,
-                                                      iterable, exact)
+                                                      terable, exact)
 
     cat_stats = md.value_counts()
     for val, count in zip(cat_stats.index, cat_stats.values):

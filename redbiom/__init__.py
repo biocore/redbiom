@@ -15,28 +15,21 @@ import atexit
 
 __version__ = '2017.0.1.dev0'
 
-active_session = None
+active_sessions = []
 
 
-def _close_session():
+def _close_sessions():
     # be polite
-    if active_session is not None:
-        active_session.close()
+    for session in active_sessions:
+        session.close()
 
 
-atexit.register(_close_session)
+atexit.register(_close_sessions)
 
 
 def get_config():
     """Deal with all the configy bits"""
     import os
-    import requests.auth
-    user = os.environ.get('SEQUENCE_SEARCH_USER')
-    password = os.environ.get('SEQUENCE_SEARCH_PASSWORD')
-    hostname = os.environ.get('SEQUENCE_SEARCH_HOST', 'http://127.0.0.1:7379')
+    hostname = os.environ.get('REDBIOM_HOST', 'http://127.0.0.1:7379')
 
-    if user is None:
-        auth = None
-    else:
-        auth = requests.auth(user, password)
-    return {'auth': auth, 'hostname': hostname}
+    return {'hostname': hostname}
