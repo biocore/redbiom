@@ -1,4 +1,4 @@
-def metadata_full(query, categories=False):
+def metadata_full(query, categories=False, get=None):
     """Find samples or categories
 
     Parameters
@@ -7,6 +7,8 @@ def metadata_full(query, categories=False):
         The query to execute
     categories : boolean, optional
         Whether to search for categories (True) or samples (False, default).
+    get : function
+        A getter
 
     Raises
     ------
@@ -26,8 +28,9 @@ def metadata_full(query, categories=False):
     import redbiom._requests
     import redbiom.util
 
-    config = redbiom.get_config()
-    get = redbiom._requests.make_get(config)
+    if get is None:
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
 
     if categories:
         target = 'category-search'

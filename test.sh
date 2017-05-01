@@ -87,7 +87,7 @@ md5test obs_summarize.txt exp_summarize.txt
 echo "10317.000047188.UNTAGGED"  > exp_summarize.txt
 echo "10317.000033804.UNTAGGED" >> exp_summarize.txt
 
-redbiom search observations --exact --context test TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT | redbiom select samples-from-metadata --context test --where "SIMPLE_BODY_SITE IN ('FECAL', 'SKIN')" > obs_summarize.txt
+redbiom search observations --exact --context test TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT | redbiom select samples-from-metadata --context test "where SIMPLE_BODY_SITE in ('FECAL', 'SKIN')" > obs_summarize.txt
 md5test obs_summarize.txt exp_summarize.txt
 
 # round trip the sample data
@@ -127,7 +127,7 @@ echo "SKIN	1" > exp_anewid.txt
 redbiom summarize samples --category SIMPLE_BODY_SITE anewID | grep SKIN > obs_anewid.txt
 md5test obs_anewid.txt exp_anewid.txt
 
-redbiom search metadata --restrict-to AGE_YEARS --where "CAST(AGE_YEARS AS FLOAT) > 40" | redbiom fetch samples --context test --output metadata_search_test.biom
+redbiom search metadata "where AGE_YEARS > 40" | redbiom fetch samples --context test --output metadata_search_test.biom
 echo "Num samples: 2" > exp_metadata_search.txt
 echo "Num observations: 427" >> exp_metadata_search.txt
 echo "Total count: 21780" >> exp_metadata_search.txt
@@ -152,5 +152,5 @@ fi
 
 echo "10317.000033804" > exp_metadata_full.txt
 echo "10317.000001378" >> exp_metadata_full.txt
-redbiom search metadata-full "antibiotics where AGE_YEARS < 25" > obs_metadata_full.txt
+redbiom search metadata "antibiotics where AGE_YEARS < 25" > obs_metadata_full.txt
 md5test obs_metadata_full.txt exp_metadata_full.txt

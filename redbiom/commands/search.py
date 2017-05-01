@@ -35,33 +35,10 @@ def search_observations(from_, exact, context, observations):
 
 
 @search.command(name='metadata')
-@click.option('--restrict-to', required=True, type=str,
-              help="A comma separated list of categories to restrict the "
-                   "retrieval of metadata too. This is strictly done in order "
-                   "to limit the expense of obtaining all of the metadata in "
-                   "common for the samples under investigation. It is assumed "
-                   "that the WHERE clause is applicable to the columns in the "
-                   "restricted set.")
-@click.option('--where', required=True, type=str,
-              help="The WHERE clause to apply")
-def search_metadata(restrict_to, where):
-    """Find samples by metadata"""
-    # TODO: deprecate
-    import redbiom.fetch
-
-    if restrict_to is not None:
-        restrict_to = restrict_to.split(',')
-
-    ids = redbiom.fetch.metadata(where=where, restrict_to=restrict_to)
-    for i in ids:
-        click.echo(i)
-
-
-@search.command(name='metadata-full')
 @click.option('--categories', is_flag=True, required=False, default=False,
               help="Search for metadata categories instead of metadata values")
 @click.argument('query', nargs=1)
-def search_metadata_full(query, categories):
+def search_metadata(query, categories):
     import redbiom.search
     for i in redbiom.search.metadata_full(query, categories):
         click.echo(i)

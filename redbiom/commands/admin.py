@@ -84,7 +84,6 @@ def load_sample_metadata(metadata):
               help="The filepath to the sample metadata to load.")
 def load_sample_metadata_search(metadata):
     """Load sample metadata."""
-    # TODO: merge with load_sample_metadata
     import redbiom.admin
     import pandas as pd
     metadata = pd.read_csv(metadata, sep='\t', dtype=str,

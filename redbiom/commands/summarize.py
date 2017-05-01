@@ -82,8 +82,9 @@ def summarize_metadata(descending):
 
 def _summarize_id(context, category, id):
     """Summarize the ID over the category"""
-    from redbiom.summarize import category_from_observations
-    res = category_from_observations(context, category, [id], False)
+    import redbiom.summarize
+    res = redbiom.summarize.category_from_observations(context, category,
+                                                       [id], False)
     res = res.value_counts()
     counts = {i: c for i, c in zip(res.index, res)}
     counts['feature'] = id
@@ -95,32 +96,25 @@ def _summarize_id(context, category, id):
 @click.option('--context', required=True, type=str)
 @click.option('--output', required=False, type=click.Path(exists=False),
               default=None)
-@click.option('--threads', type=int, default=1)
 @click.option('--verbosity', type=int, default=0)
 @click.option('--table', type=click.Path(exists=True), required=True)
-def summarize_table(category, context, output, threads, verbosity, table):
+def summarize_table(category, context, output, verbosity, table):
     """Summarize all observations in a BIOM table.
 
     This command will assess, per observation, the number of samples that
     observation is found in relative to the metadata category specified.
     """
-    if threads == 1:
-        # TODO: requests.Session is apparently not threadsafe. Basically,
-        # if we just use this as is, with threads, it vomits horribly.
-        # But if you block the ability to spawn a session, it works.
-        import redbiom.util
-        if not redbiom.util.category_exists(category):
-            import sys
-            click.echo("%s is not found" % category, err=True)
-            sys.exit(1)
+    import redbiom.util
+    if not redbiom.util.category_exists(category):
+        import sys
+        click.echo("%s is not found" % category, err=True)
+        sys.exit(1)
 
     import biom
     table = biom.load_table(table)
 
-    import joblib
-    with joblib.parallel.Parallel(n_jobs=threads, verbose=verbosity) as par:
-        mappings = par(joblib.delayed(_summarize_id)(context, category, id)
-                       for id in table.ids(axis='observation'))
+    mappings = [_summarize_id(context, category, id)
+                for id in table.ids(axis='observation')]
 
     import pandas as pd
     df = pd.DataFrame(mappings)
@@ -133,6 +127,7 @@ def summarize_table(category, context, output, threads, verbosity, table):
     else:
         with open(output, 'w') as fp:
             fp.write(tsv)
+    # TODO: should this output BIOM? It is a feature table.
 
 
 @summarize.command(name='observations')

@@ -15,33 +15,25 @@ def select():
               default=None)
 @click.option('--context', required=False, type=str, default=None,
               help="The context to search within.")
-@click.option('--restrict-to', required=False, type=str, default=None,
-              help="A comma separated list of categories to restrict the "
-                   "retrieval of metadata too. This is strictly done in order "
-                   "to limit the expense of obtaining all of the metadata in "
-                   "common for the samples under investigation. If this "
-                   "option is used, it is assumed that the WHERE clause is "
-                   "applicable to the columns in the restricted set.")
-@click.option('--where', required=True, type=str,
-              help="The WHERE clause to apply")
+@click.argument('query', nargs=1)
 @click.argument('samples', nargs=-1)
-def select_samples_from_metadata(from_, restrict_to, context, where, samples):
+def select_samples_from_metadata(from_, context, query, samples):
     """Given samples, select based on metadata"""
     import redbiom.util
+    import redbiom.search
+
+    import redbiom
+    import redbiom._requests
+    config = redbiom.get_config()
+    get = redbiom._requests.make_get(config)
+
     iterator = redbiom.util.from_or_nargs(from_, samples)
 
-    import redbiom.fetch
+    _, _, ambig, rids = redbiom.util.resolve_ambiguities(context, iterator,
+                                                         get)
 
-    if restrict_to is not None:
-        restrict_to = restrict_to.split(',')
+    full_search = redbiom.search.metadata_full(query)
 
-    md, map_ = redbiom.fetch.sample_metadata(iterator, context=context,
-                                             restrict_to=restrict_to,
-                                             common=False)
-
-    import redbiom.metadata
-    md = redbiom.metadata.Metadata(md.set_index('#SampleID'))
-
-    ids = md.ids(where=where)
-    for i in ids:
-        click.echo(i)
+    for i in (full_search & set(ambig)):
+        for rid in ambig[i]:  # get unambiguous redbiom id
+            click.echo(rids[rid])  # get qiime compatible id
