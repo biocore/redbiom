@@ -370,7 +370,6 @@ def metadata(where=None, tag=None, restrict_to=None):
     import pandas as pd
     import redbiom
     import redbiom._requests
-    import redbiom.metadata
 
     if restrict_to is None:
         raise ValueError("restrict_to must be set")
