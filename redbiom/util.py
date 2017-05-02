@@ -275,7 +275,7 @@ def stems(string):
     to_skip.update(NULL_VALUES)
 
     # match numbers (doesn't catch sci notation...)
-    numeric_regex = re.compile('(^\d+\.\d+$)|(^\d+$)')
+    numeric_regex = re.compile('(^-?\d+\.\d+$)|(^-?\d+$)')
 
     if string in to_skip:
         raise StopIteration
