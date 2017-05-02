@@ -270,6 +270,7 @@ class UtilTests(unittest.TestCase):
                  ("ab cd", ['ab', 'cd']),
                  ("-1.23 1.23 foo", ['foo']),
                  ("-123 foo 123", ['foo']),
+                 ("8:12 12:34am foo", ['foo']),
                  ("ab. foo, then bar", ['ab', 'foo', 'bar']),
                  ("crying infants", ["cry", "infant"]),
                  ("drop 12 all 3.45 the 0.123 numbers", ['drop', 'number'])]

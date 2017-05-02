@@ -277,6 +277,10 @@ def stems(string):
     # match numbers (doesn't catch sci notation...)
     numeric_regex = re.compile('(^-?\d+\.\d+$)|(^-?\d+$)')
 
+    # time like. we don't actually care if this doesn't match time
+    # as things like 1234:23123 are probably not useful for *general* search
+    time_regex = re.compile("^\d+:\d+(am|AM|pm|PM)?$")
+
     if string in to_skip:
         raise StopIteration
 
@@ -289,5 +293,10 @@ def stems(string):
             # / is reserved as it's part of a URL
             continue
 
-        if numeric_regex.match(word) is None:
-            yield p.stem(word).lower()
+        if numeric_regex.match(word) is not None:
+            continue
+
+        if time_regex.match(word) is not None:
+            continue
+
+        yield p.stem(word).lower()
