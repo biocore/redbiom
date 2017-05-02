@@ -264,6 +264,9 @@ class UtilTests(unittest.TestCase):
         self.assertEqual(obs, exp)
 
     def test_stems(self):
+        import nltk
+        stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
+        stops = frozenset(nltk.corpus.stopwords.words('english'))
         tests = [("foo bar", ['foo', 'bar']),
                  ("foo $1.23 is the bar", ['foo', 'bar']),
                  ("a b c d", []),  # assume single char stems are useless
@@ -275,7 +278,7 @@ class UtilTests(unittest.TestCase):
                  ("crying infants", ["cry", "infant"]),
                  ("drop 12 all 3.45 the 0.123 numbers", ['drop', 'number'])]
         for test, exp in tests:
-            obs = list(stems(test))
+            obs = list(stems(test, stops, stemmer))
             self.assertEqual(obs, exp)
 
 

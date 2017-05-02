@@ -253,24 +253,26 @@ def df_to_stems(df):
         {stem: {set of indices}}
     """
     from collections import defaultdict
-
+    import nltk
+    stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
+    stops = frozenset(nltk.corpus.stopwords.words('english'))
     d = defaultdict(set)
+
     for sample, row in df.iterrows():
         for value in row.values:
-            for stem in stems(value):
+            for stem in stems(value, stops, stemmer):
                 d[stem].add(sample)
 
     return dict(d)
 
 
-def stems(string):
+def stems(string, stops, stemmer):
     """Gather stems from string"""
     import re
     import nltk
     # not using nltk default as we want this to be portable so that, for
     # instance, a javascript library can query
-    p = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
-    stops = set(nltk.corpus.stopwords.words('english'))
+
     to_skip = set('()!@#$%^&*-+=|{}[]<>./?;:')
     to_skip.update(NULL_VALUES)
 
@@ -300,6 +302,6 @@ def stems(string):
             continue
 
         try:
-            yield p.stem(word).lower()
+            yield stemmer.stem(word).lower()
         except:
             continue
