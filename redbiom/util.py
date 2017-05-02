@@ -299,4 +299,7 @@ def stems(string):
         if time_regex.match(word) is not None:
             continue
 
-        yield p.stem(word).lower()
+        try:
+            yield p.stem(word).lower()
+        except:
+            continue
