@@ -15,12 +15,12 @@ import atexit
 
 __version__ = '2017.0.1.dev0'
 
-active_sessions = []
+active_sessions = {}
 
 
 def _close_sessions():
     # be polite
-    for session in active_sessions:
+    for _, session in active_sessions.items():
         session.close()
 
 

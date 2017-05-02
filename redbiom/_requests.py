@@ -17,10 +17,13 @@ def _format_request(context, command, other):
 def get_session():
     import redbiom
     import requests
-    session = requests.Session()
-    redbiom.active_sessions.append(session)
+    import os
 
-    return session
+    pid = os.getpid()
+    if pid not in redbiom.active_sessions:
+        redbiom.active_sessions[pid] = requests.Session()
+
+    return redbiom.active_sessions[pid]
 
 
 def make_post(config):
