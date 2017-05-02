@@ -27,6 +27,8 @@ def metadata_full(query, categories=False, get=None):
     import redbiom.where_expr
     import redbiom._requests
     import redbiom.util
+    import functools
+    import nltk
 
     if get is None:
         config = redbiom.get_config()
@@ -37,13 +39,16 @@ def metadata_full(query, categories=False, get=None):
     else:
         target = 'text-search'
 
+    stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
+    stops = frozenset(nltk.corpus.stopwords.words('english'))
+    stem_f = functools.partial(redbiom.util.stems, stops, stemmer)
+
     samples = set()
-    stemmer = redbiom.util.stems
     for plan_type, q in query_plan(query):
         if plan_type == 'set':
             samples.update(redbiom.set_expr.seteval(q, get=get,
                                                     target=target,
-                                                    stemmer=stemmer))
+                                                    stemmer=stem_f))
         elif plan_type == 'where':
             if categories:
                 raise ValueError("where clauses not allowed with a category "

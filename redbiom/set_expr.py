@@ -44,7 +44,7 @@ def BinOp(left, op, right):
     return op(left, right)
 
 
-def passthrough(s):
+def passthrough(s, *args, **kwargs):
     yield s
 
 

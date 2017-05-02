@@ -253,20 +253,23 @@ def df_to_stems(df):
         {stem: {set of indices}}
     """
     from collections import defaultdict
+    import functools
     import nltk
     stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
     stops = frozenset(nltk.corpus.stopwords.words('english'))
+    stem_f = functools.partial(stems, stops, stemmer)
+
     d = defaultdict(set)
 
     for sample, row in df.iterrows():
         for value in row.values:
-            for stem in stems(value, stops, stemmer):
+            for stem in stem_f(value):
                 d[stem].add(sample)
 
     return dict(d)
 
 
-def stems(string, stops, stemmer):
+def stems(stops, stemmer, string):
     """Gather stems from string"""
     import re
     import nltk

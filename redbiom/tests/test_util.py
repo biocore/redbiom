@@ -278,7 +278,7 @@ class UtilTests(unittest.TestCase):
                  ("crying infants", ["cry", "infant"]),
                  ("drop 12 all 3.45 the 0.123 numbers", ['drop', 'number'])]
         for test, exp in tests:
-            obs = list(stems(test, stops, stemmer))
+            obs = list(stems(stops, stemmer, test))
             self.assertEqual(obs, exp)
 
 
