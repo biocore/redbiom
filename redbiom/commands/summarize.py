@@ -70,10 +70,15 @@ def summarize_metadata_category(category, counter, descending, dump,
 @summarize.command(name='metadata')
 @click.option('--descending', is_flag=True, required=False, default=False,
               help="If true, sort in descending order")
-def summarize_metadata(descending):
+@click.argument('categories', nargs=-1)
+def summarize_metadata(descending, categories):
     """Get the known metadata categories and associated sample counts"""
     import redbiom.fetch
-    md = redbiom.fetch.sample_counts_per_category()
+
+    if not categories:
+        categories = None
+
+    md = redbiom.fetch.sample_counts_per_category(categories)
     md = md.sort_values(ascending=not descending)
 
     for idx, val in zip(md.index, md):

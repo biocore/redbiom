@@ -7,7 +7,8 @@ import pandas.util.testing as pdt
 
 import redbiom.admin
 import redbiom.fetch
-from redbiom.fetch import _biom_from_samples, sample_metadata
+from redbiom.fetch import (_biom_from_samples, sample_metadata,
+                           sample_counts_per_category)
 
 
 table = biom.load_table('test.biom')
@@ -130,6 +131,24 @@ class FetchTests(unittest.TestCase):
         redbiom.admin.load_sample_metadata(metadata)
         with self.assertRaises(KeyError):
             sample_metadata(table.ids(), restrict_to=['BMI', 'foo'])
+
+    def test_sample_counts_per_category(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        obs = redbiom.fetch.sample_counts_per_category()
+        self.assertEqual(len(obs), 525)
+        self.assertEqual(obs['LATITUDE'], 10)
+
+    def test_sample_counts_per_category_specific(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        obs = redbiom.fetch.sample_counts_per_category(['LATITUDE'])
+        self.assertEqual(len(obs), 1)
+        self.assertEqual(obs['LATITUDE'], 10)
+
+        obs = redbiom.fetch.sample_counts_per_category(['LATITUDE',
+                                                        'LONGITUDE'])
+        self.assertEqual(len(obs), 2)
+        self.assertEqual(obs['LATITUDE'], 10)
+        self.assertEqual(obs['LONGITUDE'], 10)
 
 
 if __name__ == '__main__':

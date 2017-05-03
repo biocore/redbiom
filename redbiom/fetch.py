@@ -306,8 +306,14 @@ def category_sample_values(category, samples=None):
     return pd.Series(data=data, index=index)
 
 
-def sample_counts_per_category():
+def sample_counts_per_category(categories=None):
     """Get the number of samples with usable metadata per category
+
+    Paramaters
+    ----------
+    categories : list of str, optional
+        The specific categories to summarize. If None, then summarize
+        all of the categories in the database.
 
     Returns
     -------
@@ -326,7 +332,9 @@ def sample_counts_per_category():
 
     get = redbiom._requests.make_get(redbiom.get_config())
 
-    categories = list(get('metadata', 'SMEMBERS', 'categories-represented'))
+    if categories is None:
+        categories = list(get('metadata', 'SMEMBERS',
+                          'categories-represented'))
     results = []
     for category in categories:
         key = 'category:%s' % category
