@@ -207,8 +207,6 @@ def resolve_ambiguities(context, samples, get):
 
 def _stable_ids_from_ambig(ambig_map):
     """Create stable IDs from an ambiguity map"""
-    from collections import defaultdict
-
     # {qiimeid: stableid}
     ambig_assoc = {}
 
