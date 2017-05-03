@@ -29,11 +29,10 @@ def select_samples_from_metadata(from_, context, query, samples):
 
     iterator = redbiom.util.from_or_nargs(from_, samples)
 
-    _, _, ambig, rids = redbiom.util.resolve_ambiguities(context, iterator,
-                                                         get)
+    _, _, ambig, _ = redbiom.util.resolve_ambiguities(context, iterator, get)
 
     full_search = redbiom.search.metadata_full(query)
 
     for i in (full_search & set(ambig)):
         for rid in ambig[i]:  # get unambiguous redbiom id
-            click.echo(rids[rid])  # get qiime compatible id
+            click.echo(rid)
