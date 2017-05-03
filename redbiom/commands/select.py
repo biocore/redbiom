@@ -13,7 +13,7 @@ def select():
 @click.option('--from', 'from_', type=click.File('r'), required=False,
               help='A file or stdin which provides samples to search for',
               default=None)
-@click.option('--context', required=False, type=str, default=None,
+@click.option('--context', required=True, type=str, default=None,
               help="The context to search within.")
 @click.argument('query', nargs=1)
 @click.argument('samples', nargs=-1)
