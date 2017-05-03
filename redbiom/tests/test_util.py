@@ -221,6 +221,37 @@ class UtilTests(unittest.TestCase):
                          {k: set(v) for k, v in exp_ambiguous.items()})
         self.assertEqual(obs_ri, exp_ri)
 
+    def test_resolve_ambiguities_ambigbug(self):
+        import redbiom._requests
+        import redbiom
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+        redbiom.admin.create_context('test', 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, 'test', tag='fromtest')
+        redbiom.admin.load_sample_metadata(metadata_with_alt)
+        redbiom.admin.load_sample_data(table_with_alt, 'test',
+                                       tag='fromalt')
+
+        samples = {'fromtest_10317.000005080', 'fromalt_10317.000005080'}
+        exp_stable = {'10317.000005080.fromtest': 'fromtest_10317.000005080',
+                      '10317.000005080.fromalt': 'fromalt_10317.000005080'}
+        exp_unobserved = []
+        exp_ambiguous = {'10317.000005080': ['fromtest_10317.000005080',
+                                             'fromalt_10317.000005080']}
+        exp_ri = {'fromtest_10317.000005080': '10317.000005080.fromtest',
+                  'fromalt_10317.000005080': '10317.000005080.fromalt'}
+
+        obs_stable, obs_unobserved, obs_ambiguous, obs_ri = \
+            resolve_ambiguities('test', samples, get)
+
+        self.assertEqual(obs_stable, exp_stable)
+        self.assertEqual(obs_unobserved, exp_unobserved)
+        self.assertEqual({k: set(v) for k, v in obs_ambiguous.items()},
+                         {k: set(v) for k, v in exp_ambiguous.items()})
+        self.assertEqual(obs_ri, exp_ri)
+
     def test_stable_ids_from_ambig(self):
         exp_stable = {'foo.bar': 'foo',
                       'foo.baz': 'foo'}

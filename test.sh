@@ -44,6 +44,13 @@ python -c "import biom; t = biom.load_table('pipetest.biom'); exp = biom.load_ta
 redbiom fetch samples --context test --output cmdlinetest.biom 10317.000033804 10317.000047188 10317.000046868
 python -c "import biom; t = biom.load_table('cmdlinetest.biom'); assert sorted(t.ids()) == ['10317.000033804.UNTAGGED', '10317.000046868.UNTAGGED', '10317.000047188.UNTAGGED']"
 
+# we do _NOT_ expect the qiime compatible ID "10317.000046868.UNTAGGED" to work.
+# this is because we cannot safely convert it into a redbiom ID as we cannot
+# assume it is safe to rsplit('.', 1) on it as "." is a valid sample ID 
+# character
+redbiom fetch samples --context test --output cmdlinetest.biom 10317.000033804 UNTAGGED_10317.000047188
+python -c "import biom; t = biom.load_table('cmdlinetest.biom'); assert sorted(t.ids()) == ['10317.000033804.UNTAGGED', '10317.000047188.UNTAGGED']"
+
 # fetch data via sample and via pipe
 cat exp_test_query_results.txt | redbiom fetch samples --context test --output pipetest.biom --from -
 python -c "import biom; t = biom.load_table('pipetest.biom'); assert sorted(t.ids()) == ['10317.000033804.UNTAGGED', '10317.000046868.UNTAGGED', '10317.000047188.UNTAGGED']"
@@ -84,8 +91,8 @@ redbiom summarize observations --exact --context test --category SIMPLE_BODY_SIT
 md5test obs_summarize.txt exp_summarize.txt
 
 # pull out a selection of the summarized samples
-echo "10317.000047188.UNTAGGED"  > exp_summarize.txt
-echo "10317.000033804.UNTAGGED" >> exp_summarize.txt
+echo "UNTAGGED_10317.000047188"  > exp_summarize.txt
+echo "UNTAGGED_10317.000033804" >> exp_summarize.txt
 
 redbiom search observations --exact --context test TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT | redbiom select samples-from-metadata --context test "where SIMPLE_BODY_SITE in ('FECAL', 'SKIN')" > obs_summarize.txt
 md5test obs_summarize.txt exp_summarize.txt
