@@ -192,7 +192,9 @@ def resolve_ambiguities(context, samples, get):
     for t, tc in zip(tagged, tagged_clean):
         if t in ctx_known_stable:
             unambiguous.append(t)
-            known_ambiguous[tc] = [t]
+            if tc not in known_ambiguous:
+                known_ambiguous[tc] = []
+            known_ambiguous[tc].append(t)
         else:
             unobserved.append(t)
 
@@ -207,8 +209,8 @@ def _stable_ids_from_ambig(ambig_map):
     """Create stable IDs from an ambiguity map"""
     from collections import defaultdict
 
-    # {sampleid: [stableid]}
-    ambig_assoc = defaultdict(list)
+    # {qiimeid: stableid}
+    ambig_assoc = {}
 
     # {rid: sampleid}
     ri = {}
@@ -225,7 +227,7 @@ def _stable_ids_from_ambig(ambig_map):
 
 def _stable_ids_from_unambig(unambig):
     """Create stable IDs from an unambiguous IDs"""
-    # {sampleid: [stableid]}
+    # {qiimeid: stableid}
     assoc = {}
 
     # {rid: sampleid}
