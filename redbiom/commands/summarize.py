@@ -15,10 +15,16 @@ def summarize_caches():
     import redbiom.summarize
     contexts = redbiom.summarize.contexts()
 
-    if contexts:
-        click.echo("Name\tDescription\n")
-        for name, desc in sorted(contexts.items()):
-            click.echo("%s\t%s" % (name, desc))
+    if len(contexts):
+        import sys
+        import io
+        if sys.version_info[0] < 3:
+            out = io.BytesIO()
+        else:
+            out = io.StringIO()
+        contexts.to_csv(out, sep='\t', header=True, index=False)
+        out.seek(0)
+        click.echo(out.read())
     else:
         click.echo("No available contexts")
 
@@ -64,27 +70,84 @@ def summarize_metadata_category(category, counter, descending, dump,
 @summarize.command(name='metadata')
 @click.option('--descending', is_flag=True, required=False, default=False,
               help="If true, sort in descending order")
-def summarize_metadata(descending):
+@click.argument('categories', nargs=-1)
+def summarize_metadata(descending, categories):
     """Get the known metadata categories and associated sample counts"""
     import redbiom.fetch
-    md = redbiom.fetch.sample_counts_per_category()
+
+    if not categories:
+        categories = None
+
+    md = redbiom.fetch.sample_counts_per_category(categories)
     md = md.sort_values(ascending=not descending)
 
     for idx, val in zip(md.index, md):
         click.echo("%s\t%s" % (idx, val))
 
 
+def _summarize_id(context, category, id):
+    """Summarize the ID over the category"""
+    import redbiom.summarize
+    res = redbiom.summarize.category_from_observations(context, category,
+                                                       [id], False)
+    res = res.value_counts()
+    counts = {i: c for i, c in zip(res.index, res)}
+    counts['feature'] = id
+    return counts
+
+
+@summarize.command(name='table')
+@click.option('--category', type=str, required=True)
+@click.option('--context', required=True, type=str)
+@click.option('--output', required=False, type=click.Path(exists=False),
+              default=None)
+@click.option('--threads', type=int, default=1)
+@click.option('--verbosity', type=int, default=0)
+@click.option('--table', type=click.Path(exists=True), required=True)
+def summarize_table(category, context, output, threads, verbosity, table):
+    """Summarize all observations in a BIOM table.
+
+    This command will assess, per observation, the number of samples that
+    observation is found in relative to the metadata category specified.
+    """
+
+    import redbiom.util
+    if not redbiom.util.category_exists(category):
+        import sys
+        click.echo("%s is not found" % category, err=True)
+        sys.exit(1)
+
+    import biom
+    table = biom.load_table(table)
+
+    import joblib
+    with joblib.parallel.Parallel(n_jobs=threads, verbose=verbosity) as par:
+        mappings = par(joblib.delayed(_summarize_id)(context, category, id)
+                       for id in table.ids(axis='observation'))
+
+    import pandas as pd
+    df = pd.DataFrame(mappings)
+    df.set_index('feature', inplace=True)
+    df[df.isnull()] = 0
+
+    tsv = df.to_csv(None, sep='\t', header=True, index=True)
+    if output is None:
+        click.echo(tsv)
+    else:
+        with open(output, 'w') as fp:
+            fp.write(tsv)
+    # TODO: should this output BIOM? It is a feature table.
+
+
 @summarize.command(name='observations')
 @click.option('--from', 'from_', type=click.File('r'), required=False,
               default=None)
 @click.option('--category', type=str, required=True)
-@click.option('--value', type=str, required=False, default=None,
-              help="Restrict to a specific value; prints the sample IDs")
 @click.option('--exact', is_flag=True, default=False,
               help="All found samples must contain all specified observations")
 @click.option('--context', required=True, type=str)
 @click.argument('observations', nargs=-1)
-def summarize_observations(from_, category, exact, value, context,
+def summarize_observations(from_, category, exact, context,
                            observations):
     """Summarize observations over a metadata category."""
     import redbiom.util
@@ -94,26 +157,18 @@ def summarize_observations(from_, category, exact, value, context,
     md = redbiom.summarize.category_from_observations(context, category,
                                                       iterable, exact)
 
-    if value is None:
-        cat_stats = md.value_counts()
-        for val, count in zip(cat_stats.index, cat_stats.values):
-            click.echo("%s\t%s" % (val, count))
-        click.echo("\n%s\t%s" % ("Total samples", sum(cat_stats.values)))
-    else:
-        import redbiom.select
-        selected = redbiom.select.samples(md, value)
-        for s in selected:
-            click.echo(s)
+    cat_stats = md.value_counts()
+    for val, count in zip(cat_stats.index, cat_stats.values):
+        click.echo("%s\t%s" % (val, count))
+    click.echo("\n%s\t%s" % ("Total samples", sum(cat_stats.values)))
 
 
 @summarize.command(name='samples')
 @click.option('--from', 'from_', type=click.File('r'), required=False,
               default=None)
 @click.option('--category', type=str, required=True)
-@click.option('--value', type=str, required=False, default=None,
-              help="Restrict to a specific value; prints the sample IDs")
 @click.argument('samples', nargs=-1)
-def summarize_samples(from_, category, value, samples):
+def summarize_samples(from_, category, samples):
     """Summarize samples over a metadata category."""
     import redbiom.util
     iterable = redbiom.util.from_or_nargs(from_, samples)
@@ -121,13 +176,7 @@ def summarize_samples(from_, category, value, samples):
     import redbiom.summarize
     md = redbiom.summarize.category_from_samples(category, iterable)
 
-    if value is None:
-        cat_stats = md.value_counts()
-        for val, count in zip(cat_stats.index, cat_stats.values):
-            click.echo("%s\t%s" % (val, count))
-        click.echo("\n%s\t%s" % ("Total samples", sum(cat_stats.values)))
-    else:
-        import redbiom.select
-        selected = redbiom.select.samples(md, value)
-        for s in selected:
-            click.echo(s)
+    cat_stats = md.value_counts()
+    for val, count in zip(cat_stats.index, cat_stats.values):
+        click.echo("%s\t%s" % (val, count))
+    click.echo("\n%s\t%s" % ("Total samples", sum(cat_stats.values)))

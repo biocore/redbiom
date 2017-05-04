@@ -88,7 +88,9 @@ def fetch_samples_from_samples(samples, from_, output, context):
 
 
 def _write_ambig(map_, output):
-    if {len(v) for v in map_.values()} != set([1]):
+    has_ambig = {len(v) for v in map_.values()}
+
+    if has_ambig and has_ambig != set([1]):
         import json
         ambig = {k: v for k, v in map_.items() if len(v) > 1}
         click.echo("%d sample ambiguities observed. Writing ambiguity "

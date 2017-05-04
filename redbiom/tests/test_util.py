@@ -12,7 +12,8 @@ import redbiom.admin
 from redbiom.util import (float_or_nan, from_or_nargs,
                           samples_from_observations, has_sample_metadata,
                           partition_samples_by_tags, resolve_ambiguities,
-                          _stable_ids_from_ambig, _stable_ids_from_unambig)
+                          _stable_ids_from_ambig, _stable_ids_from_unambig,
+                          category_exists, df_to_stems, stems)
 
 
 table = biom.load_table('test.biom')
@@ -27,14 +28,22 @@ class UtilTests(unittest.TestCase):
         req = requests.get(host + '/FLUSHALL')
         assert req.status_code == 200
 
+    def test_category_exists(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        self.assertTrue(category_exists('SIMPLE_BODY_SITE'))
+        self.assertTrue(category_exists('AGE_YEARS'))
+        self.assertFalse(category_exists('age_years'))
+        self.assertFalse(category_exists(''))
+        self.assertFalse(category_exists('foobar'))
+
     def test_float_or_nan(self):
-        import math
+        import numpy as np
 
         self.assertEqual(float_or_nan('123'), 123)
         self.assertEqual(float_or_nan('.123'), 0.123)
-        self.assertIs(float_or_nan('x.123'), math.nan)
+        self.assertIs(float_or_nan('x.123'), np.nan)
         self.assertEqual(float_or_nan('0.123'), 0.123)
-        self.assertIs(float_or_nan(''), math.nan)
+        self.assertIs(float_or_nan(''), np.nan)
 
     def test_from_or_nargs(self):
         with self.assertRaises(SystemExit):
@@ -212,6 +221,37 @@ class UtilTests(unittest.TestCase):
                          {k: set(v) for k, v in exp_ambiguous.items()})
         self.assertEqual(obs_ri, exp_ri)
 
+    def test_resolve_ambiguities_ambigbug(self):
+        import redbiom._requests
+        import redbiom
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+        redbiom.admin.create_context('test', 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, 'test', tag='fromtest')
+        redbiom.admin.load_sample_metadata(metadata_with_alt)
+        redbiom.admin.load_sample_data(table_with_alt, 'test',
+                                       tag='fromalt')
+
+        samples = {'fromtest_10317.000005080', 'fromalt_10317.000005080'}
+        exp_stable = {'10317.000005080.fromtest': 'fromtest_10317.000005080',
+                      '10317.000005080.fromalt': 'fromalt_10317.000005080'}
+        exp_unobserved = []
+        exp_ambiguous = {'10317.000005080': ['fromtest_10317.000005080',
+                                             'fromalt_10317.000005080']}
+        exp_ri = {'fromtest_10317.000005080': '10317.000005080.fromtest',
+                  'fromalt_10317.000005080': '10317.000005080.fromalt'}
+
+        obs_stable, obs_unobserved, obs_ambiguous, obs_ri = \
+            resolve_ambiguities('test', samples, get)
+
+        self.assertEqual(obs_stable, exp_stable)
+        self.assertEqual(obs_unobserved, exp_unobserved)
+        self.assertEqual({k: set(v) for k, v in obs_ambiguous.items()},
+                         {k: set(v) for k, v in exp_ambiguous.items()})
+        self.assertEqual(obs_ri, exp_ri)
+
     def test_stable_ids_from_ambig(self):
         exp_stable = {'foo.bar': 'foo',
                       'foo.baz': 'foo'}
@@ -231,6 +271,46 @@ class UtilTests(unittest.TestCase):
         obs_stable, obs_ri = _stable_ids_from_unambig(data)
         self.assertEqual(obs_stable, exp_stable)
         self.assertEqual(obs_ri, exp_ri)
+
+    def test_df_to_stems(self):
+        df = pd.DataFrame([('A', 'the lazy fox', '10', '1/2/3', 'infants are'),
+                           ('B', 'quickly', '11', '2/3/4', 'jump humans'),
+                           ('C', 'jumped over', '11', '2/3/4', 'tiny. humans'),
+                           ('D', 'the brown', '12', '2/3/4', 'large humans'),
+                           ('E', 'fence. LAzy', '14', '2/3/4', 'large ants.')],
+                          columns=['#SampleID', 'catA', 'catB', 'catC',
+                                   'catD']).set_index('#SampleID')
+        exp = {'ant': {'E', },
+               'lazi': {'A', 'E'},
+               'fox': {'A', },
+               'quickli': {'B', },
+               'jump': {'C', 'B'},
+               'brown': {'D', },
+               'fenc': {'E', },
+               'infant': {'A', },
+               'human': {'B', 'C', 'D'},
+               'tini': {'C', },
+               'larg': {'D', 'E'}}
+        obs = df_to_stems(df)
+        self.assertEqual(obs, exp)
+
+    def test_stems(self):
+        import nltk
+        stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
+        stops = frozenset(nltk.corpus.stopwords.words('english'))
+        tests = [("foo bar", ['foo', 'bar']),
+                 ("foo $1.23 is the bar", ['foo', 'bar']),
+                 ("a b c d", []),  # assume single char stems are useless
+                 ("ab cd", ['ab', 'cd']),
+                 ("-1.23 1.23 foo", ['foo']),
+                 ("-123 foo 123", ['foo']),
+                 ("8:12 12:34am foo", ['foo']),
+                 ("ab. foo, then bar", ['ab', 'foo', 'bar']),
+                 ("crying infants", ["cry", "infant"]),
+                 ("drop 12 all 3.45 the 0.123 numbers", ['drop', 'number'])]
+        for test, exp in tests:
+            obs = list(stems(stops, stemmer, test))
+            self.assertEqual(obs, exp)
 
 
 if __name__ == '__main__':

@@ -6,7 +6,9 @@ import pandas as pd
 import pandas.util.testing as pdt
 
 import redbiom.admin
-from redbiom.fetch import _biom_from_samples, sample_metadata
+import redbiom.fetch
+from redbiom.fetch import (_biom_from_samples, sample_metadata,
+                           sample_counts_per_category)
 
 
 table = biom.load_table('test.biom')
@@ -109,6 +111,43 @@ class FetchTests(unittest.TestCase):
                             for v in obs['AGE_YEARS']]
         pdt.assert_series_equal(obs['AGE_YEARS'], exp['AGE_YEARS'])
         pdt.assert_series_equal(obs['SAMPLE_TYPE'], exp['SAMPLE_TYPE'])
+
+    def test_sample_metadata_restrict(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        exp = metadata.copy()
+        exp.set_index('#SampleID', inplace=True)
+        exp = exp[['BMI', 'AGE_YEARS']]
+        exp = exp.sort_values('BMI')
+        obs, ambig = sample_metadata(table.ids(),
+                                     restrict_to=['BMI', 'AGE_YEARS'])
+        obs.set_index('#SampleID', inplace=True)
+        obs = obs.sort_values('BMI')
+        obs = obs[['BMI', 'AGE_YEARS']]
+        obs['AGE_YEARS'] = [v if v is not None else 'Unknown'
+                            for v in obs['AGE_YEARS']]
+        pdt.assert_frame_equal(obs, exp)
+
+    def test_sample_metadata_restrict_bad_cols(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        with self.assertRaises(KeyError):
+            sample_metadata(table.ids(), restrict_to=['BMI', 'foo'])
+
+    def test_sample_counts_per_category(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        obs = sample_counts_per_category()
+        self.assertEqual(len(obs), 525)
+        self.assertEqual(obs['LATITUDE'], 10)
+
+    def test_sample_counts_per_category_specific(self):
+        redbiom.admin.load_sample_metadata(metadata)
+        obs = sample_counts_per_category(['LATITUDE'])
+        self.assertEqual(len(obs), 1)
+        self.assertEqual(obs['LATITUDE'], 10)
+
+        obs = sample_counts_per_category(['LATITUDE', 'LONGITUDE'])
+        self.assertEqual(len(obs), 2)
+        self.assertEqual(obs['LATITUDE'], 10)
+        self.assertEqual(obs['LONGITUDE'], 10)
 
 
 if __name__ == '__main__':

@@ -220,14 +220,11 @@ def load_sample_metadata(md, tag=None):
 
     Redis command summary
     ---------------------
-    SETNX metadata:__load_md_lock 1
     SMEMBERS metadata:samples-represented
     SET metadata:categories:<sample_id> <JSON-of-informative-columns>
     HMSET metadata:category:<column> <sample_id> <val> ... <sample_id> <val>
     SADD metadata:samples-represented <sample_id> ... <sample_id> ...
     SADD metadata:categories-represented <column> ... <column>
-    DEL metadata:__load_md_lock
-
     """
     import json
     import redbiom
@@ -239,11 +236,7 @@ def load_sample_metadata(md, tag=None):
     put = redbiom._requests.make_put(config)
     get = redbiom._requests.make_get(config)
 
-    null_values = {'Not applicable', 'Unknown', 'Unspecified',
-                   'Missing: Not collected', None,
-                   'Missing: Not provided',
-                   'Missing: Restricted access',
-                   'null', 'NULL', 'no_data', 'None', 'nan'}
+    null_values = redbiom.util.NULL_VALUES
 
     md = md.copy()
     if md.columns[0] not in ['#SampleID', 'sample_name']:
@@ -293,6 +286,73 @@ def load_sample_metadata(md, tag=None):
     post('metadata', 'SADD', payload)
 
     return len(samples)
+
+
+def load_sample_metadata_full_search(md, tag=None):
+    """Load stem -> sample associations
+
+    Parameters
+    ----------
+    md : pd.DataFrame
+        QIIME or Qiita compatible metadata.
+    tag : str, optional
+        A tag associated with the information being loaded such as a
+        preparation ID.
+
+    Notes
+    -----
+    Values considered to be non-informative are omitted from load.
+
+    Returns
+    -------
+    int
+        The number of stems based on metadata values found.
+    int
+        The number of stems based on the categories found.
+
+    Redis command summary
+    ---------------------
+    SADD metadata:text-search:<stem> <sample-id> ... <sample-id>
+    SADD metadata:category-search:<stem> <category> ... <category>
+    """
+    import redbiom
+    import redbiom._requests
+    import redbiom.util
+    import pandas as pd
+
+    config = redbiom.get_config()
+    post = redbiom._requests.make_post(config)
+
+    md = md.copy()
+    if md.columns[0] not in ['#SampleID', 'sample_name']:
+        md = md.reset_index()
+
+    if tag is not None:
+        # tag the sample IDs
+        md[md.columns[0]] = ['%s_%s' % (tag, i) for i in md[md.columns[0]]]
+
+    md.set_index(md.columns[0], inplace=True)
+
+    if not redbiom.util.has_sample_metadata(set(md.index)):
+        raise ValueError("Sample metadata must be loaded first.")
+
+    # metadata value stems -> samples
+    stems = redbiom.util.df_to_stems(md)
+    for stem, samples in stems.items():
+        payload = "text-search:%s/%s" % (stem, '/'.join(samples))
+        post('metadata', 'SADD', payload)
+    value_stems = len(stems)
+
+    # category stems -> categories
+    categories = [c.replace("_", " ") for c in md.columns]
+    stems = redbiom.util.df_to_stems(pd.DataFrame(categories,
+                                                  index=md.columns))
+    for stem, cats in stems.items():
+        payload = "category-search:%s/%s" % (stem, '/'.join(cats))
+        post('metadata', 'SADD', payload)
+    cat_stems = len(stems)
+
+    return (value_stems, cat_stems)
 
 
 def _indexable(value, nullables):

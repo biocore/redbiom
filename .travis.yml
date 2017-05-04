@@ -2,6 +2,7 @@ sudo: true
 language: python
 env:
   - PYTHON_VERSION=3.5
+  - PYTHON_VERSION=2.7
 services:
   - redis-server
 before_install:
@@ -12,7 +13,7 @@ before_install:
   - ./miniconda.sh -b
   - export PATH=/home/travis/miniconda3/bin:$PATH
 install:
-  - conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose
+  - conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose sqlite joblib nltk
   - source activate test-env
   - pip install flake8
   - git clone https://github.com/nicolasff/webdis

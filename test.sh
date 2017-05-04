@@ -44,6 +44,13 @@ python -c "import biom; t = biom.load_table('pipetest.biom'); exp = biom.load_ta
 redbiom fetch samples --context test --output cmdlinetest.biom 10317.000033804 10317.000047188 10317.000046868
 python -c "import biom; t = biom.load_table('cmdlinetest.biom'); assert sorted(t.ids()) == ['10317.000033804.UNTAGGED', '10317.000046868.UNTAGGED', '10317.000047188.UNTAGGED']"
 
+# we do _NOT_ expect the qiime compatible ID "10317.000046868.UNTAGGED" to work.
+# this is because we cannot safely convert it into a redbiom ID as we cannot
+# assume it is safe to rsplit('.', 1) on it as "." is a valid sample ID 
+# character
+redbiom fetch samples --context test --output cmdlinetest.biom 10317.000033804 UNTAGGED_10317.000047188
+python -c "import biom; t = biom.load_table('cmdlinetest.biom'); assert sorted(t.ids()) == ['10317.000033804.UNTAGGED', '10317.000047188.UNTAGGED']"
+
 # fetch data via sample and via pipe
 cat exp_test_query_results.txt | redbiom fetch samples --context test --output pipetest.biom --from -
 python -c "import biom; t = biom.load_table('pipetest.biom'); assert sorted(t.ids()) == ['10317.000033804.UNTAGGED', '10317.000046868.UNTAGGED', '10317.000047188.UNTAGGED']"
@@ -84,10 +91,10 @@ redbiom summarize observations --exact --context test --category SIMPLE_BODY_SIT
 md5test obs_summarize.txt exp_summarize.txt
 
 # pull out a selection of the summarized samples
-echo "10317.000047188"  > exp_summarize.txt
-echo "10317.000033804" >> exp_summarize.txt
+echo "UNTAGGED_10317.000047188"  > exp_summarize.txt
+echo "UNTAGGED_10317.000033804" >> exp_summarize.txt
 
-redbiom summarize observations --exact --context test --category SIMPLE_BODY_SITE --value "in FECAL,'SKIN'" TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
+redbiom search observations --exact --context test TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT | redbiom select samples-from-metadata --context test "where SIMPLE_BODY_SITE in ('FECAL', 'SKIN')" > obs_summarize.txt
 md5test obs_summarize.txt exp_summarize.txt
 
 # round trip the sample data
@@ -126,3 +133,31 @@ md5test obs_load_count.txt exp_load_count.txt
 echo "SKIN	1" > exp_anewid.txt
 redbiom summarize samples --category SIMPLE_BODY_SITE anewID | grep SKIN > obs_anewid.txt
 md5test obs_anewid.txt exp_anewid.txt
+
+redbiom search metadata "where AGE_YEARS > 40" | redbiom fetch samples --context test --output metadata_search_test.biom
+echo "Num samples: 2" > exp_metadata_search.txt
+echo "Num observations: 427" >> exp_metadata_search.txt
+echo "Total count: 21780" >> exp_metadata_search.txt
+biom summarize-table -i metadata_search_test.biom | head -n 3 > obs_metadata_search.txt
+md5test obs_metadata_search.txt exp_metadata_search.txt
+
+echo "#ContextName	SamplesWithData	SamplesWithObservations	Description" > exp_contexts.txt
+echo "test	12	12	test context" >> exp_contexts.txt
+echo "test_alt	5	5	test context" >> exp_contexts.txt
+redbiom summarize contexts > obs_contexts.txt
+
+# exercise table summary
+redbiom summarize table --table test.biom --context test --category COUNTRY --output obs_tablesummary_full.txt
+echo "feature	Australia	USA	United Kingdom" > exp_tablesummary.txt
+head -n 1 obs_tablesummary_full.txt > obs_tablesummary.txt
+md5test obs_tablesummary.txt exp_tablesummary.txt
+if [[ "$(wc -l obs_tablesummary_full.txt | awk '{ print $1 }')" != "930" ]];
+then
+    echo "fail"
+    exit 1
+fi
+
+echo "10317.000033804" > exp_metadata_full.txt
+echo "10317.000001378" >> exp_metadata_full.txt
+redbiom search metadata "antibiotics where AGE_YEARS < 25" > obs_metadata_full.txt
+md5test obs_metadata_full.txt exp_metadata_full.txt

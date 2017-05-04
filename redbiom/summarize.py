@@ -3,18 +3,32 @@ def contexts():
 
     Returns
     -------
-    list of (str, str)
-        A list of (name, desciption) for each known context.
+    list of (str, int, str)
+        A list of (name, number of samples, desciption) for each known context.
 
     Redis command summary
     ---------------------
     HGETALL state:contexts
+    SCARD <context>:samples-represented-data
+    SCARD <context>:samples-represented-observations
     """
+    import pandas as pd
     import redbiom
     import redbiom._requests
     get = redbiom._requests.make_get(redbiom.get_config())
 
-    return get('state', 'HGETALL', 'contexts')
+    contexts = get('state', 'HGETALL', 'contexts')
+
+    result = []
+    for name, desc in contexts.items():
+        ctx_n_data = get(name, 'SCARD', 'samples-represented-data')
+        ctx_n_obs = get(name, 'SCARD', 'samples-represented-observations')
+
+        result.append((name, int(ctx_n_data), int(ctx_n_obs), desc))
+
+    return pd.DataFrame(result, columns=['ContextName', 'SamplesWithData',
+                                         'SamplesWithObservations',
+                                         'Description'])
 
 
 def category_from_observations(context, category, observations, exact):

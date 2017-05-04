@@ -1,6 +1,13 @@
 import click
 
 
+NULL_VALUES = {'Not applicable', 'Unknown', 'Unspecified',
+               'Missing: Not collected', None,
+               'Missing: Not provided',
+               'Missing: Restricted access',
+               'null', 'NULL', 'no_data', 'None', 'nan'}
+
+
 def from_or_nargs(from_, nargs_variable):
     """In support of buffered: determine whether to use from_ or nargs"""
     import sys
@@ -40,12 +47,42 @@ def samples_from_observations(it, exact, context, get=None):
     return samples
 
 
+def category_exists(category, get=None):
+    """Test if a category exists
+
+    Parameters
+    ----------
+    category : str
+        The category to test for
+    get : function
+        A get method
+
+    Returns
+    -------
+    bool
+        True if the category exists, False otherwise
+
+    Redis Command Summary
+    ---------------------
+    SISMEMBER <category> metadata:catetories-represented
+    """
+    if get is None:
+        import redbiom
+        import redbiom._requests
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    # this use highlights how get is being abused at the moment. this is a
+    # command which takes two arguments, they key and the member to test.
+    return get('metadata', 'SISMEMBER', 'categories-represented/%s' % category)
+
+
 def float_or_nan(t):
-    import math
+    import numpy as np
     try:
         return float(t)
     except:
-        return math.nan
+        return np.nan
 
 
 def has_sample_metadata(samples, get=None):
@@ -155,7 +192,9 @@ def resolve_ambiguities(context, samples, get):
     for t, tc in zip(tagged, tagged_clean):
         if t in ctx_known_stable:
             unambiguous.append(t)
-            known_ambiguous[tc] = [t]
+            if tc not in known_ambiguous:
+                known_ambiguous[tc] = []
+            known_ambiguous[tc].append(t)
         else:
             unobserved.append(t)
 
@@ -168,10 +207,8 @@ def resolve_ambiguities(context, samples, get):
 
 def _stable_ids_from_ambig(ambig_map):
     """Create stable IDs from an ambiguity map"""
-    from collections import defaultdict
-
-    # {sampleid: [stableid]}
-    ambig_assoc = defaultdict(list)
+    # {qiimeid: stableid}
+    ambig_assoc = {}
 
     # {rid: sampleid}
     ri = {}
@@ -188,7 +225,7 @@ def _stable_ids_from_ambig(ambig_map):
 
 def _stable_ids_from_unambig(unambig):
     """Create stable IDs from an unambiguous IDs"""
-    # {sampleid: [stableid]}
+    # {qiimeid: stableid}
     assoc = {}
 
     # {rid: sampleid}
@@ -200,3 +237,74 @@ def _stable_ids_from_unambig(unambig):
         assoc[stab] = k
         ri[k] = stab
     return assoc, ri
+
+
+def df_to_stems(df):
+    """Convert a DataFrame to stem -> index associations
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        A pandas DataFrame to index
+
+    Returns
+    -------
+    dict
+        {stem: {set of indices}}
+    """
+    from collections import defaultdict
+    import functools
+    import nltk
+    stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
+    stops = frozenset(nltk.corpus.stopwords.words('english'))
+    stem_f = functools.partial(stems, stops, stemmer)
+
+    d = defaultdict(set)
+
+    for sample, row in df.iterrows():
+        for value in row.values:
+            for stem in stem_f(value):
+                d[stem].add(sample)
+
+    return dict(d)
+
+
+def stems(stops, stemmer, string):
+    """Gather stems from string"""
+    import re
+    import nltk
+    # not using nltk default as we want this to be portable so that, for
+    # instance, a javascript library can query
+
+    to_skip = set('()!@#$%^&*-+=|{}[]<>./?;:')
+    to_skip.update(NULL_VALUES)
+
+    # match numbers (doesn't catch sci notation...)
+    numeric_regex = re.compile('(^-?\d+\.\d+$)|(^-?\d+$)')
+
+    # time like. we don't actually care if this doesn't match time
+    # as things like 1234:23123 are probably not useful for *general* search
+    time_regex = re.compile("^\d+:\d+(am|AM|pm|PM)?$")
+
+    if string in to_skip:
+        raise StopIteration
+
+    # for each word
+    for word in nltk.tokenize.word_tokenize(string):
+        if word in to_skip or len(word) == 1:
+            continue
+
+        if word in stops or '/' in word:
+            # / is reserved as it's part of a URL
+            continue
+
+        if numeric_regex.match(word) is not None:
+            continue
+
+        if time_regex.match(word) is not None:
+            continue
+
+        try:
+            yield stemmer.stem(word).lower()
+        except:
+            continue
