@@ -1,3 +1,21 @@
+import hashlib
+
+
+# derived from http://stackoverflow.com/a/43900922/19741
+_INDEX_SCRIPT = """
+    local kid = redis.call('HGET', KEYS[1], ARGV[1])
+    if not kid then
+      kid = redis.call('HINCRBY', KEYS[1], 'current_id', 1) - 1
+      redis.call('HSET', KEYS[1], ARGV[1], kid)
+      redis.call('HSET', KEYS[1] .. '-inverted', kid, ARGV[1])
+    end
+    return kid
+"""
+
+
+_INDEX_SCRIPT_SHA1 = hashlib.sha1(_INDEX_SCRIPT.encode('ascii')).hexdigest()
+
+
 def create_context(name, description):
     """Create a context within the cache
 
@@ -19,8 +37,14 @@ def create_context(name, description):
 
     config = redbiom.get_config()
     post = redbiom._requests.make_post(config)
+    put = redbiom._requests.make_put(config)
 
     post('state', 'HSET', "contexts/%s/%s" % (name, description))
+
+    # we need to do a direct request here because we are not associating with
+    # a key
+    s = redbiom._requests.get_session()
+    s.put(config['hostname'] + '/SCRIPT/LOAD', data=_INDEX_SCRIPT)
 
 
 def load_observations(table, context, tag=None):
@@ -100,20 +124,9 @@ def load_sample_data(table, context, tag=None):
     -----
     This method does not support non count data.
 
-    This load is formed to be performed in serial within a given context. It
-    is safe to issue load commands in parallel as a lock within a context is
-    obtained prior to performing the load.
-
     The observation IDs are remapped into an integer space to reduce memory
-    consumption as sOTUs are large. The index is maintained in Redis.
-
-    The indexing scheme requires a central authority for obtaining a unique
-    and stable index value. As such, this method obtains a lock for performing
-    an update. The index is updated with any new observations seen on each
-    load and is stored under the "__observation_index" key. It is stored as
-    a JSON object mapping the original observation ID to a stable and unique
-    integer; stability and uniqueness is not assured across distinct redis
-    databases.
+    consumption as sOTUs are large. The index is maintained in Redis under
+    <context>:observation-index and <context>:observation-index-inverted.
 
     The data are stored per sample with keys of the form "data:<sample_id>".
     The string stored is tab delimited, where the even indices (i.e .0, 2, 4,
@@ -124,11 +137,8 @@ def load_sample_data(table, context, tag=None):
     Redis command summary
     ---------------------
     SMEMBERS <context>:samples-represented-observations
-    SETNX <context>:__load_table_lock 1
-    GET <context>:__observation_index
+    EVALSHA _INDEX_SCRIPT_SHA1 1 <context>:observation-index <observation id>
     SET <context>:data:<sample_id> <packed-nz-representation>
-    SET <context>:__observation_index <revised-observation-mappings>
-    DEL <context>:__load_table_lock
     SADD <context>:samples-represented-data <sample_id> ... <sample_id>
 
     Returns
@@ -148,47 +158,23 @@ def load_sample_data(table, context, tag=None):
 
     redbiom._requests.valid(context, get)
 
-    acquired = get(context, 'SETNX', '__load_table_lock/1') == 1
-    while not acquired:
-        # not using redlock as time interval isn't that critical
-        time.sleep(1)
-        acquired = get(context, 'SETNX', '__load_table_lock/1') == 1
+    table = _stage_for_load(table, context, get, 'data', tag)
+    samples = table.ids()[:]
+    obs = table.ids(axis='observation')
 
-    try:
-        table = _stage_for_load(table, context, get, 'data', tag)
-        samples = table.ids()[:]
-        obs = table.ids(axis='observation')
+    obs_index = {}
+    for id_ in obs:
+        obs_index[id_] = get_index(context, id_)
 
-        # load the observation index
-        obs_index = get(context, 'GET', '__observation_index')
-        if obs_index is None:
-            obs_index = {}
-        else:
-            obs_index = json.loads(obs_index)
+    # load up the table per-sample
+    for values, id_, _ in table.iter(dense=False):
+        int_values = values.astype(int)
+        remapped = [obs_index[i] for i in obs[values.indices]]
 
-        # update the observation index if and where necessary
-        new_ids = {i for i in obs if i not in obs_index}
-        id_start = max(obs_index.values() or [-1]) + 1
-        for idx, id_ in zip(range(id_start, id_start + len(new_ids)), new_ids):
-            obs_index[id_] = idx
-
-        # load up the table per-sample
-        for values, id_, _ in table.iter(dense=False):
-            int_values = values.astype(int)
-            remapped = [obs_index[i] for i in obs[values.indices]]
-
-            packed = '\t'.join(["%s\t%d" % (i, v)
-                                for i, v in zip(remapped,
-                                                int_values.data)])
-            post(context, 'SET', 'data:%s/%s' % (id_, packed))
-
-        # store the index following the load of the table
-        post(context, 'SET', '__observation_index/%s' % json.dumps(obs_index))
-    except:
-        raise
-    finally:
-        # release the lock no matter what
-        get(context, 'DEL', '__load_table_lock')
+        packed = '\t'.join(["%s\t%d" % (i, v)
+                            for i, v in zip(remapped,
+                                            int_values.data)])
+        post(context, 'SET', 'data:%s/%s' % (id_, packed))
 
     payload = "samples-represented-data/%s" % '/'.join(samples)
     post(context, 'SADD', payload)
@@ -416,3 +402,46 @@ def _stage_for_load(table, context, get, memberkey, tag=None):
 
     table.filter(to_load)
     return table.filter(lambda v, i, md: v.sum() > 0, axis='observation')
+
+
+def get_index(context, key):
+    """Get a unique integer value for a key within a context
+
+    Parameters
+    ----------
+    context : str
+        The context to operate in
+    key : str
+        The key to get a unique index for
+
+    Notes
+    -----
+    This method is an atomic equivalent of:
+
+        def get_or_set(d, item):
+            if item not in d:
+                d[item] = len(d)
+            return d[item]
+
+    Returns
+    -------
+    int
+        A unique integer index within the context for the key
+    """
+    import redbiom
+    import redbiom._requests
+
+    config = redbiom.get_config()
+
+    # we need to issue the request directly as the command structure is
+    # rather different than other commands
+    s = redbiom._requests.get_session()
+    url = '/'.join([config['hostname'], 'EVALSHA', _INDEX_SCRIPT_SHA1,
+                    '1', "%s:observation-index" % context, key])
+    req = s.get(url)
+
+    if req.status_code != 200:
+        raise ValueError("Unable to obtain index; %d; %s" % (req.status_code,
+                                                             req.content))
+
+    return int(req.json()['EVALSHA'])

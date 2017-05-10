@@ -41,6 +41,16 @@ class FetchTests(unittest.TestCase):
         self.assertEqual(obs, exp)
         self.assertEqual(obs_map, exp_map)
 
+    def test_sample_metadata_samples_not_represented_in_context(self):
+        redbiom.admin.create_context('test', 'a nice test')
+        redbiom.admin.load_sample_metadata(metadata)
+        with self.assertRaisesRegexp(ValueError,
+                                     "None of the samples"):
+            # sample data have not been loaded into the context
+            sample_metadata(['10317.000047188', '10317.000046868'],
+                            context='test')
+
+
     def test_sample_metadata_all_cols(self):
         redbiom.admin.load_sample_metadata(metadata)
         exp = metadata.copy()

@@ -49,8 +49,8 @@ class RESTTests(unittest.TestCase):
 
         observation_ids = table.ids(axis='observation')
 
-        obs_index = json.loads(get('GET', 'test:__observation_index'))
-        inv_index = {v: k for k, v in obs_index.items()}
+        # get the inverted mapping of index -> ID
+        inv_index = get('HGETALL', 'test:observation-index-inverted')
 
         for values, id_, _ in table.iter():
             exp_data = values[values > 0]
@@ -59,7 +59,7 @@ class RESTTests(unittest.TestCase):
             obs = get('GET', 'test:data:UNTAGGED_%s' % id_).split('\t')
 
             obs_data = np.array([float(i) for i in obs[1::2]])
-            obs_ids = np.array([inv_index[int(i)] for i in obs[::2]])
+            obs_ids = np.array([inv_index[i] for i in obs[::2]])
 
             npt.assert_equal(obs_data, exp_data)
             npt.assert_equal(obs_ids, exp_ids)

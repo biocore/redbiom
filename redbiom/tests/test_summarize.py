@@ -24,6 +24,15 @@ class SummarizeTests(unittest.TestCase):
         assert req.status_code == 200
         self.get = redbiom._requests.make_get(redbiom.get_config())
 
+    def test_summarize_contexts_nodetail(self):
+        redbiom.admin.create_context('test', 'foo')
+        redbiom.admin.create_context('test2', 'foo')
+
+        exp = pd.DataFrame([('test',), ('test2',)],
+                           columns=['ContextName'])
+        obs = contexts(detail=False)
+        pdt.assert_frame_equal(obs, exp)
+
     def test_summarize_contexts_no_contexts(self):
         exp = pd.DataFrame([], columns=['ContextName', 'SamplesWithData',
                                         'SamplesWithObservations',

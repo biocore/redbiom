@@ -26,24 +26,56 @@ def from_or_nargs(from_, nargs_variable):
     return iter((s.strip() for s in nargs_variable))
 
 
-def samples_from_observations(it, exact, context, get=None):
-    """Grab samples from an iterable of observations"""
+def samples_from_observations(it, exact, contexts, get=None):
+    """Grab samples from an iterable of observations
+
+    Parameters
+    ----------
+    it : iteraable of str
+        The IDs to search for
+    exact : boolean
+        If True, compute the intersection of results per context. If False,
+        compute the union of results per context.
+    contexts : list of str
+        The contexts to search in
+    get : func, optional
+        A getter
+
+    Notes
+    -----
+    Contexts are evaluated independently, and the results of each context are
+    unioned.
+
+    Returns
+    -------
+    set
+        The sample IDs associated with the search IDs.
+
+    """
     import redbiom._requests
 
     cmd = 'SINTER' if exact else 'SUNION'
-    samples = None
-    for _, block in redbiom._requests.buffered(it, 'samples', cmd, context,
-                                               get=get):
-        block = set(block)
-        if not exact:
-            if samples is None:
-                samples = set()
-            samples.update(block)
-        else:
-            if samples is None:
-                samples = block
+    samples = set()
+
+    if isinstance(contexts, str):
+        contexts = [contexts]
+
+    it = list(it)
+    for context in contexts:
+        context_samples = None
+        for _, block in redbiom._requests.buffered(it, 'samples', cmd, context,
+                                                   get=get):
+            block = set(block)
+            if not exact:
+                if context_samples is None:
+                    context_samples = set()
+                context_samples.update(block)
             else:
-                samples = samples.intersection(block)
+                if context_samples is None:
+                    context_samples = block
+                else:
+                    context_samples = context_samples.intersection(block)
+        samples = samples.union(context_samples)
     return samples
 
 
