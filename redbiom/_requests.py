@@ -128,7 +128,8 @@ def buffered(it, prefix, cmd, context, get=None, buffer_size=10,
         if multikey:
             bulk = "%s:%s/%s" % (context, multikey, bulk)
 
-        yield items, get(None, cmd, bulk)
+        if bulk:
+            yield items, get(None, cmd, bulk)
 
 
 def valid(context, get=None):
