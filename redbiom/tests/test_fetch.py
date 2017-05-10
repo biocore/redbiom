@@ -50,7 +50,6 @@ class FetchTests(unittest.TestCase):
             sample_metadata(['10317.000047188', '10317.000046868'],
                             context='test')
 
-
     def test_sample_metadata_all_cols(self):
         redbiom.admin.load_sample_metadata(metadata)
         exp = metadata.copy()

@@ -85,7 +85,6 @@ class UtilTests(unittest.TestCase):
                                                           'testalt'])
         self.assertEqual(obs, exp)
 
-
     def test_samples_from_observations(self):
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)

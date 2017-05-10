@@ -198,7 +198,6 @@ def _biom_from_samples(context, samples, get=None):
     HMGET <context>:observation-index-inverted
     MGET <context>:data:<sample_id> ... <context>:data:<sample_id>
     """
-    import json
     from operator import itemgetter
     import scipy.sparse as ss
     import biom
@@ -242,7 +241,6 @@ def _biom_from_samples(context, samples, get=None):
                                          None, 'HMGET', context, get=get,
                                          buffer_size=500,
                                          multikey='observation-index-inverted')
-
 
     inverted_obs_index = {index: id_ for indices, ids in invdata
                           for index, id_ in zip(indices, ids)}

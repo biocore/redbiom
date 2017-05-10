@@ -37,8 +37,6 @@ def create_context(name, description):
 
     config = redbiom.get_config()
     post = redbiom._requests.make_post(config)
-    put = redbiom._requests.make_put(config)
-
     post('state', 'HSET', "contexts/%s/%s" % (name, description))
 
     # we need to do a direct request here because we are not associating with
@@ -146,8 +144,6 @@ def load_sample_data(table, context, tag=None):
     int
         The number of samples loaded.
     """
-    import time
-    import json
     import redbiom
     import redbiom._requests
     import redbiom.util
