@@ -141,6 +141,12 @@ echo "Total count: 21780" >> exp_metadata_search.txt
 biom summarize-table -i metadata_search_test.biom | head -n 3 > obs_metadata_search.txt
 md5test obs_metadata_search.txt exp_metadata_search.txt
 
+redbiom search metadata "where AGE_YEARS > 40" | redbiom fetch sample-metadata --context test --output metadata_search_test.txt
+echo "10317.000012975.UNTAGGED" > exp_metadata_search.txt
+echo "10317.000047188.UNTAGGED" >> exp_metadata_search.txt
+cut -f 1 metadata_search_test.txt | grep -v "^#" | sort - > obs_metadata_search.txt
+md5test obs_metadata_search.txt exp_metadata_search.txt
+
 echo "#ContextName	SamplesWithData	SamplesWithObservations	Description" > exp_contexts.txt
 echo "test	12	12	test context" >> exp_contexts.txt
 echo "test_alt	5	5	test context" >> exp_contexts.txt
