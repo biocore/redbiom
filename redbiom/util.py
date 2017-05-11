@@ -57,7 +57,7 @@ def samples_from_observations(it, exact, contexts, get=None):
     cmd = 'SINTER' if exact else 'SUNION'
     samples = set()
 
-    if isinstance(contexts, str):
+    if not isinstance(contexts, (list, set, tuple)):
         contexts = [contexts]
 
     it = list(it)
