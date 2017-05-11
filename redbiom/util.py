@@ -287,7 +287,11 @@ def df_to_stems(df):
     from collections import defaultdict
     import functools
     import nltk
+
+    # not using nltk default as we want this to be portable so that, for
+    # instance, a javascript library can query
     stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
+
     stops = frozenset(nltk.corpus.stopwords.words('english'))
     stem_f = functools.partial(stems, stops, stemmer)
 
@@ -305,9 +309,6 @@ def stems(stops, stemmer, string):
     """Gather stems from string"""
     import re
     import nltk
-    # not using nltk default as we want this to be portable so that, for
-    # instance, a javascript library can query
-
     to_skip = set('()!@#$%^&*-+=|{}[]<>./?;:')
     to_skip.update(NULL_VALUES)
 
