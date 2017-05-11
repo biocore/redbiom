@@ -26,16 +26,37 @@ def get_session():
     return redbiom.active_sessions[pid]
 
 
-def make_post(config):
+def make_post(config, redis_protocol=None):
     """Factory function: produce a post() method"""
     import redbiom
     s = get_session()
     config = redbiom.get_config()
 
-    def f(context, cmd, payload):
-        req = s.post(config['hostname'],
-                     data=_format_request(context, cmd, payload))
-        return _parse_validate_request(req, cmd)
+    if redis_protocol:
+        # for expensive load operations like observation data, it potentially
+        # faster to use the native protocol. this writes out the redis
+        # commands in their native for feeding into redis-cli --pipe. More
+        # information can be found here:
+        # https://redis.io/topics/mass-insert
+        def f(context, cmd, payload):
+            import sys
+            args = payload.split('/')
+            args[0] = ':'.join([context, args[0]])
+            args.insert(0, cmd)
+
+            # https://gist.github.com/laserson/2689744
+            proto = ''
+            proto += '*' + str(len(args)) + '\r\n'
+            for arg in args:
+                proto += '$' + str(len(bytes(str(arg), 'utf-8'))) + '\r\n'
+                proto += str(arg) + '\r\n'
+            sys.stdout.write(proto)
+            sys.stdout.flush()
+    else:
+        def f(context, cmd, payload):
+            req = s.post(config['hostname'],
+                         data=_format_request(context, cmd, payload))
+            return _parse_validate_request(req, cmd)
     return f
 
 

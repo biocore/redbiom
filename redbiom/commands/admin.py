@@ -45,12 +45,14 @@ def coherency(context):
               help="The filepath to the table to load.")
 @click.option('--context', required=True, type=str,
               help="The name of the context to load into.")
-def load_observations(table, context):
+@click.option('--mass-insertion', default=False, is_flag=True)
+def load_observations(table, context, mass_insertion):
     """Load observation to sample mappings."""
     import redbiom.admin
     import biom
     table = biom.load_table(table)
-    redbiom.admin.load_observations(table, context)
+    redbiom.admin.load_observations(table, context,
+                                    redis_protocol=mass_insertion)
 
 
 @admin.command(name='load-sample-data')
@@ -58,12 +60,14 @@ def load_observations(table, context):
               help="The filepath to the table to load.")
 @click.option('--context', required=True, type=str,
               help="The name of the context to load into.")
-def load_sample_data(table, context):
+@click.option('--mass-insertion', default=False, is_flag=True)
+def load_sample_data(table, context, mass_insertion):
     """Load nonzero entries per sample."""
     import redbiom.admin
     import biom
     table = biom.load_table(table)
-    redbiom.admin.load_sample_data(table, context)
+    redbiom.admin.load_sample_data(table, context,
+                                   redis_protocol=mass_insertion)
 
 
 @admin.command(name='load-sample-metadata')

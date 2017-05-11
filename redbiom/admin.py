@@ -45,7 +45,7 @@ def create_context(name, description):
     s.put(config['hostname'] + '/SCRIPT/LOAD', data=_INDEX_SCRIPT)
 
 
-def load_observations(table, context, tag=None):
+def load_observations(table, context, tag=None, redis_protocol=False):
     """Load observation to sample mappings.
 
     Parameters
@@ -54,8 +54,10 @@ def load_observations(table, context, tag=None):
         The BIOM table to load.
     context : str
         The context to load into.
-    tag : str
+    tag : str, optional
         A tag to associated the samples with (e.g., a preparation ID).
+    redis_protocol : bool, optional
+        Generate commands for bulk load instead of HTTP requests.
 
     Returns
     -------
@@ -79,7 +81,7 @@ def load_observations(table, context, tag=None):
     import redbiom.util
 
     config = redbiom.get_config()
-    post = redbiom._requests.make_post(config)
+    post = redbiom._requests.make_post(config, redis_protocol)
     get = redbiom._requests.make_get(config)
 
     redbiom._requests.valid(context, get)
@@ -100,7 +102,7 @@ def load_observations(table, context, tag=None):
     return len(samples)
 
 
-def load_sample_data(table, context, tag=None):
+def load_sample_data(table, context, tag=None, redis_protocol=False):
     """Load nonzero sample data.
 
     Parameters
@@ -111,6 +113,8 @@ def load_sample_data(table, context, tag=None):
         The context to load into.
     tag : str
         A tag to associated the samples with (e.g., a preparation ID).
+    redis_protocol : bool, optional
+        Generate commands for bulk load instead of HTTP requests.
 
     Raises
     ------
@@ -149,7 +153,7 @@ def load_sample_data(table, context, tag=None):
     import redbiom.util
 
     config = redbiom.get_config()
-    post = redbiom._requests.make_post(config)
+    post = redbiom._requests.make_post(config, redis_protocol=redis_protocol)
     get = redbiom._requests.make_get(config)
 
     redbiom._requests.valid(context, get)
