@@ -25,13 +25,13 @@ class AdminTests(unittest.TestCase):
         self.get = redbiom._requests.make_get(redbiom.get_config())
 
     def test_get_index(self):
-        context = 'load-observations-test'
+        context = 'load-features-test'
         redbiom.admin.create_context(context, 'foo')
 
         tests = [('A', 0), ('A', 0), ('B', 1), ('C', 2),
                  ('B', 1), ('Z', 3), ('A', 0)]
         for key, exp in tests:
-            obs = redbiom.admin.get_index(context, key)
+            obs = redbiom.admin.get_index(context, key, 'feature')
             self.assertEqual(obs, exp)
 
     def test_create_context(self):
@@ -45,44 +45,47 @@ class AdminTests(unittest.TestCase):
         context = 'load-observations-test'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        n = redbiom.admin.load_observations(table, context, tag=None)
+        n = redbiom.admin.load_sample_data(table, context, tag=None)
         for id_ in table.ids(axis='observation'):
-            self.assertTrue(self.get(context, 'EXISTS', 'samples:%s' % id_))
+            self.assertTrue(self.get(context, 'EXISTS', 'feature:%s' % id_))
         self.assertEqual(n, 10)
 
         tag = 'tagged'
-        n = redbiom.admin.load_observations(table, context, tag=tag)
+        n = redbiom.admin.load_sample_data(table, context, tag=tag)
         tagged_samples = set(['%s_%s' % (tag, i) for i in table.ids()])
         for values, id_, _ in table.iter(axis='observation'):
-            obs = self.get(context, 'SMEMBERS', 'samples:%s' % id_)
-            obs_tagged = {o for o in obs if o.startswith(tag)}
+            obs = self.get(context, 'ZRANGEBYSCORE', 'feature:%s/%d/%s' % (
+                           id_, 0, 'inf'))
+            ids = self.get(context, 'HMGET',
+                           'sample-index-inverted/%s' % '/'.join(obs))
+            obs_tagged = {o for o in ids if o.startswith(tag)}
             self.assertEqual(len(obs_tagged), sum(values > 0))
             self.assertTrue(obs_tagged.issubset(tagged_samples))
         self.assertEqual(n, 10)
 
         exp = {'UNTAGGED_%s' % i for i in table.ids()}
         exp.update({'tagged_%s' % i for i in table.ids()})
-        obs = self.get(context, 'SMEMBERS', 'samples-represented-observations')
+        obs = self.get(context, 'SMEMBERS', 'samples-represented')
         self.assertEqual(set(obs), exp)
 
     def test_load_observations_partial(self):
         context = 'load-observations-partial'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        n = redbiom.admin.load_observations(table, context, tag=None)
+        n = redbiom.admin.load_sample_data(table, context, tag=None)
         self.assertEqual(n, 10)
 
         with self.assertRaises(ValueError):
             # the metadata for the samples to load hasn't been added yet
-            redbiom.admin.load_observations(table_with_alt, context, tag=None)
+            redbiom.admin.load_sample_data(table_with_alt, context, tag=None)
 
         redbiom.admin.load_sample_metadata(metadata_with_alt)
-        n = redbiom.admin.load_observations(table_with_alt, context, tag=None)
+        n = redbiom.admin.load_sample_data(table_with_alt, context, tag=None)
         self.assertEqual(n, 2)
 
         exp = {'UNTAGGED_%s' % i for i in table.ids()}
         exp.update({'UNTAGGED_%s' % i for i in table_with_alt.ids()})
-        obs = self.get(context, 'SMEMBERS', 'samples-represented-observations')
+        obs = self.get(context, 'SMEMBERS', 'samples-represented')
         self.assertEqual(set(obs), exp)
 
     def test_load_sample_data(self):
@@ -103,7 +106,7 @@ class AdminTests(unittest.TestCase):
 
         for id_ in set(table.ids()) & set(table_with_alt.ids()):
             id_ = 'UNTAGGED_%s' % id_
-            self.assertTrue(self.get(context, 'EXISTS', 'data:%s' % id_))
+            self.assertTrue(self.get(context, 'EXISTS', 'sample:%s' % id_))
 
     def test_load_sample_metadata(self):
         redbiom.admin.load_sample_metadata(metadata)
