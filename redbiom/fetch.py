@@ -147,7 +147,7 @@ def data_from_observations(context, observations, exact):
 
     # determine the samples which contain the observations of interest
     samples = redbiom.util.samples_from_observations(observations, exact,
-                                                     [context], get=get)
+                                                     [context])
 
     return _biom_from_samples(context, iter(samples), get=get)
 
@@ -201,6 +201,7 @@ def _biom_from_samples(context, samples, get=None):
     from operator import itemgetter
     import scipy.sparse as ss
     import biom
+    import redbiom.admin
     import redbiom._requests
     import redbiom.util
     import redbiom

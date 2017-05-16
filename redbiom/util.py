@@ -26,7 +26,7 @@ def from_or_nargs(from_, nargs_variable):
     return iter((s.strip() for s in nargs_variable))
 
 
-def samples_from_observations(it, exact, contexts, get=None):
+def samples_from_observations(it, exact, contexts):
     """Grab samples from an iterable of observations
 
     Parameters
@@ -38,8 +38,6 @@ def samples_from_observations(it, exact, contexts, get=None):
         compute the union of results per context.
     contexts : list of str
         The contexts to search in
-    get : func, optional
-        A getter
 
     Notes
     -----
@@ -52,11 +50,11 @@ def samples_from_observations(it, exact, contexts, get=None):
         The sample IDs associated with the search IDs.
 
     """
-    if get is None:
-        import redbiom
-        import redbiom._requests
-        config = redbiom.get_config()
-        se = redbiom._requests.make_script_exec(config)
+    import redbiom
+    import redbiom._requests
+    import redbiom.admin
+    config = redbiom.get_config()
+    se = redbiom._requests.make_script_exec(config)
 
     samples = set()
 
