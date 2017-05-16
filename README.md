@@ -3,7 +3,7 @@
 
 # What is this?
 
-Redbiom is a cache service to sample metadata and sample data. It allows for rapidly:
+Redbiom is a cache service for sample metadata and sample data. It allows for rapidly:
 
 * finding samples by the observations they contain
 * finding samples by arbitrary metadata searches
@@ -16,7 +16,7 @@ Redbiom is designed to handle biological and technical replicates. Specifically,
 
 This repository defines the de facto redbiom data representation, and one possible interface into the resource. Other interfaces (e.g., Javascript) are possible to define. Please see the Design section below for details about how other interfaces can be written.
 
-By default, redbiom will search against `qiita.ucsd.edu`. This can be changed at runtime by setting the `REDBIOM_HOST` environmental variable, e.g., `export REDBIOM_HOST=http://qiita.ucsd.edu:7379`. The default host is **read-only** and administrative functions like loading data will not work against it.
+By default, redbiom will search against `qiita.ucsd.edu:7379`. This can be changed at runtime by setting the `REDBIOM_HOST` environmental variable, e.g., `export REDBIOM_HOST=http://qiita.ucsd.edu:7379`. The default host is **read-only** and administrative functions like loading data will not work against it.
 
 If you intend to **load** your own data, you must setup a local instance (please see the server installation instructions below). In addition, you must explicitly set the `REDBIOM_HOST` environment variable.
 
@@ -24,20 +24,21 @@ If you intend to **load** your own data, you must setup a local instance (please
 
 ### General requirements
 
-Redbiom epends on [BIOM](http://biom-format.org/) (tested on >= 2.1.5), [Pandas](http://pandas.pydata.org/) (tested on 0.19.0), [Click](http://click.pocoo.org/5/) (required >= 6.7), [nltk](http://www.nltk.org/) (tested on 3.2.2), [joblib](https://pythonhosted.org/joblib/) (tested on 0.9.3), and [scipy](https://www.scipy.org/) (whatever BIOM is happy with).
+Redbiom depends on [BIOM](http://biom-format.org/) (tested on >= 2.1.5), [Pandas](http://pandas.pydata.org/) (tested on 0.19.0), [Click](http://click.pocoo.org/5/) (required >= 6.7), [nltk](http://www.nltk.org/) (tested on 3.2.2), [joblib](https://pythonhosted.org/joblib/) (tested on 0.9.3), and [scipy](https://www.scipy.org/) (whatever BIOM is happy with).
 
 ### Client
 
 If you would like to use redbiom as only a client (which is the general case), then the following instructions apply.
 
     $ git clone https://github.com/wasade/redbiom.git
+    $ cd redbiom
     $ pip install -e .  
 
 ### Server
 
 If you would like to run your own resource, and load data locally or private data, then the following instructions apply.
 
-In addition to the general requirements, redbiom server needs [Redis](https://redis.io/) (tested with 3.2.6) and [Webdis](http://webd.is/) (just clone the repo). It is not necessary to have super user access to establish a redbiom server.
+In addition to the general requirements, redbiom server needs [Redis](https://redis.io/) (tested with 2.8.17 and 3.2.6) and [Webdis](http://webd.is/) (just clone the repo). It is not necessary to have super user access to establish a redbiom server.
 
 For Redis, the following has worked on OSX and multiple flavors of Linux without issue.
 
@@ -159,6 +160,8 @@ Redbiom is still in heavy active development. At this time, there are still some
      'null', 'NULL', 'no_data', 'None', 'nan'}
      
 * Taxonomy and other observation metadata are not stored at this time.
+
+* Sample IDs must be QIIME compatible.
 
 # Design
 
