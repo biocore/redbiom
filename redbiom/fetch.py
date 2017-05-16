@@ -203,12 +203,13 @@ def _biom_from_samples(context, samples, get=None):
     import biom
     import redbiom._requests
     import redbiom.util
+    import redbiom
+    config = redbiom.get_config()
 
-    # TODO: centralize this as it's boilerplate
     if get is None:
-        import redbiom
-        config = redbiom.get_config()
         get = redbiom._requests.make_get(config)
+
+    se = redbiom._requests.make_script_exec(config)
 
     redbiom._requests.valid(context, get)
 
@@ -218,45 +219,30 @@ def _biom_from_samples(context, samples, get=None):
     stable_ids, unobserved, ambig_assoc, rimap = \
         redbiom.util.resolve_ambiguities(context, samples, get)
 
-    # pull out the per-sample data
     table_data = []
     unique_indices = set()
-    getter = redbiom._requests.buffered(list(rimap), 'data', 'MGET', context,
-                                        get=get, buffer_size=100)
-    for (sample_set, sample_set_data) in getter:
-        for sample, data in zip(sample_set, sample_set_data):
-            data = data.split('\t')
-            table_data.append((sample, data))
-
-            # update our perspective of total unique observations
-            unique_indices.update({i for i in data[::2]})
+    fetch_sample = redbiom.admin.ScriptManager.get('fetch-sample')
+    for id_ in rimap:
+        data = se(fetch_sample, 0, context, id_)
+        table_data.append((id_, data))
+        unique_indices.update(data)
 
     # construct a mapping of
     # {observation ID : index position in the BIOM table}
     unique_indices_map = {observed: index
                           for index, observed in enumerate(unique_indices)}
 
-    # get the inverted mapping of index -> ID
-    invdata = redbiom._requests.buffered(iter(unique_indices),
-                                         None, 'HMGET', context, get=get,
-                                         buffer_size=500,
-                                         multikey='observation-index-inverted')
-
-    inverted_obs_index = {index: id_ for indices, ids in invdata
-                          for index, id_ in zip(indices, ids)}
-
     # pull out the observation and sample IDs in the desired ordering
-    obs_ids = [inverted_obs_index[k]
-               for k, _ in sorted(unique_indices_map.items(),
-                                  key=itemgetter(1))]
-    sample_ids = [d[0] for d in table_data]
+    obs_ids = [id_ for id_, _ in sorted(unique_indices_map.items(),
+                                        key=itemgetter(1))]
+    sample_ids = [id_ for id_, _ in table_data]
 
     # fill in the matrix
     mat = ss.lil_matrix((len(unique_indices), len(table_data)))
     for col, (sample, col_data) in enumerate(table_data):
         # since this isn't dense, hopefully roworder doesn't hose us
-        for index, value in zip(col_data[::2], col_data[1::2]):
-            mat[unique_indices_map[index], col] = value
+        for obs_id, value in col_data.items():
+            mat[unique_indices_map[obs_id], col] = value
 
     table = biom.Table(mat, obs_ids, sample_ids)
     table.update_ids(rimap)

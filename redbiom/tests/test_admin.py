@@ -1,4 +1,5 @@
 import unittest
+import hashlib
 
 import pandas as pd
 import biom
@@ -17,12 +18,54 @@ metadata = pd.read_csv('test.txt', sep='\t', dtype=str, na_values=[],
 metadata_with_alt = pd.read_csv('test_with_alts.txt', sep='\t', dtype=str)
 
 
+class ScriptManagerTests(unittest.TestCase):
+    def setUp(self):
+        self.host = redbiom.get_config()['hostname']
+        requests.get(self.host + '/script/flush')
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
+
+    def test_load_scripts(self):
+        for script in redbiom.admin.ScriptManager._scripts.values():
+            sha = hashlib.sha1(script.encode('ascii')).hexdigest()
+            req = requests.get(self.host + '/script/exists/%s' % sha)
+            self.assertTrue(req.json()['script'][0])
+
+    def test_load_scripts_readonly(self):
+        redbiom.admin.ScriptManager.drop_scripts()
+        redbiom.admin.ScriptManager.load_scripts(read_only=True)
+        for name, script in redbiom.admin.ScriptManager._scripts.items():
+            sha = hashlib.sha1(script.encode('ascii')).hexdigest()
+            req = requests.get(self.host + '/script/exists/%s' % sha)
+            if name in redbiom.admin.ScriptManager._admin_scripts:
+                self.assertFalse(req.json()['script'][0])
+            else:
+                self.assertTrue(req.json()['script'][0])
+
+    def test_get_script(self):
+        exp = requests.get(self.host + '/hget/state:scripts/get-index')
+        exp = exp.json()['hget']
+        obs = redbiom.admin.ScriptManager.get('get-index')
+        self.assertEqual(obs, exp)
+
+    def test_get_script_missing(self):
+        with self.assertRaisesRegexp(ValueError, "Unknown script"):
+            redbiom.admin.ScriptManager.get('foobar')
+
+    def test_drop_scripts(self):
+        redbiom.admin.ScriptManager.get('get-index')
+        redbiom.admin.ScriptManager.drop_scripts()
+        with self.assertRaisesRegexp(ValueError, "Unknown script"):
+            redbiom.admin.ScriptManager.get('get-index')
+
+
 class AdminTests(unittest.TestCase):
     def setUp(self):
-        host = redbiom.get_config()['hostname']
-        req = requests.get(host + '/flushall')
+        self.host = redbiom.get_config()['hostname']
+        req = requests.get(self.host + '/flushall')
         assert req.status_code == 200
         self.get = redbiom._requests.make_get(redbiom.get_config())
+        self.se = redbiom._requests.make_script_exec(redbiom.get_config())
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
 
     def test_get_index(self):
         context = 'load-features-test'
@@ -52,13 +95,12 @@ class AdminTests(unittest.TestCase):
 
         tag = 'tagged'
         n = redbiom.admin.load_sample_data(table, context, tag=tag)
+
         tagged_samples = set(['%s_%s' % (tag, i) for i in table.ids()])
+        fetch_feature = redbiom.admin.ScriptManager.get('fetch-feature')
         for values, id_, _ in table.iter(axis='observation'):
-            obs = self.get(context, 'ZRANGEBYSCORE', 'feature:%s/%d/%s' % (
-                           id_, 0, 'inf'))
-            ids = self.get(context, 'HMGET',
-                           'sample-index-inverted/%s' % '/'.join(obs))
-            obs_tagged = {o for o in ids if o.startswith(tag)}
+            obs = self.se(fetch_feature, 0, context, id_)
+            obs_tagged = {o for o in obs if o.startswith(tag)}
             self.assertEqual(len(obs_tagged), sum(values > 0))
             self.assertTrue(obs_tagged.issubset(tagged_samples))
         self.assertEqual(n, 10)
@@ -92,7 +134,6 @@ class AdminTests(unittest.TestCase):
         context = 'load-sample-data'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-
         n = redbiom.admin.load_sample_data(table, context, tag=None)
         self.assertEqual(n, 10)
 

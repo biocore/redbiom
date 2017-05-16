@@ -30,13 +30,11 @@ def contexts(detail=True):
 
         result = []
         for name, desc in contexts.items():
-            ctx_n_data = get(name, 'SCARD', 'samples-represented-data')
-            ctx_n_obs = get(name, 'SCARD', 'samples-represented-observations')
+            ctx_n_data = get(name, 'SCARD', 'samples-represented')
 
-            result.append((name, int(ctx_n_data), int(ctx_n_obs), desc))
+            result.append((name, int(ctx_n_data), desc))
 
         return pd.DataFrame(result, columns=['ContextName', 'SamplesWithData',
-                                             'SamplesWithObservations',
                                              'Description'])
 
 

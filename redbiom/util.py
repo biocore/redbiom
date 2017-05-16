@@ -52,27 +52,30 @@ def samples_from_observations(it, exact, contexts, get=None):
         The sample IDs associated with the search IDs.
 
     """
-    import redbiom._requests
+    if get is None:
+        import redbiom
+        import redbiom._requests
+        config = redbiom.get_config()
+        se = redbiom._requests.make_script_exec(config)
 
-    cmd = 'SINTER' if exact else 'SUNION'
     samples = set()
 
     if not isinstance(contexts, (list, set, tuple)):
         contexts = [contexts]
 
     it = list(it)
+    fetch_feature = redbiom.admin.ScriptManager.get('fetch-feature')
     for context in contexts:
         context_samples = None
-        for _, block in redbiom._requests.buffered(it, 'samples', cmd, context,
-                                                   get=get):
-            block = set(block)
+        for id_ in it:
+            block = se(fetch_feature, 0, context, id_)
             if not exact:
                 if context_samples is None:
                     context_samples = set()
                 context_samples.update(block)
             else:
                 if context_samples is None:
-                    context_samples = block
+                    context_samples = set(block)
                 else:
                     context_samples = context_samples.intersection(block)
         samples = samples.union(context_samples)
@@ -199,7 +202,7 @@ def resolve_ambiguities(context, samples, get):
     untagged, tagged, _, tagged_clean = partition_samples_by_tags(samples)
 
     # get all known tagged samples in the context
-    ctx = get(context, 'SMEMBERS', 'samples-represented-data')
+    ctx = get(context, 'SMEMBERS', 'samples-represented')
     _, ctx_tagged, _, ctx_tagged_clean = partition_samples_by_tags(ctx)
 
     # create a map of known ambiguous ID -> known stable IDs

@@ -35,7 +35,6 @@ class SummarizeTests(unittest.TestCase):
 
     def test_summarize_contexts_no_contexts(self):
         exp = pd.DataFrame([], columns=['ContextName', 'SamplesWithData',
-                                        'SamplesWithObservations',
                                         'Description'])
         obs = contexts()
         pdt.assert_frame_equal(obs, exp)
@@ -43,21 +42,21 @@ class SummarizeTests(unittest.TestCase):
     def test_summarize_contexts_no_samples(self):
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        exp = pd.DataFrame([('test', 0, 0, 'foo')],
+        exp = pd.DataFrame([('test', 0, 'foo')],
                            columns=['ContextName', 'SamplesWithData',
-                                    'SamplesWithObservations', 'Description'])
+                                    'Description'])
         obs = contexts()
         pdt.assert_frame_equal(obs, exp)
 
     def test_summarize_contexts_full_load(self):
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        nobs = redbiom.admin.load_observations(table, 'test', tag=None)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
         ndat = redbiom.admin.load_sample_data(table, 'test', tag=None)
 
-        exp = pd.DataFrame([('test', ndat, nobs, 'foo')],
+        exp = pd.DataFrame([('test', ndat, 'foo')],
                            columns=['ContextName', 'SamplesWithData',
-                                    'SamplesWithObservations', 'Description'])
+                                    'Description'])
 
         obs = contexts()
         pdt.assert_frame_equal(obs, exp)
@@ -65,36 +64,22 @@ class SummarizeTests(unittest.TestCase):
     def test_summarize_contexts_full_load_multiple(self):
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        nobs_a = redbiom.admin.load_observations(table, 'test', tag=None)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
         ndat_a = redbiom.admin.load_sample_data(table, 'test', tag=None)
 
         redbiom.admin.create_context('test-alt', 'bar')
         redbiom.admin.load_sample_metadata(metadata_with_alt)
-        nobs_b = redbiom.admin.load_observations(table_with_alt, 'test-alt',
-                                                 tag=None)
         ndat_b = redbiom.admin.load_sample_data(table_with_alt, 'test-alt',
                                                 tag=None)
 
-        exp = pd.DataFrame([('test', ndat_a, nobs_a, 'foo'),
-                            ('test-alt', ndat_b, nobs_b, 'bar')],
+        exp = pd.DataFrame([('test', ndat_a, 'foo'),
+                            ('test-alt', ndat_b, 'bar')],
                            columns=['ContextName', 'SamplesWithData',
-                                    'SamplesWithObservations', 'Description'])
+                                    'Description'])
 
         obs = contexts()
         obs = obs.sort_values('ContextName').set_index('ContextName')
         exp = exp.sort_values('ContextName').set_index('ContextName')
-        pdt.assert_frame_equal(obs, exp)
-
-    def test_summarize_contexts_partial_load(self):
-        redbiom.admin.create_context('test', 'foo')
-        redbiom.admin.load_sample_metadata(metadata)
-        nobs_a = redbiom.admin.load_observations(table, 'test', tag=None)
-
-        exp = pd.DataFrame([('test', 0, nobs_a, 'foo')],
-                           columns=['ContextName', 'SamplesWithData',
-                                    'SamplesWithObservations', 'Description'])
-
-        obs = contexts()
         pdt.assert_frame_equal(obs, exp)
 
 

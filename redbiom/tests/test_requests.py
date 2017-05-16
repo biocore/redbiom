@@ -32,6 +32,7 @@ class RequestsTests(unittest.TestCase):
         context = 'test'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
         redbiom.admin.load_sample_data(table, context, tag=None)
         # Webdis does not leverage status codes too aggressively.
         # This design decision makes sense as Webdis does not need to concern
@@ -39,7 +40,7 @@ class RequestsTests(unittest.TestCase):
         # makes it somewhat annoying to sanity check a response. As is, the
         # checking is light. Since the test environment does not utilize ACLs,
         # it is bit difficult to trigger a non-200...
-        key = 'test:data:UNTAGGED_10317.000033804'
+        key = 'test:sample:UNTAGGED_10317.000033804'
         req = requests.get('http://127.0.0.1:7379/EXISTS/%s' % key)
         exp = 1
         obs = _parse_validate_request(req, 'EXISTS')
@@ -97,12 +98,13 @@ class RequestsTests(unittest.TestCase):
         context = 'test'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
         redbiom.admin.load_sample_data(table, context, tag=None)
 
         samples = iter(['UNTAGGED_10317.000033804', 'does not exist'])
         exp_items = ['UNTAGGED_10317.000033804', 'does not exist']
         exp = 1  # because only 1 exists
-        gen = buffered(samples, 'data', 'EXISTS', 'test')
+        gen = buffered(samples, 'sample', 'EXISTS', 'test')
         obs_items, obs = next(gen)
         self.assertEqual(obs, exp)
         self.assertEqual(obs_items, exp_items)

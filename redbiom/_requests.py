@@ -91,6 +91,21 @@ def make_get(config):
     return f
 
 
+def make_script_exec(config):
+    """Factory function: produce a script_exec() method"""
+    import redbiom
+    import json
+    s = get_session()
+    config = redbiom.get_config()
+
+    def f(sha, *args):
+        payload = [config['hostname'], 'EVALSHA', sha]
+        payload.extend([str(a) for a in args])
+        url = '/'.join(payload)
+        return json.loads(_parse_validate_request(s.get(url), 'EVALSHA'))
+    return f
+
+
 def buffered(it, prefix, cmd, context, get=None, buffer_size=10,
              multikey=None):
     """Bulk fetch data

@@ -20,6 +20,7 @@ class FetchTests(unittest.TestCase):
         host = redbiom.get_config()['hostname']
         req = requests.get(host + '/FLUSHALL')
         assert req.status_code == 200
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
 
     def test_biom_from_samples(self):
         redbiom.admin.create_context('test', 'a nice test')

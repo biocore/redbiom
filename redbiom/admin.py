@@ -1,19 +1,112 @@
-import hashlib
+class ScriptManager:
+    # derived from http://stackoverflow.com/a/43900922/19741
+    _scripts = {'get-index': """
+                    local kid = redis.call('HGET', KEYS[1], ARGV[1])
+                    if not kid then
+                      kid = redis.call('HINCRBY', KEYS[1], 'current_id', 1) - 1
+                      redis.call('HSET', KEYS[1], ARGV[1], kid)
+                      redis.call('HSET', KEYS[1] .. '-inverted', kid, ARGV[1])
+                    end
+                    return kid""",
+                'fetch-feature': """
+                    local context = ARGV[1]
+                    local key = ARGV[2]
+                    local result = {}
+                    local formedkey = context .. ':' .. 'feature' .. ':' .. key
 
+                    local items = redis.call('ZRANGEBYSCORE',
+                                             formedkey,
+                                             '-inf', 'inf',
+                                             'withscores')
 
-# derived from http://stackoverflow.com/a/43900922/19741
-_INDEX_SCRIPT = """
-    local kid = redis.call('HGET', KEYS[1], ARGV[1])
-    if not kid then
-      kid = redis.call('HINCRBY', KEYS[1], 'current_id', 1) - 1
-      redis.call('HSET', KEYS[1], ARGV[1], kid)
-      redis.call('HSET', KEYS[1] .. '-inverted', kid, ARGV[1])
-    end
-    return kid
-"""
+                    -- adapted from https://gist.github.com/klovadis/5170446
+                    local resultkey
+                    local ii = context .. ':' .. 'sample' .. '-index-inverted'
+                    for idx, v in ipairs(items) do
+                        if idx % 2 == 1 then
+                            -- it is likely possible to issue a HMGET
+                            resultkey = redis.call('HGET', ii, v)
+                        else
+                            result[resultkey] = tonumber(v)
+                        end
+                    end
 
+                    return cjson.encode(result)""",
+                'fetch-sample': """
+                    local context = ARGV[1]
+                    local key = ARGV[2]
+                    local result = {}
+                    local formedkey = context .. ':' .. 'sample' .. ':' .. key
 
-_INDEX_SCRIPT_SHA1 = hashlib.sha1(_INDEX_SCRIPT.encode('ascii')).hexdigest()
+                    local items = redis.call('ZRANGEBYSCORE',
+                                             formedkey,
+                                             '-inf', 'inf',
+                                             'withscores')
+
+                    -- adapted from https://gist.github.com/klovadis/5170446
+                    local resultkey
+                    local ii = context .. ':' .. 'feature' .. '-index-inverted'
+                    for idx, v in ipairs(items) do
+                        if idx % 2 == 1 then
+                            -- it is likely possible to issue a HMGET
+                            resultkey = redis.call('HGET', ii, v)
+                        else
+                            result[resultkey] = tonumber(v)
+                        end
+                    end
+
+                    return cjson.encode(result)"""}
+    _admin_scripts = ('get-index', )
+
+    @staticmethod
+    def load_scripts(read_only=True):
+        import redbiom
+        import redbiom._requests
+        import hashlib
+
+        config = redbiom.get_config()
+        s = redbiom._requests.get_session()
+        post = redbiom._requests.make_post(config)
+        get = redbiom._requests.make_get(config)
+
+        for name, script in ScriptManager._scripts.items():
+            if read_only and name in ScriptManager._admin_scripts:
+                continue
+
+            sha1 = hashlib.sha1(script.encode('ascii')).hexdigest()
+            keypair = 'scripts/%s/%s' % (name, sha1)
+
+            # load the script
+            s.put(config['hostname'] + '/SCRIPT/LOAD', data=script)
+
+            # create a mapping
+            post('state', 'HSET', keypair)
+
+            # verify we've correctly computed the hash
+            obs = get('state', 'HGET', 'scripts/%s' % name)
+            assert obs == sha1
+
+    @staticmethod
+    def get(name):
+        import redbiom
+        import redbiom._requests
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+        sha = get('state', 'HGET', 'scripts/%s' % name)
+        if sha is None:
+            raise ValueError('Unknown script')
+
+        return sha
+
+    @staticmethod
+    def drop_scripts():
+        import redbiom
+        import redbiom._requests
+        config = redbiom.get_config()
+        s = redbiom._requests.get_session()
+        s.get(config['hostname'] + '/SCRIPT/FLUSH')
+        s.get(config['hostname'] + '/DEL/state:scripts')
 
 
 def create_context(name, description):
@@ -39,10 +132,7 @@ def create_context(name, description):
     post = redbiom._requests.make_post(config)
     post('state', 'HSET', "contexts/%s/%s" % (name, description))
 
-    # we need to do a direct request here because we are not associating with
-    # a key
-    s = redbiom._requests.get_session()
-    s.put(config['hostname'] + '/SCRIPT/LOAD', data=_INDEX_SCRIPT)
+    ScriptManager.load_scripts()
 
 
 def load_sample_data(table, context, tag=None, redis_protocol=False):
@@ -396,7 +486,8 @@ def get_index(context, key, axis):
     # we need to issue the request directly as the command structure is
     # rather different than other commands
     s = redbiom._requests.get_session()
-    url = '/'.join([config['hostname'], 'EVALSHA', _INDEX_SCRIPT_SHA1,
+    sha = ScriptManager.get('get-index')
+    url = '/'.join([config['hostname'], 'EVALSHA', sha,
                     '1', "%s:%s-index" % (context, axis), key])
     req = s.get(url)
 

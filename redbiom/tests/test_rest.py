@@ -6,7 +6,6 @@ import biom
 import requests
 import json
 import numpy as np
-import numpy.testing as npt
 import pandas as pd
 
 
@@ -33,36 +32,42 @@ class RESTTests(unittest.TestCase):
         context = 'test'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        redbiom.admin.load_observations(table, context, tag=None)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
+        redbiom.admin.load_sample_data(table, context, tag=None)
 
         sample_ids = np.array(['UNTAGGED_%s' % i for i in table.ids()])
+        inv_index = get('HGETALL', 'test:sample-index-inverted')
         for values, id_, _ in table.iter(axis='observation'):
             exp = set(sample_ids[values > 0])
-            obs = set(get('SMEMBERS', 'test:samples:%s' % id_))
+            obs = get('ZRANGEBYSCORE', 'test:feature:%s/%s/%s' %
+                      (id_, '-inf', 'inf'))
+            obs = {inv_index[i] for i in obs}
             self.assertEqual(obs, exp)
 
     def test_sample_data(self):
         context = 'test'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
         redbiom.admin.load_sample_data(table, context, tag=None)
 
         observation_ids = table.ids(axis='observation')
 
         # get the inverted mapping of index -> ID
-        inv_index = get('HGETALL', 'test:observation-index-inverted')
+        inv_index = get('HGETALL', 'test:feature-index-inverted')
 
         for values, id_, _ in table.iter():
             exp_data = values[values > 0]
             exp_ids = observation_ids[values > 0]
+            exp_dict = {i: v for i, v in zip(exp_ids, exp_data)}
 
-            obs = get('GET', 'test:data:UNTAGGED_%s' % id_).split('\t')
+            obs = get('ZRANGEBYSCORE',
+                      'test:sample:UNTAGGED_%s/%s/%s/%s' %
+                      (id_, "-inf", "inf", "withscores"))
+            obs_dict = {inv_index[i]: float(v) for i, v in zip(obs[::2],
+                                                               obs[1::2])}
 
-            obs_data = np.array([float(i) for i in obs[1::2]])
-            obs_ids = np.array([inv_index[i] for i in obs[::2]])
-
-            npt.assert_equal(obs_data, exp_data)
-            npt.assert_equal(obs_ids, exp_ids)
+            self.assertEqual(obs_dict, exp_dict)
 
     def test_metadata_categories(self):
         context = 'test'
