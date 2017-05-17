@@ -151,75 +151,9 @@ def create_context(name, description):
     post = redbiom._requests.make_post(config)
     post('state', 'HSET', "contexts/%s/%s" % (name, description))
 
-<<<<<<< HEAD
     ScriptManager.load_scripts()
 
 
-=======
-    # we need to do a direct request here because we are not associating with
-    # a key
-    s = redbiom._requests.get_session()
-    s.put(config['hostname'] + '/SCRIPT/LOAD', data=_INDEX_SCRIPT)
-
-
-def load_observations(table, context, tag=None, redis_protocol=False):
-    """Load observation to sample mappings.
-
-    Parameters
-    ----------
-    table : biom.Table
-        The BIOM table to load.
-    context : str
-        The context to load into.
-    tag : str, optional
-        A tag to associated the samples with (e.g., a preparation ID).
-    redis_protocol : bool, optional
-        Generate commands for bulk load instead of HTTP requests.
-
-    Returns
-    -------
-    int
-        The number of samples in which observations where loaded from.
-
-    Raises
-    ------
-    ValueError
-        If the context to load into does not exist.
-        If a samples metadata has not already been loaded.
-
-    Redis command summary
-    ---------------------
-    SMEMBERS <context>:samples-represented-observations
-    SADD <context>:samples:<observation_id> <sample_id> ... <sample_id>
-    SADD <context>:samples-represented-observations <sample_id> ... <sample_id>
-    """
-    import redbiom
-    import redbiom._requests
-    import redbiom.util
-
-    config = redbiom.get_config()
-    post = redbiom._requests.make_post(config, redis_protocol)
-    get = redbiom._requests.make_get(config)
-
-    redbiom._requests.valid(context, get)
-
-    table = _stage_for_load(table, context, get, 'observations', tag)
-
-    samples = table.ids()[:]
-
-    for values, id_, _ in table.iter(axis='observation', dense=False):
-        observed = samples[values.indices]
-
-        payload = "samples:%s/%s" % (id_, "/".join(observed))
-        post(context, 'SADD', payload)
-
-    payload = "samples-represented-observations/%s" % '/'.join(samples)
-    post(context, 'SADD', payload)
-
-    return len(samples)
-
-
->>>>>>> 10faf79bf7440b88fa5a8dc7d1d7069e13c16b37
 def load_sample_data(table, context, tag=None, redis_protocol=False):
     """Load nonzero sample data.
 
@@ -256,19 +190,12 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
 
     Redis command summary
     ---------------------
-<<<<<<< HEAD
     EVALSHA _INDEX_SCRIPT_SHA1 1 <context>:observation-index <feature_id>
     EVALSHA _INDEX_SCRIPT_SHA1 1 <context>:sample-index <redbiom_id>
     ZADD <context>:samples:<redbiom_id> <count> <feature_id> ...
     ZADD <context>:features:<redbiom_id> <count> <redbiom_id> ...
     SADD <context>:samples-represented <redbiom_id> ... <redbiom_id>
     SADD <context>:features-represented <feature_id> ... <feature_id>
-=======
-    SMEMBERS <context>:samples-represented-observations
-    EVALSHA _INDEX_SCRIPT_SHA1 1 <context>:observation-index <observation id>
-    SET <context>:data:<sample_id> <packed-nz-representation>
-    SADD <context>:samples-represented-data <sample_id> ... <sample_id>
->>>>>>> 10faf79bf7440b88fa5a8dc7d1d7069e13c16b37
 
     Returns
     -------
@@ -285,32 +212,23 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
 
     redbiom._requests.valid(context, get)
 
-<<<<<<< HEAD
     table = _stage_for_load(table, context, get, tag)
-=======
-    table = _stage_for_load(table, context, get, 'data', tag)
->>>>>>> 10faf79bf7440b88fa5a8dc7d1d7069e13c16b37
     samples = table.ids()[:]
     obs = table.ids(axis='observation')
 
     obs_index = {}
     for id_ in obs:
-<<<<<<< HEAD
         obs_index[id_] = get_index(context, id_, 'feature')
 
     samp_index = {}
     for id_ in samples:
         samp_index[id_] = get_index(context, id_, 'sample')
-=======
-        obs_index[id_] = get_index(context, id_)
->>>>>>> 10faf79bf7440b88fa5a8dc7d1d7069e13c16b37
 
     # load up the table per-sample
     for values, id_, _ in table.iter(dense=False):
         int_values = values.astype(int)
         remapped = [obs_index[i] for i in obs[values.indices]]
 
-<<<<<<< HEAD
         packed = '/'.join(["%d/%s" % (v, i)
                            for i, v in zip(remapped,
                                            int_values.data)])
@@ -329,14 +247,6 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
         post(context, 'ZADD', 'feature:%s/%s' % (id_, packed))
 
     payload = "features-represented/%s" % '/'.join(obs)
-=======
-        packed = '\t'.join(["%s\t%d" % (i, v)
-                            for i, v in zip(remapped,
-                                            int_values.data)])
-        post(context, 'SET', 'data:%s/%s' % (id_, packed))
-
-    payload = "samples-represented-data/%s" % '/'.join(samples)
->>>>>>> 10faf79bf7440b88fa5a8dc7d1d7069e13c16b37
     post(context, 'SADD', payload)
 
     return len(samples)
@@ -561,11 +471,7 @@ def _stage_for_load(table, context, get, tag=None):
     return table.filter(lambda v, i, md: v.sum() > 0, axis='observation')
 
 
-<<<<<<< HEAD
 def get_index(context, key, axis):
-=======
-def get_index(context, key):
->>>>>>> 10faf79bf7440b88fa5a8dc7d1d7069e13c16b37
     """Get a unique integer value for a key within a context
 
     Parameters
@@ -574,11 +480,8 @@ def get_index(context, key):
         The context to operate in
     key : str
         The key to get a unique index for
-<<<<<<< HEAD
     axis : str
         Either feature or sample
-=======
->>>>>>> 10faf79bf7440b88fa5a8dc7d1d7069e13c16b37
 
     Notes
     -----
@@ -602,14 +505,9 @@ def get_index(context, key):
     # we need to issue the request directly as the command structure is
     # rather different than other commands
     s = redbiom._requests.get_session()
-<<<<<<< HEAD
     sha = ScriptManager.get('get-index')
     url = '/'.join([config['hostname'], 'EVALSHA', sha,
                     '1', "%s:%s-index" % (context, axis), key])
-=======
-    url = '/'.join([config['hostname'], 'EVALSHA', _INDEX_SCRIPT_SHA1,
-                    '1', "%s:observation-index" % context, key])
->>>>>>> 10faf79bf7440b88fa5a8dc7d1d7069e13c16b37
     req = s.get(url)
 
     if req.status_code != 200:
