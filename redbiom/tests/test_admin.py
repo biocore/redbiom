@@ -68,16 +68,6 @@ class AdminTests(unittest.TestCase):
         redbiom.admin.ScriptManager.load_scripts(read_only=False)
 
     def test_get_index(self):
-        context = 'load-features-test'
-        redbiom.admin.create_context(context, 'foo')
-
-        tests = [('A', 0), ('A', 0), ('B', 1), ('C', 2),
-                 ('B', 1), ('Z', 3), ('A', 0)]
-        for key, exp in tests:
-            obs = redbiom.admin.get_index(context, key, 'feature')
-            self.assertEqual(obs, exp)
-
-    def test_get_index(self):
         context = 'load-observations-test'
         redbiom.admin.create_context(context, 'foo')
 
