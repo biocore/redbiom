@@ -84,7 +84,7 @@ class AdminTests(unittest.TestCase):
         tests = [('A', 0), ('A', 0), ('B', 1), ('C', 2),
                  ('B', 1), ('Z', 3), ('A', 0)]
         for key, exp in tests:
-            obs = redbiom.admin.get_index(context, key)
+            obs = redbiom.admin.get_index(context, key, 'feature')
             self.assertEqual(obs, exp)
 
     def test_create_context(self):
