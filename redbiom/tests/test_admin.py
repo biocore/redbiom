@@ -24,6 +24,16 @@ class AdminTests(unittest.TestCase):
         assert req.status_code == 200
         self.get = redbiom._requests.make_get(redbiom.get_config())
 
+    def test_get_index(self):
+        context = 'load-observations-test'
+        redbiom.admin.create_context(context, 'foo')
+
+        tests = [('A', 0), ('A', 0), ('B', 1), ('C', 2),
+                 ('B', 1), ('Z', 3), ('A', 0)]
+        for key, exp in tests:
+            obs = redbiom.admin.get_index(context, key)
+            self.assertEqual(obs, exp)
+
     def test_create_context(self):
         obs = self.get('state', 'HGETALL', 'contexts')
         self.assertNotIn('another test', list(obs.keys()))

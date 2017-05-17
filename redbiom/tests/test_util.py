@@ -60,6 +60,31 @@ class UtilTests(unittest.TestCase):
         # deferring validation of inference of stdin to integration tests
         # as it would require overriding that standard file descriptor.
 
+    def test_samples_from_observations_multicontext(self):
+        redbiom.admin.create_context('test', 'foo')
+        redbiom.admin.create_context('test2', 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_observations(table, 'test', tag=None)
+        redbiom.admin.load_observations(table, 'test2', tag=None)
+
+        d = table.data(table.ids()[0], dense=True)
+        ids = table.ids(axis='observation')[d.nonzero()]
+        exp = set(['UNTAGGED_' + table.ids()[0], ])
+        obs = samples_from_observations(iter(ids), True, ['test',
+                                                          'test2'])
+        self.assertEqual(obs, exp)
+
+        redbiom.admin.create_context('testalt', 'foo')
+        redbiom.admin.load_sample_metadata(metadata_with_alt)
+        redbiom.admin.load_observations(table_with_alt, 'testalt', tag=None)
+
+        exp = {'UNTAGGED_10317.000051129alt', 'UNTAGGED_10317.000051129'}
+        d = table.data('10317.000051129', dense=True)
+        ids = table.ids(axis='observation')[d.nonzero()]
+        obs = samples_from_observations(iter(ids), True, ['test', 'test2',
+                                                          'testalt'])
+        self.assertEqual(obs, exp)
+
     def test_samples_from_observations(self):
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
@@ -80,8 +105,8 @@ class UtilTests(unittest.TestCase):
             exp_exact = reduce(set.intersection, map(set, assoc_ids))
             exp_union = reduce(set.union, map(set, assoc_ids))
 
-            obs_exact = samples_from_observations(iter(fetch), True, 'test')
-            obs_union = samples_from_observations(iter(fetch), False, 'test')
+            obs_exact = samples_from_observations(iter(fetch), True, ['test'])
+            obs_union = samples_from_observations(iter(fetch), False, ['test'])
 
             self.assertEqual(obs_exact, exp_exact)
             self.assertEqual(obs_union, exp_union)

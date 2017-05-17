@@ -1,10 +1,15 @@
-def contexts():
+def contexts(detail=True):
     """Obtain the name and description of known contexts
+
+    Parameters
+    ----------
+    detail : bool, optional
+        If True, obtain additional context detail.
 
     Returns
     -------
-    list of (str, int, str)
-        A list of (name, number of samples, desciption) for each known context.
+    DataFrame
+        Containing context information.
 
     Redis command summary
     ---------------------
@@ -17,18 +22,22 @@ def contexts():
     import redbiom._requests
     get = redbiom._requests.make_get(redbiom.get_config())
 
-    contexts = get('state', 'HGETALL', 'contexts')
+    if not detail:
+        contexts = get('state', 'HKEYS', 'contexts')
+        return pd.DataFrame(contexts, columns=['ContextName'])
+    else:
+        contexts = get('state', 'HGETALL', 'contexts')
 
-    result = []
-    for name, desc in contexts.items():
-        ctx_n_data = get(name, 'SCARD', 'samples-represented-data')
-        ctx_n_obs = get(name, 'SCARD', 'samples-represented-observations')
+        result = []
+        for name, desc in contexts.items():
+            ctx_n_data = get(name, 'SCARD', 'samples-represented-data')
+            ctx_n_obs = get(name, 'SCARD', 'samples-represented-observations')
 
-        result.append((name, int(ctx_n_data), int(ctx_n_obs), desc))
+            result.append((name, int(ctx_n_data), int(ctx_n_obs), desc))
 
-    return pd.DataFrame(result, columns=['ContextName', 'SamplesWithData',
-                                         'SamplesWithObservations',
-                                         'Description'])
+        return pd.DataFrame(result, columns=['ContextName', 'SamplesWithData',
+                                             'SamplesWithObservations',
+                                             'Description'])
 
 
 def category_from_observations(context, category, observations, exact):
@@ -58,7 +67,7 @@ def category_from_observations(context, category, observations, exact):
     import redbiom.util
     # TODO: should samples_from_observations be in redbiom.fetch?
     samples = redbiom.util.samples_from_observations(observations, exact,
-                                                     context)
+                                                     [context])
 
     import redbiom.fetch
     return redbiom.fetch.category_sample_values(category, samples)
