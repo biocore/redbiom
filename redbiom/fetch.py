@@ -233,6 +233,15 @@ def _biom_from_samples(context, samples, get=None):
     unique_indices_map = {observed: index
                           for index, observed in enumerate(unique_indices)}
 
+    # get the inverted mapping of index -> ID
+    invdata = redbiom._requests.buffered(iter(unique_indices),
+                                         None, 'HMGET', context, get=get,
+                                         buffer_size=500,
+                                         multikey='observation-index-inverted')
+
+    inverted_obs_index = {index: id_ for indices, ids in invdata
+                          for index, id_ in zip(indices, ids)}
+
     # pull out the observation and sample IDs in the desired ordering
     obs_ids = [id_ for id_, _ in sorted(unique_indices_map.items(),
                                         key=itemgetter(1))]
