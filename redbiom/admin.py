@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 class ScriptManager:
     # derived from http://stackoverflow.com/a/43900922/19741
     _scripts = {'get-index': """
@@ -108,24 +107,6 @@ class ScriptManager:
         s = redbiom._requests.get_session()
         s.get(config['hostname'] + '/SCRIPT/FLUSH')
         s.get(config['hostname'] + '/DEL/state:scripts')
-=======
-import hashlib
-
-
-# derived from http://stackoverflow.com/a/43900922/19741
-_INDEX_SCRIPT = """
-    local kid = redis.call('HGET', KEYS[1], ARGV[1])
-    if not kid then
-      kid = redis.call('HINCRBY', KEYS[1], 'current_id', 1) - 1
-      redis.call('HSET', KEYS[1], ARGV[1], kid)
-      redis.call('HSET', KEYS[1] .. '-inverted', kid, ARGV[1])
-    end
-    return kid
-"""
-
-
-_INDEX_SCRIPT_SHA1 = hashlib.sha1(_INDEX_SCRIPT.encode('ascii')).hexdigest()
->>>>>>> 10faf79bf7440b88fa5a8dc7d1d7069e13c16b37
 
 
 def create_context(name, description):
