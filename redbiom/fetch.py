@@ -146,8 +146,7 @@ def data_from_observations(context, observations, exact):
     redbiom._requests.valid(context, get)
 
     # determine the samples which contain the observations of interest
-    samples = redbiom.util.samples_from_observations(observations, exact,
-                                                     [context])
+    samples = redbiom.util.ids_from(observations, exact, 'feature', [context])
 
     return _biom_from_samples(context, iter(samples), get=get)
 

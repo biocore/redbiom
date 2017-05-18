@@ -28,7 +28,7 @@ def search_observations(from_, exact, context, observations):
     it = redbiom.util.from_or_nargs(from_, observations)
 
     # determine the samples which contain the observations of interest
-    samples = redbiom.util.samples_from_observations(it, exact, context)
+    samples = redbiom.util.ids_from(it, exact, 'feature', context)
 
     for sample in samples:
         click.echo(sample)

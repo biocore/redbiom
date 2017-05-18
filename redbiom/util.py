@@ -26,7 +26,7 @@ def from_or_nargs(from_, nargs_variable):
     return iter((s.strip() for s in nargs_variable))
 
 
-def samples_from_observations(it, exact, contexts):
+def ids_from(it, exact, axis, contexts):
     """Grab samples from an iterable of observations
 
     Parameters
@@ -36,6 +36,8 @@ def samples_from_observations(it, exact, contexts):
     exact : boolean
         If True, compute the intersection of results per context. If False,
         compute the union of results per context.
+    axis : {'feature', 'sample'}
+        The axis to operate over.
     contexts : list of str
         The contexts to search in
 
@@ -56,28 +58,34 @@ def samples_from_observations(it, exact, contexts):
     config = redbiom.get_config()
     se = redbiom._requests.make_script_exec(config)
 
-    samples = set()
+    retrieved = set()
+
+    if axis not in {'feature', 'sample'}:
+        raise ValueError("Unknown axis: %s" % axis)
 
     if not isinstance(contexts, (list, set, tuple)):
         contexts = [contexts]
 
     it = list(it)
-    fetch_feature = redbiom.admin.ScriptManager.get('fetch-feature')
+    fetcher = redbiom.admin.ScriptManager.get('fetch-%s' % axis)
     for context in contexts:
-        context_samples = None
+        context_ids = None
         for id_ in it:
-            block = se(fetch_feature, 0, context, id_)
+            block = se(fetcher, 0, context, id_)
             if not exact:
-                if context_samples is None:
-                    context_samples = set()
-                context_samples.update(block)
+                if context_ids is None:
+                    context_ids = set()
+                context_ids.update(block)
             else:
-                if context_samples is None:
-                    context_samples = set(block)
+                if context_ids is None:
+                    context_ids = set(block)
                 else:
-                    context_samples = context_samples.intersection(block)
-        samples = samples.union(context_samples)
-    return samples
+                    context_ids = context_ids.intersection(block)
+
+        if context_ids:
+            retrieved = retrieved.union(context_ids)
+
+    return retrieved
 
 
 def category_exists(category, get=None):

@@ -63,9 +63,7 @@ def category_from_observations(context, category, observations, exact):
     redbiom._requests.valid(context)
 
     import redbiom.util
-    # TODO: should samples_from_observations be in redbiom.fetch?
-    samples = redbiom.util.samples_from_observations(observations, exact,
-                                                     [context])
+    samples = redbiom.util.ids_from(observations, exact, 'feature', [context])
 
     import redbiom.fetch
     return redbiom.fetch.category_sample_values(category, samples)

@@ -157,7 +157,7 @@ redbiom summarize table --table test.biom --context test --category COUNTRY --ou
 echo "feature	Australia	USA	United Kingdom" > exp_tablesummary.txt
 head -n 1 obs_tablesummary_full.txt > obs_tablesummary.txt
 md5test obs_tablesummary.txt exp_tablesummary.txt
-if [[ "$(wc -l obs_tablesummary_full.txt | awk '{ print $1 }')" != "924" ]];   #### 924
+if [[ "$(wc -l obs_tablesummary_full.txt | awk '{ print $1 }')" != "924" ]];  
 then
     echo "fail"
     exit 1
@@ -167,3 +167,11 @@ echo "10317.000033804" > exp_metadata_full.txt
 echo "10317.000001378" >> exp_metadata_full.txt
 redbiom search metadata "antibiotics where AGE_YEARS < 25" > obs_metadata_full.txt
 md5test obs_metadata_full.txt exp_metadata_full.txt
+
+obs=$(redbiom select observations-from-samples --context test 10317.000047188 10317.000005080 | wc -l)
+exp=492
+if [[ "$obs" != "$exp"]] ;
+then
+    echo "fail"
+    exit 1
+fi
