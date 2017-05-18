@@ -170,8 +170,7 @@ md5test obs_metadata_full.txt exp_metadata_full.txt
 
 obs=$(redbiom select observations-from-samples --context test 10317.000047188 10317.000005080 | wc -l)
 exp=492
-if [[ "$obs" != "$exp"]];
-then
+if [[ "$obs" != "$exp" ]]; then
     echo "fail"
     exit 1
 fi
