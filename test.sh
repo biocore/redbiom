@@ -38,7 +38,7 @@ md5test ${obs} ${exp}
 # fetch samples based on observations and sanity check
 echo ${query} | redbiom fetch observations --context test --output pipetest.biom --from -
 python -c "import biom; t = biom.load_table('pipetest.biom'); assert len(t.ids() == 3)"
-python -c "import biom; t = biom.load_table('pipetest.biom'); exp = biom.load_table('pipetestexp.biom').filter(t.ids()).filter(lambda v, i, md: (v > 0).sum() > 0, axis='observation').sort_order(t.ids()).sort_order(t.ids(axis='observation'), axis='observation'); assert t == exp"
+python -c "import biom; t = biom.load_table('pipetest.biom'); exp = biom.load_table('pipetestexp.biom').filter(t.ids()).filter(lambda v, i, md: (v > 0).sum() > 0, axis='observation').sort_order(t.ids()).sort_order(t.ids(axis='observation'), axis='observation'); exp._observation_metadata = None; t._observation_metadata = None; assert t == exp"
 
 # fetch data via sample
 redbiom fetch samples --context test --output cmdlinetest.biom 10317.000033804 10317.000047188 10317.000046868
@@ -136,8 +136,8 @@ md5test obs_anewid.txt exp_anewid.txt
 
 redbiom search metadata "where AGE_YEARS > 40" | redbiom fetch samples --context test --output metadata_search_test.biom
 echo "Num samples: 2" > exp_metadata_search.txt
-echo "Num observations: 427" >> exp_metadata_search.txt
-echo "Total count: 21780" >> exp_metadata_search.txt
+echo "Num observations: 425" >> exp_metadata_search.txt
+echo "Total count: 21462" >> exp_metadata_search.txt
 biom summarize-table -i metadata_search_test.biom | head -n 3 > obs_metadata_search.txt
 md5test obs_metadata_search.txt exp_metadata_search.txt
 
@@ -157,7 +157,7 @@ redbiom summarize table --table test.biom --context test --category COUNTRY --ou
 echo "feature	Australia	USA	United Kingdom" > exp_tablesummary.txt
 head -n 1 obs_tablesummary_full.txt > obs_tablesummary.txt
 md5test obs_tablesummary.txt exp_tablesummary.txt
-if [[ "$(wc -l obs_tablesummary_full.txt | awk '{ print $1 }')" != "930" ]];
+if [[ "$(wc -l obs_tablesummary_full.txt | awk '{ print $1 }')" != "924" ]];   #### 924
 then
     echo "fail"
     exit 1

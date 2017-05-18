@@ -86,3 +86,14 @@ def search_metadata(query, categories):
     import redbiom.search
     for i in redbiom.search.metadata_full(query, categories):
         click.echo(i)
+
+
+@search.command(name='taxon')
+@click.option('--context', required=True, type=str,
+              help="The context to search within.")
+@click.argument('query', nargs=1)
+def search_taxon(context, query):
+    """Find features associated with a taxon"""
+    import redbiom.fetch
+    for i in redbiom.fetch.taxon_descendents(context, query):
+        click.echo(i)

@@ -173,7 +173,7 @@ def data_from_samples(context, samples):
     return _biom_from_samples(context, samples)
 
 
-def _biom_from_samples(context, samples, get=None):
+def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None):
     """Create a BIOM table from an iterable of samples
 
     Parameters
@@ -184,6 +184,8 @@ def _biom_from_samples(context, samples, get=None):
         The samples to fetch.
     get : a make_get instance, optional
         A constructed get method.
+    normalize_taxonomy : list, optional
+        The ranks to normalize a lineage too (e.g., [k, p, c, o, f, g, s])
 
     Returns
     -------
@@ -245,10 +247,125 @@ def _biom_from_samples(context, samples, get=None):
         for obs_id, value in col_data.items():
             mat[unique_indices_map[obs_id], col] = value
 
-    table = biom.Table(mat, obs_ids, sample_ids)
+    lineages = taxon_ancestors(context, obs_ids, get,
+                               normalize=normalize_taxonomy)
+
+    if lineages is not None:
+        obs_md = [{'taxonomy': lineage} for lineage in lineages]
+    else:
+        obs_md = None
+
+    table = biom.Table(mat, obs_ids, sample_ids, obs_md)
     table.update_ids(rimap)
 
     return table, ambig_assoc
+
+
+def taxon_ancestors(context, ids, get=None, normalize=None):
+    """Fetch the taxonomy information for a set of IDs
+
+    Parameters
+    ----------
+    context : str
+        The context to operate in
+    ids : list or tuple of str
+        The IDs to retreive
+    get : function, optional
+        A get method
+    normalize : list, optional
+        The ranks to normalize a lineage too (e.g., [k, p, c, o, f, g, s])
+
+    Returns
+    -------
+    list of list
+        The lineage information for each ID in order with ids
+    """
+    from itertools import zip_longest
+    import redbiom._requests
+
+    if get is None:
+        import redbiom
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    # bulk gather the taxonomy information for all the tips and their parents
+    to_get = ids
+    child_parent = {}
+    while to_get:
+        key = 'taxonomy-parents'
+        getter = redbiom._requests.buffered(iter(to_get), None, 'HMGET',
+                                            context, get=get,
+                                            buffer_size=100, multikey=key)
+
+        new_to_get = set()
+        for block in getter:
+            for child, parent in zip(*block):
+                if parent is None:
+                    continue
+
+                child_parent[child] = parent
+                new_to_get.add(parent)
+        to_get = new_to_get
+
+    if not child_parent:
+        return None
+
+    # form lineages from the child -> parent relationships
+    lineages = []
+    for id_ in ids:
+        lineage = []
+        current = id_
+        while current is not None:
+            current = child_parent.get(current)
+            if current is not None:
+                lineage.append(current)
+        lineage = lineage[::-1]
+
+        # normalize if necessary to greengenes like strings
+        if normalize is not None:
+            lineage = [l if l else "%s__" % r
+                       for l, r in zip_longest(lineage, normalize,
+                                               fillvalue=False)]
+        lineages.append(lineage)
+
+    return lineages
+
+
+def taxon_descendents(context, taxon, get=None):
+    """Get tips associated with a taxon
+
+    Parameters
+    ----------
+    context : str
+        The context to operate in
+    taxon : str
+        The taxon to search for
+    get : function, optional
+        A get method
+
+    Returns
+    -------
+    set
+        The set of feature IDs found
+    """
+    if get is None:
+        import redbiom
+        import redbiom._requests
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    to_get = [taxon]
+    to_keep = set()
+    while to_get:
+        new_to_get = []
+        for t in to_get:
+            if t.startswith('terminal:'):
+                to_keep.add(t.split(':', 1)[1])
+            else:
+                gotten = get(context, 'SMEMBERS', 'taxonomy-children:%s' % t)
+                new_to_get.extend(gotten)
+        to_get = new_to_get
+    return to_keep
 
 
 def category_sample_values(category, samples=None):
