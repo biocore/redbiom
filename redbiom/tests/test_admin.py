@@ -1,6 +1,7 @@
 import unittest
 import hashlib
 
+import skbio
 import pandas as pd
 import biom
 import requests
@@ -66,6 +67,21 @@ class AdminTests(unittest.TestCase):
         self.get = redbiom._requests.make_get(redbiom.get_config())
         self.se = redbiom._requests.make_script_exec(redbiom.get_config())
         redbiom.admin.ScriptManager.load_scripts(read_only=False)
+
+    def test_metadata_to_taxonomy_tree(self):
+        exp = None
+        # no taxonomy
+        obs = redbiom.admin._metadata_to_taxonomy_tree([1, 2, 3], None)
+        self.assertEqual(obs, exp)
+
+        input = [('1', '2', '3'),
+                 [{'taxonomy': ['k__foo', 'p__bar', 'c__baz']},
+                  {'taxonomy': ['k__foo', 'p__bar', 'c__']},
+                  {'taxonomy': ['k__foo', 'p__bar', 'c__thing']}]]
+        exp = '((((1)c__baz,2,(3)c__thing)p__bar)k__foo);'
+        exp = skbio.TreeNode.read([exp])
+        obs = redbiom.admin._metadata_to_taxonomy_tree(*input)
+        self.assertEqual(obs.compare_subsets(exp), 0.0)
 
     def test_get_index(self):
         context = 'load-observations-test'
@@ -148,6 +164,46 @@ class AdminTests(unittest.TestCase):
         for id_ in set(table.ids()) & set(table_with_alt.ids()):
             id_ = 'UNTAGGED_%s' % id_
             self.assertTrue(self.get(context, 'EXISTS', 'sample:%s' % id_))
+
+    def test_load_sample_data_taxonomy(self):
+        context = 'load-sample-data'
+        redbiom.admin.create_context(context, 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        table = biom.load_table('test_with_tax.biom')
+        redbiom.admin.load_sample_data(table, context, tag=None)
+
+        k__Bacteria = {'p__Firmicutes',
+                       'p__Actinobacteria',
+                       'p__Proteobacteria',
+                       'p__Cyanobacteria',
+                       'p__Bacteroidetes',
+                       'p__Fusobacteria',
+                       'p__Verrucomicrobia',
+                       'p__Tenericutes',
+                       'p__Lentisphaerae',
+                       'p__[Thermi]'}
+
+        # has an unclassified genus, so it should have tips directly descending
+        f__Actinomycetaceae = {'g__Varibaculum',
+                               'g__Actinomyces',
+                               'terminal:TACGTAGGGCGCGAGCGTTGTCCGGAATTATTGGGCGTAAAGGGCTCGTAGGCGGCTTGTCGCGTCTGCTGTGAAAATGCGGGGCTTAACTCCGTACGTG'}  # noqa
+
+        obs_bacteria = self.get(context, 'SMEMBERS',
+                                ':'.join(['taxonomy-children',
+                                          'k__Bacteria']))
+        self.assertEqual(set(obs_bacteria), k__Bacteria)
+        obs_Actinomycetaceae = self.get(context, 'SMEMBERS',
+                                        ':'.join(['taxonomy-children',
+                                                  'f__Actinomycetaceae']))
+        self.assertEqual(set(obs_Actinomycetaceae), f__Actinomycetaceae)
+
+        exp_parents = [('p__Firmicutes', 'k__Bacteria'),
+                       ('p__Fusobacteria', 'k__Bacteria'),
+                       ('g__Actinomyces', 'f__Actinomycetaceae'),
+                       ('TACGTAGGGCGCGAGCGTTGTCCGGAATTATTGGGCGTAAAGGGCTCGTAGGCGGCTTGTCGCGTCTGCTGTGAAAATGCGGGGCTTAACTCCGTACGTG', 'f__Actinomycetaceae')]  # noqa
+        for name, exp in exp_parents:
+            obs = self.get(context, 'HGET', 'taxonomy-parents/%s' % name)
+            self.assertEqual(obs, exp)
 
     def test_load_sample_metadata(self):
         redbiom.admin.load_sample_metadata(metadata)

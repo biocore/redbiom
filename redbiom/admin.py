@@ -57,6 +57,7 @@ class ScriptManager:
 
                     return cjson.encode(result)"""}
     _admin_scripts = ('get-index', )
+    _cache = {}
 
     @staticmethod
     def load_scripts(read_only=True):
@@ -88,6 +89,9 @@ class ScriptManager:
 
     @staticmethod
     def get(name):
+        if name in ScriptManager._cache:
+            return ScriptManager._cache[name]
+
         import redbiom
         import redbiom._requests
         config = redbiom.get_config()
@@ -96,6 +100,8 @@ class ScriptManager:
         sha = get('state', 'HGET', 'scripts/%s' % name)
         if sha is None:
             raise ValueError('Unknown script')
+
+        ScriptManager._cache[name] = sha
 
         return sha
 
@@ -107,6 +113,7 @@ class ScriptManager:
         s = redbiom._requests.get_session()
         s.get(config['hostname'] + '/SCRIPT/FLUSH')
         s.get(config['hostname'] + '/DEL/state:scripts')
+        ScriptManager._cache = {}
 
 
 def create_context(name, description):
@@ -205,7 +212,7 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     for id_ in samples:
         samp_index[id_] = get_index(context, id_, 'sample')
 
-    # load up the table per-sample
+    # load up per-sample
     for values, id_, _ in table.iter(dense=False):
         int_values = values.astype(int)
         remapped = [obs_index[i] for i in obs[values.indices]]
@@ -218,7 +225,8 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     payload = "samples-represented/%s" % '/'.join(samples)
     post(context, 'SADD', payload)
 
-    for values, id_, _ in table.iter(axis='observation', dense=False):
+    # load up per-observation
+    for values, id_, md in table.iter(axis='observation', dense=False):
         int_values = values.astype(int)
         remapped = [samp_index[i] for i in samples[values.indices]]
 
@@ -230,7 +238,71 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     payload = "features-represented/%s" % '/'.join(obs)
     post(context, 'SADD', payload)
 
+    # load up taxonomy
+    taxonomy = _metadata_to_taxonomy_tree(table.ids(axis='observation'),
+                                          table.metadata(axis='observation'))
+    if taxonomy is not None:
+        for node in taxonomy.postorder(include_self=False):
+            if not node.is_tip():
+                # define node -> children relationships
+                pack = []
+                for c in node.children:
+                    if c.is_tip():
+                        pack.append('terminal:%s' % c.name)
+                    else:
+                        pack.append(c.name)
+
+                packed = '/'.join(pack)
+                post(context, 'SADD', 'taxonomy-children:%s/%s' % (node.name,
+                                                                   packed))
+
+                # define children -> parent relationships
+                pack = ['%s/%s' % (c.name, node.name)
+                        for c in node.children]
+                post(context, 'HMSET', 'taxonomy-parents/%s' % '/'.join(pack))
+
     return len(samples)
+
+
+def _metadata_to_taxonomy_tree(ids, metadata):
+    """Cast the taxonomy into a tree
+
+    Parameters
+    ----------
+    ids : list of str
+        The feature IDs
+    metadata : list of dict
+        Feature metadata in index order with the ids.
+
+    Notes
+    -----
+    Children of unclassified nodes (e.g., s__) are migrated to the parent
+    so that no unclassified nodes exist in the tree.
+
+    Returns
+    -------
+    skbio.TreeNode
+        A hierarchy of the taxonomy.
+    """
+    if metadata is None:
+        return None
+
+    import skbio
+    t = skbio.TreeNode.from_taxonomy([(i, m['taxonomy'])
+                                      for i, m in zip(ids, metadata)])
+
+    for node in list(t.postorder()):
+        if node.is_tip():
+            continue
+        if node.is_root():
+            continue
+
+        if len(node.name) == 3 and node.name.endswith('__'):
+            parent = node.parent
+            parent.extend(node.children)
+            parent.remove(node)
+
+    return t
 
 
 def load_sample_metadata(md, tag=None):
