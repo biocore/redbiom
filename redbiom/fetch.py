@@ -286,7 +286,6 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
         import redbiom
         config = redbiom.get_config()
         get = redbiom._requests.make_get(config)
-
     # bulk gather the taxonomy information for all the tips and their parents
     to_get = ids
     child_parent = {}

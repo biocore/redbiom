@@ -78,7 +78,7 @@ class AdminTests(unittest.TestCase):
                  [{'taxonomy': ['k__foo', 'p__bar', 'c__baz']},
                   {'taxonomy': ['k__foo', 'p__bar', 'c__']},
                   {'taxonomy': ['k__foo', 'p__bar', 'c__thing']}]]
-        exp = '((((1)c__baz,2,(3)c__thing)p__bar)k__foo);'
+        exp = u'((((1)c__baz,2,(3)c__thing)p__bar)k__foo);'
         exp = skbio.TreeNode.read([exp])
         obs = redbiom.admin._metadata_to_taxonomy_tree(*input)
         self.assertEqual(obs.compare_subsets(exp), 0.0)

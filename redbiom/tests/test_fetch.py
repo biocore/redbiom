@@ -1,6 +1,6 @@
 import unittest
 import requests
-from itertools import zip_longest
+from future.moves.itertools import zip_longest
 
 import biom
 import pandas as pd
@@ -73,11 +73,12 @@ class FetchTests(unittest.TestCase):
                                             normalize=list('kpcofgs'))
         self.assertEqual(obs, exp)
 
+        # ancestors does not include self, like skbio.TreeNode.ancestors
         q = 'o__Bacteroidales'
         exp = [(['k__Bacteria',
                  'p__Bacteroidetes',
                  'c__Bacteroidia',
-                 'o__Bacteroidales',
+                 'o__',
                  'f__',
                  'g__',
                  's__']), (['%s__' % r for r in 'kpcofgs'])]
