@@ -81,7 +81,7 @@ class FetchTests(unittest.TestCase):
                  'o__',
                  'f__',
                  'g__',
-                 's__']), (['%s__' % r for r in 'kpcofgs'])]
+                 's__'])]
         obs = redbiom.fetch.taxon_ancestors('test', [q],
                                             normalize=list('kpcofgs'))
         self.assertEqual(obs, exp)
