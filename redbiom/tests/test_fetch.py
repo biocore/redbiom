@@ -69,8 +69,8 @@ class FetchTests(unittest.TestCase):
                  'f__Bacteroidaceae',
                  'g__Bacteroides',
                  's__']), (['%s__' % r for r in 'kpcofgs'])]
-        obs = redbiom.fetch.taxonomy('test', [q, 'foo'],
-                                     normalize=list('kpcofgs'))
+        obs = redbiom.fetch.taxon_ancestors('test', [q, 'foo'],
+                                            normalize=list('kpcofgs'))
         self.assertEqual(obs, exp)
 
         q = 'o__Bacteroidales'
@@ -104,8 +104,8 @@ class FetchTests(unittest.TestCase):
 
     def test_taxonomy_no_taxonomy_entries(self):
         exp = None
-        obs = redbiom.fetch.taxonomy('test', ['foo', 'bar'],
-                                     normalize=list('kpcofgs'))
+        obs = redbiom.fetch.taxon_ancestors('test', ['foo', 'bar'],
+                                            normalize=list('kpcofgs'))
         self.assertEqual(obs, exp)
 
     def test_sample_metadata_samples_not_represented_in_context(self):

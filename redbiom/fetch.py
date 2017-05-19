@@ -279,7 +279,7 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
     list of list
         The lineage information for each ID in order with ids
     """
-    from itertools import zip_longest
+    from future.moves.itertools import zip_longest
     import redbiom._requests
 
     if get is None:

@@ -169,7 +169,6 @@ class AdminTests(unittest.TestCase):
         context = 'load-sample-data'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        table = biom.load_table('test_with_tax.biom')
         redbiom.admin.load_sample_data(table, context, tag=None)
 
         k__Bacteria = {'p__Firmicutes',
