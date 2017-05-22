@@ -131,6 +131,7 @@ def create_context(name, description):
     Redis commmand summary
     ----------------------
     HSET state:context <name> <description>
+    HSET <context>:state db-version <current-db-version>
     """
     import redbiom
     import redbiom._requests
@@ -138,7 +139,7 @@ def create_context(name, description):
     config = redbiom.get_config()
     post = redbiom._requests.make_post(config)
     post('state', 'HSET', "contexts/%s/%s" % (name, description))
-
+    post(name, 'HSET', "state/db-version/%s" % redbiom.__db_version__)
     ScriptManager.load_scripts()
 
 
@@ -178,8 +179,8 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
 
     Redis command summary
     ---------------------
-    EVALSHA _INDEX_SCRIPT_SHA1 1 <context>:feature-index <feature_id>
-    EVALSHA _INDEX_SCRIPT_SHA1 1 <context>:sample-index <redbiom_id>
+    EVALSHA <get-index-sha1> 1 <context>:feature-index <feature_id>
+    EVALSHA <get-index-sha1> 1 <context>:sample-index <redbiom_id>
     ZADD <context>:samples:<redbiom_id> <count> <feature_id> ...
     ZADD <context>:features:<redbiom_id> <count> <redbiom_id> ...
     SADD <context>:samples-represented <redbiom_id> ... <redbiom_id>
@@ -242,6 +243,8 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     taxonomy = _metadata_to_taxonomy_tree(table.ids(axis='observation'),
                                           table.metadata(axis='observation'))
     if taxonomy is not None:
+        post(context, 'HSET', "state/has-taxonomy/1")
+
         for node in taxonomy.postorder(include_self=False):
             if not node.is_tip():
                 # define node -> children relationships

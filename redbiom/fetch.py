@@ -197,7 +197,7 @@ def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None):
     Redis command summary
     ---------------------
     HMGET <context>:feature-index-inverted
-    MGET <context>:data:<sample_id> ... <context>:data:<sample_id>
+    EVALSHA <fetch-sample-sha1> 0 context <redbiom-id>
     """
     from operator import itemgetter
     import scipy.sparse as ss
@@ -225,6 +225,7 @@ def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None):
     unique_indices = set()
     fetch_sample = redbiom.admin.ScriptManager.get('fetch-sample')
     for id_ in rimap:
+        # 0 -> we're passing 0 keys, and instead using ARGV
         data = se(fetch_sample, 0, context, id_)
         table_data.append((id_, data))
         unique_indices.update(data)
@@ -278,6 +279,10 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
     -------
     list of list
         The lineage information for each ID in order with ids
+
+    Redis Command Summary
+    ---------------------
+    HMGET <context>:taxonomy-parents <child> ... <child>
     """
     from future.moves.itertools import zip_longest
     import redbiom._requests
@@ -345,6 +350,10 @@ def taxon_descendents(context, taxon, get=None):
     -------
     set
         The set of feature IDs found
+
+    Redis Command Summary
+    ---------------------
+    SMEMBERS <context>:taxonomy-children:<taxon>
     """
     if get is None:
         import redbiom

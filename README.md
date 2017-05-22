@@ -101,6 +101,7 @@ The actual commands to execute are contained within a submodule. For instance, b
 	Commands:
 	  metadata      Find samples or categories.
 	  features      Find samples containing features.
+      taxon         Find features associated with a taxon
 
 The intention is for commands to make sense in English. The general command form is "redbiom <verb> <noun>", however this form is not strictly enforced. 
 
