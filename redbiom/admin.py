@@ -166,19 +166,19 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     -----
     This method does not support non count data.
 
-    The observation IDs are remapped into an integer space to reduce memory
+    The feature IDs are remapped into an integer space to reduce memory
     consumption as sOTUs are large. The index is maintained in Redis under
-    <context>:observation-index and <context>:observation-index-inverted.
+    <context>:feature-index and <context>:feature-index-inverted.
 
     The data are stored per sample with keys of the form "data:<sample_id>".
     The string stored is tab delimited, where the even indices (i.e .0, 2, 4,
-    etc) correspond to the unique index value for an observation ID, and the
-    odd indices correspond to the counts associated with the sample/observation
+    etc) correspond to the unique index value for an feature ID, and the
+    odd indices correspond to the counts associated with the sample/feature
     combination.
 
     Redis command summary
     ---------------------
-    EVALSHA _INDEX_SCRIPT_SHA1 1 <context>:observation-index <feature_id>
+    EVALSHA _INDEX_SCRIPT_SHA1 1 <context>:feature-index <feature_id>
     EVALSHA _INDEX_SCRIPT_SHA1 1 <context>:sample-index <redbiom_id>
     ZADD <context>:samples:<redbiom_id> <count> <feature_id> ...
     ZADD <context>:features:<redbiom_id> <count> <redbiom_id> ...

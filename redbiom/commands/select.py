@@ -38,7 +38,7 @@ def select_samples_from_metadata(from_, context, query, samples):
             click.echo(rid)
 
 
-@select.command(name='observations-from-samples')
+@select.command(name='features-from-samples')
 @click.option('--from', 'from_', type=click.File('r'), required=False,
               help='A file or stdin which provides samples to search for',
               default=None)
@@ -47,8 +47,8 @@ def select_samples_from_metadata(from_, context, query, samples):
 @click.option('--exact', is_flag=True, default=False,
               help="All found features must exist in all samples")
 @click.argument('samples', nargs=-1)
-def observations(from_, context, exact, samples):
-    """Given samples, select the observations associated."""
+def features(from_, context, exact, samples):
+    """Given samples, select the features associated."""
     import redbiom
     import redbiom._requests
     config = redbiom.get_config()

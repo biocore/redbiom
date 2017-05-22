@@ -28,7 +28,7 @@ class RESTTests(unittest.TestCase):
         req = requests.get(host + '/FLUSHALL')
         assert req.status_code == 200
 
-    def test_observation_sample_associations(self):
+    def test_feature_sample_associations(self):
         context = 'test'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
@@ -51,14 +51,14 @@ class RESTTests(unittest.TestCase):
         redbiom.admin.ScriptManager.load_scripts(read_only=False)
         redbiom.admin.load_sample_data(table, context, tag=None)
 
-        observation_ids = table.ids(axis='observation')
+        feature_ids = table.ids(axis='observation')
 
         # get the inverted mapping of index -> ID
         inv_index = get('HGETALL', 'test:feature-index-inverted')
 
         for values, id_, _ in table.iter():
             exp_data = values[values > 0]
-            exp_ids = observation_ids[values > 0]
+            exp_ids = feature_ids[values > 0]
             exp_dict = {i: v for i, v in zip(exp_ids, exp_data)}
 
             obs = get('ZRANGEBYSCORE',

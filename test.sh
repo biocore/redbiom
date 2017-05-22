@@ -28,15 +28,15 @@ echo "UNTAGGED_10317.000033804" > ${exp}
 echo "UNTAGGED_10317.000047188" >> ${exp} 
 echo "UNTAGGED_10317.000046868" >> ${exp} 
 
-redbiom search observations --context test ${query} | sort - > ${obs}
+redbiom search features --context test ${query} | sort - > ${obs}
 md5test ${obs} ${exp}
 
 # verify we're getting the expected samples back for a simple query when going via a pipe
-echo ${query} | redbiom search observations --context test | sort - > ${obs}
+echo ${query} | redbiom search features --context test | sort - > ${obs}
 md5test ${obs} ${exp}
 
-# fetch samples based on observations and sanity check
-echo ${query} | redbiom fetch observations --context test --output pipetest.biom --from -
+# fetch samples based on features and sanity check
+echo ${query} | redbiom fetch features --context test --output pipetest.biom --from -
 python -c "import biom; t = biom.load_table('pipetest.biom'); assert len(t.ids() == 3)"
 python -c "import biom; t = biom.load_table('pipetest.biom'); exp = biom.load_table('pipetestexp.biom').filter(t.ids()).filter(lambda v, i, md: (v > 0).sum() > 0, axis='observation').sort_order(t.ids()).sort_order(t.ids(axis='observation'), axis='observation'); exp._observation_metadata = None; t._observation_metadata = None; assert t == exp"
 
@@ -73,28 +73,28 @@ if [[ "${obs}" != "${exp}" ]]; then
     exit 1
 fi
 
-# summarize samples from observations
+# summarize samples from features
 echo "FECAL	4" > exp_summarize.txt
 echo "SKIN	1" >> exp_summarize.txt
 echo "" >> exp_summarize.txt
 echo "Total samples	5" >> exp_summarize.txt
 
-redbiom summarize observations --context test --category SIMPLE_BODY_SITE TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
+redbiom summarize features --context test --category SIMPLE_BODY_SITE TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
 md5test obs_summarize.txt exp_summarize.txt
 
-# summarize samples from observations in which all samples contain all requested observations
+# summarize samples from features in which all samples contain all requested observations
 echo "FECAL	2" > exp_summarize.txt
 echo "" >> exp_summarize.txt
 echo "Total samples	2" >> exp_summarize.txt
 
-redbiom summarize observations --exact --context test --category SIMPLE_BODY_SITE TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
+redbiom summarize features --exact --context test --category SIMPLE_BODY_SITE TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT > obs_summarize.txt
 md5test obs_summarize.txt exp_summarize.txt
 
 # pull out a selection of the summarized samples
 echo "UNTAGGED_10317.000047188"  > exp_summarize.txt
 echo "UNTAGGED_10317.000033804" >> exp_summarize.txt
 
-redbiom search observations --exact --context test TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT | redbiom select samples-from-metadata --context test "where SIMPLE_BODY_SITE in ('FECAL', 'SKIN')" > obs_summarize.txt
+redbiom search features --exact --context test TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTGAAATCTCAGGGCTCAACCCTGAAACTG TACGTAGGTGGCAAGCGTTATCCGGAATTATTGGGCGTAAAGCGCGCGTAGGCGGTTTTTTAAGTCTGATGTGAAAGCCCACGGCTCAACCGTGGAGGGT | redbiom select samples-from-metadata --context test "where SIMPLE_BODY_SITE in ('FECAL', 'SKIN')" > obs_summarize.txt
 md5test obs_summarize.txt exp_summarize.txt
 
 # round trip the sample data
@@ -147,10 +147,12 @@ echo "10317.000047188.UNTAGGED" >> exp_metadata_search.txt
 cut -f 1 metadata_search_test.txt | grep -v "^#" | sort - > obs_metadata_search.txt
 md5test obs_metadata_search.txt exp_metadata_search.txt
 
-echo "#ContextName	SamplesWithData	SamplesWithObservations	Description" > exp_contexts.txt
-echo "test	12	12	test context" >> exp_contexts.txt
-echo "test_alt	5	5	test context" >> exp_contexts.txt
+echo "ContextName	SamplesWithData	FeaturesWithData	Description" > exp_contexts.txt
+echo "test-alt	5	666	test context" >> exp_contexts.txt
+echo "test	12	925	test context" >> exp_contexts.txt
+echo "" >> exp_contexts.txt
 redbiom summarize contexts > obs_contexts.txt
+md5test obs_contexts.txt exp_contexts.txt
 
 # exercise table summary
 redbiom summarize table --table test.biom --context test --category COUNTRY --output obs_tablesummary_full.txt
@@ -168,9 +170,20 @@ echo "10317.000001378" >> exp_metadata_full.txt
 redbiom search metadata "antibiotics where AGE_YEARS < 25" > obs_metadata_full.txt
 md5test obs_metadata_full.txt exp_metadata_full.txt
 
-obs=$(redbiom select observations-from-samples --context test 10317.000047188 10317.000005080 | wc -l)
+obs=$(redbiom select features-from-samples --context test 10317.000047188 10317.000005080 | wc -l | awk '{ print $1 }')
 exp=492
 if [[ "$obs" != "$exp" ]]; then
     echo "fail"
     exit 1
 fi
+
+redbiom search metadata "where AGE_YEARS > 40" | redbiom select features-from-samples --context test | redbiom summarize taxonomy --context test | grep "^p__" | sort > obs_taxonomy.txt
+echo "p__Actinobacteria	14	0.0329" > exp_taxonomy.txt
+echo "p__Bacteroidetes	43	0.1012" >> exp_taxonomy.txt
+echo "p__Euryarchaeota	1	0.0024" >> exp_taxonomy.txt
+echo "p__Firmicutes	334	0.7859" >> exp_taxonomy.txt
+echo "p__Lentisphaerae	4	0.0094" >> exp_taxonomy.txt
+echo "p__Proteobacteria	10	0.0235" >> exp_taxonomy.txt
+echo "p__Tenericutes	15	0.0353" >> exp_taxonomy.txt
+echo "p__Verrucomicrobia	2	0.0047" >> exp_taxonomy.txt
+md5test obs_taxonomy.txt exp_taxonomy.txt

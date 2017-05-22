@@ -115,18 +115,18 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None):
     return md, ambig_assoc
 
 
-def data_from_observations(context, observations, exact):
-    """Fetch sample data from an iterable of observations.
+def data_from_features(context, features, exact):
+    """Fetch sample data from an iterable of features.
 
     Parameters
     ----------
     context : str
         The name of the context to retrieve sample data from.
-    observations : Iterable of str
-        The observations of interest.
+    features : Iterable of str
+        The features of interest.
     exact : bool
-        If True, only samples in which all observations exist are obtained.
-        Otherwise, all samples with at least one observation are obtained.
+        If True, only samples in which all features exist are obtained.
+        Otherwise, all samples with at least one feature are obtained.
 
     Returns
     -------
@@ -145,8 +145,8 @@ def data_from_observations(context, observations, exact):
 
     redbiom._requests.valid(context, get)
 
-    # determine the samples which contain the observations of interest
-    samples = redbiom.util.ids_from(observations, exact, 'feature', [context])
+    # determine the samples which contain the features of interest
+    samples = redbiom.util.ids_from(features, exact, 'feature', [context])
 
     return _biom_from_samples(context, iter(samples), get=get)
 
@@ -196,7 +196,7 @@ def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None):
 
     Redis command summary
     ---------------------
-    HMGET <context>:observation-index-inverted
+    HMGET <context>:feature-index-inverted
     MGET <context>:data:<sample_id> ... <context>:data:<sample_id>
     """
     from operator import itemgetter
@@ -230,11 +230,11 @@ def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None):
         unique_indices.update(data)
 
     # construct a mapping of
-    # {observation ID : index position in the BIOM table}
+    # {feature ID : index position in the BIOM table}
     unique_indices_map = {observed: index
                           for index, observed in enumerate(unique_indices)}
 
-    # pull out the observation and sample IDs in the desired ordering
+    # pull out the feature and sample IDs in the desired ordering
     obs_ids = [id_ for id_, _ in sorted(unique_indices_map.items(),
                                         key=itemgetter(1))]
     sample_ids = [id_ for id_, _ in table_data]

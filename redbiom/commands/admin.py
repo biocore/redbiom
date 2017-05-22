@@ -30,7 +30,7 @@ def coherency(context):
     Coherency is defined as:
 
     - each sample in each context has sample metadata
-    - each sample in each context has observation associations
+    - each sample in each context has feature associations
     - each sample in each context has sample data
     """
     # useful as this is not explicitly enforced. explicit enforcement would

@@ -84,7 +84,7 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(obs.compare_subsets(exp), 0.0)
 
     def test_get_index(self):
-        context = 'load-observations-test'
+        context = 'load-features-test'
         redbiom.admin.create_context(context, 'foo')
 
         tests = [('A', 0), ('A', 0), ('B', 1), ('C', 2),
@@ -100,8 +100,8 @@ class AdminTests(unittest.TestCase):
         obs = self.get('state', 'HGETALL', 'contexts')
         self.assertIn('another test', list(obs.keys()))
 
-    def test_load_observations(self):
-        context = 'load-observations-test'
+    def test_load_features(self):
+        context = 'load-features-test'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
         n = redbiom.admin.load_sample_data(table, context, tag=None)
@@ -126,8 +126,8 @@ class AdminTests(unittest.TestCase):
         obs = self.get(context, 'SMEMBERS', 'samples-represented')
         self.assertEqual(set(obs), exp)
 
-    def test_load_observations_partial(self):
-        context = 'load-observations-partial'
+    def test_load_features_partial(self):
+        context = 'load-features-partial'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
         n = redbiom.admin.load_sample_data(table, context, tag=None)

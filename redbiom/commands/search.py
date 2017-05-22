@@ -5,29 +5,29 @@ from . import cli
 
 @cli.group()
 def search():
-    """Observation and sample search support."""
+    """feature and sample search support."""
     pass
 
 
-@search.command(name="observations")
+@search.command(name="features")
 @click.option('--from', 'from_', type=click.File('r'), required=False,
-              help='A file or stdin which provides observations to search for',
+              help='A file or stdin which provides features to search for',
               default=None)
 @click.option('--exact', is_flag=True, default=False,
-              help="All found samples must contain all specified observations")
+              help="All found samples must contain all specified features")
 @click.option('--context', required=True, type=str,
               help="The context to search within.")
-@click.argument('observations', nargs=-1)
-def search_observations(from_, exact, context, observations):
-    """Find samples containing observations."""
+@click.argument('features', nargs=-1)
+def search_features(from_, exact, context, features):
+    """Find samples containing features."""
     import redbiom._requests
     import redbiom.util
 
     redbiom._requests.valid(context)
 
-    it = redbiom.util.from_or_nargs(from_, observations)
+    it = redbiom.util.from_or_nargs(from_, features)
 
-    # determine the samples which contain the observations of interest
+    # determine the samples which contain the features of interest
     samples = redbiom.util.ids_from(it, exact, 'feature', context)
 
     for sample in samples:

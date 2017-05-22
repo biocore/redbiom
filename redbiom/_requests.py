@@ -33,7 +33,7 @@ def make_post(config, redis_protocol=None):
     config = redbiom.get_config()
 
     if redis_protocol:
-        # for expensive load operations like observation data, it potentially
+        # for expensive load operations like feature data, it potentially
         # faster to use the native protocol. this writes out the redis
         # commands in their native for feeding into redis-cli --pipe. More
         # information can be found here:

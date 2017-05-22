@@ -27,7 +27,7 @@ def from_or_nargs(from_, nargs_variable):
 
 
 def ids_from(it, exact, axis, contexts):
-    """Grab samples from an iterable of observations
+    """Grab samples from an iterable of IDs
 
     Parameters
     ----------

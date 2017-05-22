@@ -35,16 +35,16 @@ class SummarizeTests(unittest.TestCase):
 
     def test_summarize_contexts_no_contexts(self):
         exp = pd.DataFrame([], columns=['ContextName', 'SamplesWithData',
-                                        'Description'])
+                                        'FeaturesWithData', 'Description'])
         obs = contexts()
         pdt.assert_frame_equal(obs, exp)
 
     def test_summarize_contexts_no_samples(self):
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        exp = pd.DataFrame([('test', 0, 'foo')],
+        exp = pd.DataFrame([('test', 0, 0, 'foo')],
                            columns=['ContextName', 'SamplesWithData',
-                                    'Description'])
+                                    'FeaturesWithData', 'Description'])
         obs = contexts()
         pdt.assert_frame_equal(obs, exp)
 
@@ -53,10 +53,10 @@ class SummarizeTests(unittest.TestCase):
         redbiom.admin.load_sample_metadata(metadata)
         redbiom.admin.ScriptManager.load_scripts(read_only=False)
         ndat = redbiom.admin.load_sample_data(table, 'test', tag=None)
-
-        exp = pd.DataFrame([('test', ndat, 'foo')],
+        nfeat = len(table.ids(axis='observation'))
+        exp = pd.DataFrame([('test', ndat, nfeat, 'foo')],
                            columns=['ContextName', 'SamplesWithData',
-                                    'Description'])
+                                    'FeaturesWithData', 'Description'])
 
         obs = contexts()
         pdt.assert_frame_equal(obs, exp)
@@ -66,16 +66,17 @@ class SummarizeTests(unittest.TestCase):
         redbiom.admin.load_sample_metadata(metadata)
         redbiom.admin.ScriptManager.load_scripts(read_only=False)
         ndat_a = redbiom.admin.load_sample_data(table, 'test', tag=None)
+        nfeat_a = len(table.ids(axis='observation'))
 
         redbiom.admin.create_context('test-alt', 'bar')
         redbiom.admin.load_sample_metadata(metadata_with_alt)
         ndat_b = redbiom.admin.load_sample_data(table_with_alt, 'test-alt',
                                                 tag=None)
-
-        exp = pd.DataFrame([('test', ndat_a, 'foo'),
-                            ('test-alt', ndat_b, 'bar')],
+        nfeat_b = len(table_with_alt.ids(axis='observation'))
+        exp = pd.DataFrame([('test', ndat_a, nfeat_a, 'foo'),
+                            ('test-alt', ndat_b, nfeat_b, 'bar')],
                            columns=['ContextName', 'SamplesWithData',
-                                    'Description'])
+                                    'FeaturesWithData', 'Description'])
 
         obs = contexts()
         obs = obs.sort_values('ContextName').set_index('ContextName')
