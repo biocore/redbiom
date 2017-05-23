@@ -13,7 +13,7 @@ def select():
 @click.option('--from', 'from_', type=click.File('r'), required=False,
               help='A file or stdin which provides samples to search for',
               default=None)
-@click.option('--context', required=True, type=str, default=None,
+@click.option('--context', required=True, type=str,
               help="The context to search within.")
 @click.argument('query', nargs=1)
 @click.argument('samples', nargs=-1)
@@ -42,7 +42,7 @@ def select_samples_from_metadata(from_, context, query, samples):
 @click.option('--from', 'from_', type=click.File('r'), required=False,
               help='A file or stdin which provides samples to search for',
               default=None)
-@click.option('--context', required=True, type=str, default=None,
+@click.option('--context', required=True, type=str,
               help="The context to search within.")
 @click.option('--exact', is_flag=True, default=False,
               help="All found features must exist in all samples")

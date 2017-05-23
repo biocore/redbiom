@@ -5,7 +5,7 @@ from . import cli
 
 @cli.group()
 def search():
-    """feature and sample search support."""
+    """Feature and sample search support."""
     pass
 
 

@@ -1,4 +1,5 @@
 class ScriptManager:
+    """Static singleton for managing Lua scripts in the Redis backend"""
     # derived from http://stackoverflow.com/a/43900922/19741
     _scripts = {'get-index': """
                     local kid = redis.call('HGET', KEYS[1], ARGV[1])
@@ -61,6 +62,14 @@ class ScriptManager:
 
     @staticmethod
     def load_scripts(read_only=True):
+        """Load scripts into Redis
+
+        Parameters
+        ----------
+        read_only : bool, optional
+            If True, only load read-only scripts. If False, load writable
+            scripts
+        """
         import redbiom
         import redbiom._requests
         import hashlib
@@ -89,6 +98,18 @@ class ScriptManager:
 
     @staticmethod
     def get(name):
+        """Retreive the SHA1 of a script
+
+        Parameters
+        ----------
+        name : str
+            The name of the script to fetch
+
+        Raises
+        ------
+        ValueError
+            If the script name is not recognized
+        """
         if name in ScriptManager._cache:
             return ScriptManager._cache[name]
 
@@ -107,6 +128,7 @@ class ScriptManager:
 
     @staticmethod
     def drop_scripts():
+        """Flush the loaded scripts in the redis database"""
         import redbiom
         import redbiom._requests
         config = redbiom.get_config()

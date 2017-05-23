@@ -74,33 +74,33 @@ Commands which write data will notify the user if there were ambiguities. An amb
 
 Redbiom relies on `Click` to provide a tiered command line interface. An example of the first tier is below, and with the exception of `admin`, are composed of verbs:
 
-	$ redbiom --help
-	Usage: redbiom [OPTIONS] COMMAND [ARGS]...
+    $ redbiom --help
+    Usage: redbiom [OPTIONS] COMMAND [ARGS]...
 
-	Options:
-	  --version  Show the version and exit.
-	  --help     Show this message and exit.
+    Options:
+      --version  Show the version and exit.
+      --help     Show this message and exit.
 
-	Commands:
-	  admin      Update database, etc.
-	  fetch      Sample data and metadata retrieval.
-	  search     Feature and sample search support.
-	  select     Select items based on metadata
-	  summarize  Summarize things.
+    Commands:
+      admin      Update database, etc.
+      fetch      Sample data and metadata retrieval.
+      search     Feature and sample search support.
+      select     Select items based on metadata
+      summarize  Summarize things.
 
 The actual commands to execute are contained within a submodule. For instance, below are the commands associated with "search":
 
-	$ redbiom search --help
-	Usage: redbiom search [OPTIONS] COMMAND [ARGS]...
+    $ redbiom search --help
+    Usage: redbiom search [OPTIONS] COMMAND [ARGS]...
 
-	  Feature and sample search support.
+      Feature and sample search support.
 
-	Options:
-	  --help  Show this message and exit.
+    Options:
+      --help  Show this message and exit.
 
-	Commands:
-	  metadata      Find samples or categories.
-	  features      Find samples containing features.
+    Commands:
+      metadata      Find samples or categories.
+      features      Find samples containing features.
       taxon         Find features associated with a taxon
 
 The intention is for commands to make sense in English. The general command form is "redbiom <verb> <noun>", however this form is not strictly enforced. 
@@ -117,7 +117,7 @@ The first example block surrounds loading data, because without anything in the 
 
 To make use of this cache, we need to load things. Loading can be done in parallel. First, we'll load up metadata. This will create keys in Redis which describe all of the columns associated with a sample (e.g., `metadata:categories:<sample_id>`, hash buckets for each category and sample combination (e.g., `metadata:category:<category_name>` as the hash and `<sample_id>` as the field), a set of all known categories (e.g., `metadata:categories-represented`), and a set of all known sample IDs (e.g., `metadata:samples-represented`):
 
-	$ redbiom admin load-sample-metadata --metadata path/to/qiime/compat/mapping.txt
+    $ redbiom admin load-sample-metadata --metadata path/to/qiime/compat/mapping.txt
 
 redbiom supports one to many mappings between sample metadata and actual sample data. This is done as there may be multiple types of processing performed on the same data (e.g., different nucleotide trims). Or, a physical sample may have been run through multiple protocols (e.g., 16S, WGS, etc). So before we load any data, we need to create a context for the data to be placed. The following action will add an entry into the `state:contexts` hash bucket keyed by `name` and valued by `description`:
 
@@ -125,29 +125,29 @@ redbiom supports one to many mappings between sample metadata and actual sample 
 
 Next, we'll load up associations between every single feature in a BIOM table to all the samples its found in. This will create Redis sets and can be accessed using keys of the form `<context_name>:samples:<feature_id>`. Note that we specify the context we're loading into.
 
-	$ redbiom admin load-features --context deblur-100nt --table /path/to/biom/table.biom
+    $ redbiom admin load-features --context deblur-100nt --table /path/to/biom/table.biom
 
 Last, let's load up all of the BIOM table data. We'll only store the non-zero values, and we'll encode the sample data into something simple so that it goes in as just a string to Redis. Important: we only support storing count data right now, not floating point. The keys created are of the form `<context_name>:sample:<redbiom_id>`. To reduce space, we reindex the feature IDs as things like sOTUs tend to be very long in name. The mapping is stable over all tables loaded (ie the same feature has the same index), and is stored under `<context_name>:feature-index`. Because we need to update the index, this operation cannot be done in parallel however the code is setup with a redis-based mutex so it's okay to queue up multiple loads.
 
-	$ redbiom load-sample-data --context deblur-100nt --table /path/to/biom/table.biom
+    $ redbiom load-sample-data --context deblur-100nt --table /path/to/biom/table.biom
 
 ### Query for content
 
 Now that things are loaded, we can search for stuff. Let's say you have a few OTUs of interest, and you are curious about what other samples they exist in. You can find that out with:
 
-	$ redbiom search features --context deblur-100nt <space delimited list of feature IDs>
+    $ redbiom search features --context deblur-100nt <space delimited list of feature IDs>
 
 Or, perhaps you loaded the EMP dataset and are curious about where these OTUs reside. You can get summarized environment information from the search as well:
 
-	$ redbiom search features --context deblur-100nt --category empo_3 <space delimited list of feature IDs>
+    $ redbiom search features --context deblur-100nt --category empo_3 <space delimited list of feature IDs>
 
 That was fun. So now let's go a little further. Perhaps you are interested not just in where those sequences are found in, but also in the samples themselves for a meta-analysis. To pull out all the samples associated with your IDs of interest, and construct a BIOM table, you can do the following:
 
-	$ redbiom fetch features --context deblur-100nt --output some/path.biom <space delimited list of feature IDs>
+    $ redbiom fetch features --context deblur-100nt --output some/path.biom <space delimited list of feature IDs>
 
 ...but you probably also want the metadata! Once you have your table, you can obtain it by passing the table back in. This will attempt to grab the metadata (only the columns in common at the moment) for all samples present in your table. Note that we do not have to specify a context here as the sample metadata are context independent:
 
-	$ redbiom fetch sample-metadata --output some/path.txt --table some/path.biom 
+    $ redbiom fetch sample-metadata --output some/path.txt --table some/path.biom 
 
 # Caveats
 
