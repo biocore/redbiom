@@ -1,5 +1,7 @@
 import unittest
+import hashlib
 
+import skbio
 import pandas as pd
 import biom
 import requests
@@ -17,21 +19,78 @@ metadata = pd.read_csv('test.txt', sep='\t', dtype=str, na_values=[],
 metadata_with_alt = pd.read_csv('test_with_alts.txt', sep='\t', dtype=str)
 
 
+class ScriptManagerTests(unittest.TestCase):
+    def setUp(self):
+        self.host = redbiom.get_config()['hostname']
+        requests.get(self.host + '/script/flush')
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
+
+    def test_load_scripts(self):
+        for script in redbiom.admin.ScriptManager._scripts.values():
+            sha = hashlib.sha1(script.encode('ascii')).hexdigest()
+            req = requests.get(self.host + '/script/exists/%s' % sha)
+            self.assertTrue(req.json()['script'][0])
+
+    def test_load_scripts_readonly(self):
+        redbiom.admin.ScriptManager.drop_scripts()
+        redbiom.admin.ScriptManager.load_scripts(read_only=True)
+        for name, script in redbiom.admin.ScriptManager._scripts.items():
+            sha = hashlib.sha1(script.encode('ascii')).hexdigest()
+            req = requests.get(self.host + '/script/exists/%s' % sha)
+            if name in redbiom.admin.ScriptManager._admin_scripts:
+                self.assertFalse(req.json()['script'][0])
+            else:
+                self.assertTrue(req.json()['script'][0])
+
+    def test_get_script(self):
+        exp = requests.get(self.host + '/hget/state:scripts/get-index')
+        exp = exp.json()['hget']
+        obs = redbiom.admin.ScriptManager.get('get-index')
+        self.assertEqual(obs, exp)
+
+    def test_get_script_missing(self):
+        with self.assertRaisesRegexp(ValueError, "Unknown script"):
+            redbiom.admin.ScriptManager.get('foobar')
+
+    def test_drop_scripts(self):
+        redbiom.admin.ScriptManager.get('get-index')
+        redbiom.admin.ScriptManager.drop_scripts()
+        with self.assertRaisesRegexp(ValueError, "Unknown script"):
+            redbiom.admin.ScriptManager.get('get-index')
+
+
 class AdminTests(unittest.TestCase):
     def setUp(self):
-        host = redbiom.get_config()['hostname']
-        req = requests.get(host + '/flushall')
+        self.host = redbiom.get_config()['hostname']
+        req = requests.get(self.host + '/flushall')
         assert req.status_code == 200
         self.get = redbiom._requests.make_get(redbiom.get_config())
+        self.se = redbiom._requests.make_script_exec(redbiom.get_config())
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
+
+    def test_metadata_to_taxonomy_tree(self):
+        exp = None
+        # no taxonomy
+        obs = redbiom.admin._metadata_to_taxonomy_tree([1, 2, 3], None)
+        self.assertEqual(obs, exp)
+
+        input = [('1', '2', '3'),
+                 [{'taxonomy': ['k__foo', 'p__bar', 'c__baz']},
+                  {'taxonomy': ['k__foo', 'p__bar', 'c__']},
+                  {'taxonomy': ['k__foo', 'p__bar', 'c__thing']}]]
+        exp = u'((((1)c__baz,2,(3)c__thing)p__bar)k__foo);'
+        exp = skbio.TreeNode.read([exp])
+        obs = redbiom.admin._metadata_to_taxonomy_tree(*input)
+        self.assertEqual(obs.compare_subsets(exp), 0.0)
 
     def test_get_index(self):
-        context = 'load-observations-test'
+        context = 'load-features-test'
         redbiom.admin.create_context(context, 'foo')
 
         tests = [('A', 0), ('A', 0), ('B', 1), ('C', 2),
                  ('B', 1), ('Z', 3), ('A', 0)]
         for key, exp in tests:
-            obs = redbiom.admin.get_index(context, key)
+            obs = redbiom.admin.get_index(context, key, 'feature')
             self.assertEqual(obs, exp)
 
     def test_create_context(self):
@@ -41,20 +100,22 @@ class AdminTests(unittest.TestCase):
         obs = self.get('state', 'HGETALL', 'contexts')
         self.assertIn('another test', list(obs.keys()))
 
-    def test_load_observations(self):
-        context = 'load-observations-test'
+    def test_load_features(self):
+        context = 'load-features-test'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        n = redbiom.admin.load_observations(table, context, tag=None)
+        n = redbiom.admin.load_sample_data(table, context, tag=None)
         for id_ in table.ids(axis='observation'):
-            self.assertTrue(self.get(context, 'EXISTS', 'samples:%s' % id_))
+            self.assertTrue(self.get(context, 'EXISTS', 'feature:%s' % id_))
         self.assertEqual(n, 10)
 
         tag = 'tagged'
-        n = redbiom.admin.load_observations(table, context, tag=tag)
+        n = redbiom.admin.load_sample_data(table, context, tag=tag)
+
         tagged_samples = set(['%s_%s' % (tag, i) for i in table.ids()])
+        fetch_feature = redbiom.admin.ScriptManager.get('fetch-feature')
         for values, id_, _ in table.iter(axis='observation'):
-            obs = self.get(context, 'SMEMBERS', 'samples:%s' % id_)
+            obs = self.se(fetch_feature, 0, context, id_)
             obs_tagged = {o for o in obs if o.startswith(tag)}
             self.assertEqual(len(obs_tagged), sum(values > 0))
             self.assertTrue(obs_tagged.issubset(tagged_samples))
@@ -62,34 +123,33 @@ class AdminTests(unittest.TestCase):
 
         exp = {'UNTAGGED_%s' % i for i in table.ids()}
         exp.update({'tagged_%s' % i for i in table.ids()})
-        obs = self.get(context, 'SMEMBERS', 'samples-represented-observations')
+        obs = self.get(context, 'SMEMBERS', 'samples-represented')
         self.assertEqual(set(obs), exp)
 
-    def test_load_observations_partial(self):
-        context = 'load-observations-partial'
+    def test_load_features_partial(self):
+        context = 'load-features-partial'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        n = redbiom.admin.load_observations(table, context, tag=None)
+        n = redbiom.admin.load_sample_data(table, context, tag=None)
         self.assertEqual(n, 10)
 
         with self.assertRaises(ValueError):
             # the metadata for the samples to load hasn't been added yet
-            redbiom.admin.load_observations(table_with_alt, context, tag=None)
+            redbiom.admin.load_sample_data(table_with_alt, context, tag=None)
 
         redbiom.admin.load_sample_metadata(metadata_with_alt)
-        n = redbiom.admin.load_observations(table_with_alt, context, tag=None)
+        n = redbiom.admin.load_sample_data(table_with_alt, context, tag=None)
         self.assertEqual(n, 2)
 
         exp = {'UNTAGGED_%s' % i for i in table.ids()}
         exp.update({'UNTAGGED_%s' % i for i in table_with_alt.ids()})
-        obs = self.get(context, 'SMEMBERS', 'samples-represented-observations')
+        obs = self.get(context, 'SMEMBERS', 'samples-represented')
         self.assertEqual(set(obs), exp)
 
     def test_load_sample_data(self):
         context = 'load-sample-data'
         redbiom.admin.create_context(context, 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-
         n = redbiom.admin.load_sample_data(table, context, tag=None)
         self.assertEqual(n, 10)
 
@@ -103,7 +163,46 @@ class AdminTests(unittest.TestCase):
 
         for id_ in set(table.ids()) & set(table_with_alt.ids()):
             id_ = 'UNTAGGED_%s' % id_
-            self.assertTrue(self.get(context, 'EXISTS', 'data:%s' % id_))
+            self.assertTrue(self.get(context, 'EXISTS', 'sample:%s' % id_))
+
+    def test_load_sample_data_taxonomy(self):
+        context = 'load-sample-data'
+        redbiom.admin.create_context(context, 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, context, tag=None)
+
+        k__Bacteria = {'p__Firmicutes',
+                       'p__Actinobacteria',
+                       'p__Proteobacteria',
+                       'p__Cyanobacteria',
+                       'p__Bacteroidetes',
+                       'p__Fusobacteria',
+                       'p__Verrucomicrobia',
+                       'p__Tenericutes',
+                       'p__Lentisphaerae',
+                       'p__[Thermi]'}
+
+        # has an unclassified genus, so it should have tips directly descending
+        f__Actinomycetaceae = {'g__Varibaculum',
+                               'g__Actinomyces',
+                               'terminal:TACGTAGGGCGCGAGCGTTGTCCGGAATTATTGGGCGTAAAGGGCTCGTAGGCGGCTTGTCGCGTCTGCTGTGAAAATGCGGGGCTTAACTCCGTACGTG'}  # noqa
+
+        obs_bacteria = self.get(context, 'SMEMBERS',
+                                ':'.join(['taxonomy-children',
+                                          'k__Bacteria']))
+        self.assertEqual(set(obs_bacteria), k__Bacteria)
+        obs_Actinomycetaceae = self.get(context, 'SMEMBERS',
+                                        ':'.join(['taxonomy-children',
+                                                  'f__Actinomycetaceae']))
+        self.assertEqual(set(obs_Actinomycetaceae), f__Actinomycetaceae)
+
+        exp_parents = [('p__Firmicutes', 'k__Bacteria'),
+                       ('p__Fusobacteria', 'k__Bacteria'),
+                       ('g__Actinomyces', 'f__Actinomycetaceae'),
+                       ('TACGTAGGGCGCGAGCGTTGTCCGGAATTATTGGGCGTAAAGGGCTCGTAGGCGGCTTGTCGCGTCTGCTGTGAAAATGCGGGGCTTAACTCCGTACGTG', 'f__Actinomycetaceae')]  # noqa
+        for name, exp in exp_parents:
+            obs = self.get(context, 'HGET', 'taxonomy-parents/%s' % name)
+            self.assertEqual(obs, exp)
 
     def test_load_sample_metadata(self):
         redbiom.admin.load_sample_metadata(metadata)

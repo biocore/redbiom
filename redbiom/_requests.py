@@ -33,7 +33,7 @@ def make_post(config, redis_protocol=None):
     config = redbiom.get_config()
 
     if redis_protocol:
-        # for expensive load operations like observation data, it potentially
+        # for expensive load operations like feature data, it potentially
         # faster to use the native protocol. this writes out the redis
         # commands in their native for feeding into redis-cli --pipe. More
         # information can be found here:
@@ -88,6 +88,21 @@ def make_get(config):
         payload = _format_request(context, cmd, data)
         url = '/'.join([config['hostname'], payload])
         return _parse_validate_request(s.get(url), cmd)
+    return f
+
+
+def make_script_exec(config):
+    """Factory function: produce a script_exec() method"""
+    import redbiom
+    import json
+    s = get_session()
+    config = redbiom.get_config()
+
+    def f(sha, *args):
+        payload = [config['hostname'], 'EVALSHA', sha]
+        payload.extend([str(a) for a in args])
+        url = '/'.join(payload)
+        return json.loads(_parse_validate_request(s.get(url), 'EVALSHA'))
     return f
 
 

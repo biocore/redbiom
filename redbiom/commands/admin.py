@@ -30,7 +30,7 @@ def coherency(context):
     Coherency is defined as:
 
     - each sample in each context has sample metadata
-    - each sample in each context has observation associations
+    - each sample in each context has feature associations
     - each sample in each context has sample data
     """
     # useful as this is not explicitly enforced. explicit enforcement would
@@ -38,21 +38,6 @@ def coherency(context):
     # cache load. since the cache is read-only following low, follow up
     # coherency checking is not critical.
     raise ValueError("see inline comment")
-
-
-@admin.command(name='load-observations')
-@click.option('--table', required=True, type=click.Path(exists=True),
-              help="The filepath to the table to load.")
-@click.option('--context', required=True, type=str,
-              help="The name of the context to load into.")
-@click.option('--mass-insertion', default=False, is_flag=True)
-def load_observations(table, context, mass_insertion):
-    """Load observation to sample mappings."""
-    import redbiom.admin
-    import biom
-    table = biom.load_table(table)
-    redbiom.admin.load_observations(table, context,
-                                    redis_protocol=mass_insertion)
 
 
 @admin.command(name='load-sample-data')
@@ -95,3 +80,19 @@ def load_sample_metadata_search(metadata):
     n_values, n_cats = redbiom.admin.load_sample_metadata_full_search(metadata)
     click.echo("Found %d category stems and %d metadata value stems" %
                (n_cats, n_values))
+
+
+@admin.command(name='scripts-read-only')
+def read_only():
+    """Set scripts to read-only"""
+    import redbiom.admin
+    redbiom.admin.ScriptManager.drop_scripts()
+    redbiom.admin.ScriptManager.load_scripts(read_only=True)
+
+
+@admin.command(name='scripts-writable')
+def writable():
+    """Set scripts to allow write"""
+    import redbiom.admin
+    redbiom.admin.ScriptManager.drop_scripts()
+    redbiom.admin.ScriptManager.load_scripts(read_only=False)

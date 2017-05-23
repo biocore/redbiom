@@ -1,19 +1,141 @@
-import hashlib
+class ScriptManager:
+    """Static singleton for managing Lua scripts in the Redis backend"""
+    # derived from http://stackoverflow.com/a/43900922/19741
+    _scripts = {'get-index': """
+                    local kid = redis.call('HGET', KEYS[1], ARGV[1])
+                    if not kid then
+                      kid = redis.call('HINCRBY', KEYS[1], 'current_id', 1) - 1
+                      redis.call('HSET', KEYS[1], ARGV[1], kid)
+                      redis.call('HSET', KEYS[1] .. '-inverted', kid, ARGV[1])
+                    end
+                    return kid""",
+                'fetch-feature': """
+                    local context = ARGV[1]
+                    local key = ARGV[2]
+                    local result = {}
+                    local formedkey = context .. ':' .. 'feature' .. ':' .. key
 
+                    local items = redis.call('ZRANGEBYSCORE',
+                                             formedkey,
+                                             '-inf', 'inf',
+                                             'withscores')
 
-# derived from http://stackoverflow.com/a/43900922/19741
-_INDEX_SCRIPT = """
-    local kid = redis.call('HGET', KEYS[1], ARGV[1])
-    if not kid then
-      kid = redis.call('HINCRBY', KEYS[1], 'current_id', 1) - 1
-      redis.call('HSET', KEYS[1], ARGV[1], kid)
-      redis.call('HSET', KEYS[1] .. '-inverted', kid, ARGV[1])
-    end
-    return kid
-"""
+                    -- adapted from https://gist.github.com/klovadis/5170446
+                    local resultkey
+                    local ii = context .. ':' .. 'sample' .. '-index-inverted'
+                    for idx, v in ipairs(items) do
+                        if idx % 2 == 1 then
+                            -- it is likely possible to issue a HMGET
+                            resultkey = redis.call('HGET', ii, v)
+                        else
+                            result[resultkey] = tonumber(v)
+                        end
+                    end
 
+                    return cjson.encode(result)""",
+                'fetch-sample': """
+                    local context = ARGV[1]
+                    local key = ARGV[2]
+                    local result = {}
+                    local formedkey = context .. ':' .. 'sample' .. ':' .. key
 
-_INDEX_SCRIPT_SHA1 = hashlib.sha1(_INDEX_SCRIPT.encode('ascii')).hexdigest()
+                    local items = redis.call('ZRANGEBYSCORE',
+                                             formedkey,
+                                             '-inf', 'inf',
+                                             'withscores')
+
+                    -- adapted from https://gist.github.com/klovadis/5170446
+                    local resultkey
+                    local ii = context .. ':' .. 'feature' .. '-index-inverted'
+                    for idx, v in ipairs(items) do
+                        if idx % 2 == 1 then
+                            -- it is likely possible to issue a HMGET
+                            resultkey = redis.call('HGET', ii, v)
+                        else
+                            result[resultkey] = tonumber(v)
+                        end
+                    end
+
+                    return cjson.encode(result)"""}
+    _admin_scripts = ('get-index', )
+    _cache = {}
+
+    @staticmethod
+    def load_scripts(read_only=True):
+        """Load scripts into Redis
+
+        Parameters
+        ----------
+        read_only : bool, optional
+            If True, only load read-only scripts. If False, load writable
+            scripts
+        """
+        import redbiom
+        import redbiom._requests
+        import hashlib
+
+        config = redbiom.get_config()
+        s = redbiom._requests.get_session()
+        post = redbiom._requests.make_post(config)
+        get = redbiom._requests.make_get(config)
+
+        for name, script in ScriptManager._scripts.items():
+            if read_only and name in ScriptManager._admin_scripts:
+                continue
+
+            sha1 = hashlib.sha1(script.encode('ascii')).hexdigest()
+            keypair = 'scripts/%s/%s' % (name, sha1)
+
+            # load the script
+            s.put(config['hostname'] + '/SCRIPT/LOAD', data=script)
+
+            # create a mapping
+            post('state', 'HSET', keypair)
+
+            # verify we've correctly computed the hash
+            obs = get('state', 'HGET', 'scripts/%s' % name)
+            assert obs == sha1
+
+    @staticmethod
+    def get(name):
+        """Retreive the SHA1 of a script
+
+        Parameters
+        ----------
+        name : str
+            The name of the script to fetch
+
+        Raises
+        ------
+        ValueError
+            If the script name is not recognized
+        """
+        if name in ScriptManager._cache:
+            return ScriptManager._cache[name]
+
+        import redbiom
+        import redbiom._requests
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+        sha = get('state', 'HGET', 'scripts/%s' % name)
+        if sha is None:
+            raise ValueError('Unknown script')
+
+        ScriptManager._cache[name] = sha
+
+        return sha
+
+    @staticmethod
+    def drop_scripts():
+        """Flush the loaded scripts in the redis database"""
+        import redbiom
+        import redbiom._requests
+        config = redbiom.get_config()
+        s = redbiom._requests.get_session()
+        s.get(config['hostname'] + '/SCRIPT/FLUSH')
+        s.get(config['hostname'] + '/DEL/state:scripts')
+        ScriptManager._cache = {}
 
 
 def create_context(name, description):
@@ -31,6 +153,7 @@ def create_context(name, description):
     Redis commmand summary
     ----------------------
     HSET state:context <name> <description>
+    HSET <context>:state db-version <current-db-version>
     """
     import redbiom
     import redbiom._requests
@@ -38,68 +161,8 @@ def create_context(name, description):
     config = redbiom.get_config()
     post = redbiom._requests.make_post(config)
     post('state', 'HSET', "contexts/%s/%s" % (name, description))
-
-    # we need to do a direct request here because we are not associating with
-    # a key
-    s = redbiom._requests.get_session()
-    s.put(config['hostname'] + '/SCRIPT/LOAD', data=_INDEX_SCRIPT)
-
-
-def load_observations(table, context, tag=None, redis_protocol=False):
-    """Load observation to sample mappings.
-
-    Parameters
-    ----------
-    table : biom.Table
-        The BIOM table to load.
-    context : str
-        The context to load into.
-    tag : str, optional
-        A tag to associated the samples with (e.g., a preparation ID).
-    redis_protocol : bool, optional
-        Generate commands for bulk load instead of HTTP requests.
-
-    Returns
-    -------
-    int
-        The number of samples in which observations where loaded from.
-
-    Raises
-    ------
-    ValueError
-        If the context to load into does not exist.
-        If a samples metadata has not already been loaded.
-
-    Redis command summary
-    ---------------------
-    SMEMBERS <context>:samples-represented-observations
-    SADD <context>:samples:<observation_id> <sample_id> ... <sample_id>
-    SADD <context>:samples-represented-observations <sample_id> ... <sample_id>
-    """
-    import redbiom
-    import redbiom._requests
-    import redbiom.util
-
-    config = redbiom.get_config()
-    post = redbiom._requests.make_post(config, redis_protocol)
-    get = redbiom._requests.make_get(config)
-
-    redbiom._requests.valid(context, get)
-
-    table = _stage_for_load(table, context, get, 'observations', tag)
-
-    samples = table.ids()[:]
-
-    for values, id_, _ in table.iter(axis='observation', dense=False):
-        observed = samples[values.indices]
-
-        payload = "samples:%s/%s" % (id_, "/".join(observed))
-        post(context, 'SADD', payload)
-
-    payload = "samples-represented-observations/%s" % '/'.join(samples)
-    post(context, 'SADD', payload)
-
-    return len(samples)
+    post(name, 'HSET', "state/db-version/%s" % redbiom.__db_version__)
+    ScriptManager.load_scripts()
 
 
 def load_sample_data(table, context, tag=None, redis_protocol=False):
@@ -126,22 +189,24 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     -----
     This method does not support non count data.
 
-    The observation IDs are remapped into an integer space to reduce memory
+    The feature IDs are remapped into an integer space to reduce memory
     consumption as sOTUs are large. The index is maintained in Redis under
-    <context>:observation-index and <context>:observation-index-inverted.
+    <context>:feature-index and <context>:feature-index-inverted.
 
     The data are stored per sample with keys of the form "data:<sample_id>".
     The string stored is tab delimited, where the even indices (i.e .0, 2, 4,
-    etc) correspond to the unique index value for an observation ID, and the
-    odd indices correspond to the counts associated with the sample/observation
+    etc) correspond to the unique index value for an feature ID, and the
+    odd indices correspond to the counts associated with the sample/feature
     combination.
 
     Redis command summary
     ---------------------
-    SMEMBERS <context>:samples-represented-observations
-    EVALSHA _INDEX_SCRIPT_SHA1 1 <context>:observation-index <observation id>
-    SET <context>:data:<sample_id> <packed-nz-representation>
-    SADD <context>:samples-represented-data <sample_id> ... <sample_id>
+    EVALSHA <get-index-sha1> 1 <context>:feature-index <feature_id>
+    EVALSHA <get-index-sha1> 1 <context>:sample-index <redbiom_id>
+    ZADD <context>:samples:<redbiom_id> <count> <feature_id> ...
+    ZADD <context>:features:<redbiom_id> <count> <redbiom_id> ...
+    SADD <context>:samples-represented <redbiom_id> ... <redbiom_id>
+    SADD <context>:features-represented <feature_id> ... <feature_id>
 
     Returns
     -------
@@ -158,28 +223,111 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
 
     redbiom._requests.valid(context, get)
 
-    table = _stage_for_load(table, context, get, 'data', tag)
+    table = _stage_for_load(table, context, get, tag)
     samples = table.ids()[:]
     obs = table.ids(axis='observation')
 
     obs_index = {}
     for id_ in obs:
-        obs_index[id_] = get_index(context, id_)
+        obs_index[id_] = get_index(context, id_, 'feature')
 
-    # load up the table per-sample
+    samp_index = {}
+    for id_ in samples:
+        samp_index[id_] = get_index(context, id_, 'sample')
+
+    # load up per-sample
     for values, id_, _ in table.iter(dense=False):
         int_values = values.astype(int)
         remapped = [obs_index[i] for i in obs[values.indices]]
 
-        packed = '\t'.join(["%s\t%d" % (i, v)
-                            for i, v in zip(remapped,
-                                            int_values.data)])
-        post(context, 'SET', 'data:%s/%s' % (id_, packed))
+        packed = '/'.join(["%d/%s" % (v, i)
+                           for i, v in zip(remapped,
+                                           int_values.data)])
+        post(context, 'ZADD', 'sample:%s/%s' % (id_, packed))
 
-    payload = "samples-represented-data/%s" % '/'.join(samples)
+    payload = "samples-represented/%s" % '/'.join(samples)
     post(context, 'SADD', payload)
 
+    # load up per-observation
+    for values, id_, md in table.iter(axis='observation', dense=False):
+        int_values = values.astype(int)
+        remapped = [samp_index[i] for i in samples[values.indices]]
+
+        packed = '/'.join(["%d/%s" % (v, i)
+                           for i, v in zip(remapped,
+                                           int_values.data)])
+        post(context, 'ZADD', 'feature:%s/%s' % (id_, packed))
+
+    payload = "features-represented/%s" % '/'.join(obs)
+    post(context, 'SADD', payload)
+
+    # load up taxonomy
+    taxonomy = _metadata_to_taxonomy_tree(table.ids(axis='observation'),
+                                          table.metadata(axis='observation'))
+    if taxonomy is not None:
+        post(context, 'HSET', "state/has-taxonomy/1")
+
+        for node in taxonomy.postorder(include_self=False):
+            if not node.is_tip():
+                # define node -> children relationships
+                pack = []
+                for c in node.children:
+                    if c.is_tip():
+                        pack.append('terminal:%s' % c.name)
+                    else:
+                        pack.append(c.name)
+
+                packed = '/'.join(pack)
+                post(context, 'SADD', 'taxonomy-children:%s/%s' % (node.name,
+                                                                   packed))
+
+                # define children -> parent relationships
+                pack = ['%s/%s' % (c.name, node.name)
+                        for c in node.children]
+                post(context, 'HMSET', 'taxonomy-parents/%s' % '/'.join(pack))
+
     return len(samples)
+
+
+def _metadata_to_taxonomy_tree(ids, metadata):
+    """Cast the taxonomy into a tree
+
+    Parameters
+    ----------
+    ids : list of str
+        The feature IDs
+    metadata : list of dict
+        Feature metadata in index order with the ids.
+
+    Notes
+    -----
+    Children of unclassified nodes (e.g., s__) are migrated to the parent
+    so that no unclassified nodes exist in the tree.
+
+    Returns
+    -------
+    skbio.TreeNode
+        A hierarchy of the taxonomy.
+    """
+    if metadata is None:
+        return None
+
+    import skbio
+    t = skbio.TreeNode.from_taxonomy([(i, m['taxonomy'])
+                                      for i, m in zip(ids, metadata)])
+
+    for node in list(t.postorder()):
+        if node.is_tip():
+            continue
+        if node.is_root():
+            continue
+
+        if len(node.name) == 3 and node.name.endswith('__'):
+            parent = node.parent
+            parent.extend(node.children)
+            parent.remove(node)
+
+    return t
 
 
 def load_sample_metadata(md, tag=None):
@@ -356,7 +504,7 @@ def _indexable(value, nullables):
         return '/' not in value
 
 
-def _stage_for_load(table, context, get, memberkey, tag=None):
+def _stage_for_load(table, context, get, tag=None):
     """Tag samples, reduce to only those relevant to load
 
     Parameters
@@ -367,8 +515,6 @@ def _stage_for_load(table, context, get, memberkey, tag=None):
         The context to load into
     get : make_get instance
         A getter
-    memberkey : str
-        The redis set to check for membership in
     tag : str, optional
         The tag to apply to the samples
 
@@ -392,8 +538,7 @@ def _stage_for_load(table, context, get, memberkey, tag=None):
                              inplace=False)
     samples = set(table.ids())
 
-    represented = get(context, 'SMEMBERS',
-                      'samples-represented-%s' % memberkey)
+    represented = get(context, 'SMEMBERS', 'samples-represented')
     represented = set(represented)
     to_load = samples - represented
 
@@ -404,7 +549,7 @@ def _stage_for_load(table, context, get, memberkey, tag=None):
     return table.filter(lambda v, i, md: v.sum() > 0, axis='observation')
 
 
-def get_index(context, key):
+def get_index(context, key, axis):
     """Get a unique integer value for a key within a context
 
     Parameters
@@ -413,6 +558,8 @@ def get_index(context, key):
         The context to operate in
     key : str
         The key to get a unique index for
+    axis : str
+        Either feature or sample
 
     Notes
     -----
@@ -436,8 +583,9 @@ def get_index(context, key):
     # we need to issue the request directly as the command structure is
     # rather different than other commands
     s = redbiom._requests.get_session()
-    url = '/'.join([config['hostname'], 'EVALSHA', _INDEX_SCRIPT_SHA1,
-                    '1', "%s:observation-index" % context, key])
+    sha = ScriptManager.get('get-index')
+    url = '/'.join([config['hostname'], 'EVALSHA', sha,
+                    '1', "%s:%s-index" % (context, axis), key])
     req = s.get(url)
 
     if req.status_code != 200:

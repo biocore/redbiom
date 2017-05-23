@@ -88,8 +88,8 @@ def summarize_metadata(descending, categories):
 def _summarize_id(context, category, id):
     """Summarize the ID over the category"""
     import redbiom.summarize
-    res = redbiom.summarize.category_from_observations(context, category,
-                                                       [id], False)
+    res = redbiom.summarize.category_from_features(context, category,
+                                                   [id], False)
     res = res.value_counts()
     counts = {i: c for i, c in zip(res.index, res)}
     counts['feature'] = id
@@ -105,10 +105,10 @@ def _summarize_id(context, category, id):
 @click.option('--verbosity', type=int, default=0)
 @click.option('--table', type=click.Path(exists=True), required=True)
 def summarize_table(category, context, output, threads, verbosity, table):
-    """Summarize all observations in a BIOM table.
+    """Summarize all features in a BIOM table.
 
-    This command will assess, per observation, the number of samples that
-    observation is found in relative to the metadata category specified.
+    This command will assess, per feature, the number of samples that
+    feature is found in relative to the metadata category specified.
     """
 
     import redbiom.util
@@ -139,23 +139,23 @@ def summarize_table(category, context, output, threads, verbosity, table):
     # TODO: should this output BIOM? It is a feature table.
 
 
-@summarize.command(name='observations')
+@summarize.command(name='features')
 @click.option('--from', 'from_', type=click.File('r'), required=False,
               default=None)
 @click.option('--category', type=str, required=True)
 @click.option('--exact', is_flag=True, default=False,
-              help="All found samples must contain all specified observations")
+              help="All found samples must contain all specified features")
 @click.option('--context', required=True, type=str)
-@click.argument('observations', nargs=-1)
-def summarize_observations(from_, category, exact, context,
-                           observations):
-    """Summarize observations over a metadata category."""
+@click.argument('features', nargs=-1)
+def summarize_features(from_, category, exact, context,
+                       features):
+    """Summarize features over a metadata category."""
     import redbiom.util
-    iterable = redbiom.util.from_or_nargs(from_, observations)
+    iterable = redbiom.util.from_or_nargs(from_, features)
 
     import redbiom.summarize
-    md = redbiom.summarize.category_from_observations(context, category,
-                                                      iterable, exact)
+    md = redbiom.summarize.category_from_features(context, category,
+                                                  iterable, exact)
 
     cat_stats = md.value_counts()
     for val, count in zip(cat_stats.index, cat_stats.values):
@@ -180,3 +180,42 @@ def summarize_samples(from_, category, samples):
     for val, count in zip(cat_stats.index, cat_stats.values):
         click.echo("%s\t%s" % (val, count))
     click.echo("\n%s\t%s" % ("Total samples", sum(cat_stats.values)))
+
+
+@summarize.command(name='taxonomy')
+@click.option('--from', 'from_', type=click.File('r'), required=False,
+              help='A file or stdin which provides samples to search for',
+              default=None)
+@click.option('--context', required=True, type=str,
+              help="The context to search within.")
+@click.option('--normalize-ranks', required=False, default='kpcofgs',
+              type=str,
+              help="Coerce normalized rank information for unclassifieds")
+@click.argument('features', nargs=-1)
+def taxonomy(from_, context, normalize_ranks, features):
+    """Summarize taxonomy at all levels.
+
+    This yields each taxonomic group, the number of features represented by
+    the taxon, and the fraction of the total features passed in.
+    """
+    import redbiom.util
+    ids = list(redbiom.util.from_or_nargs(from_, features))
+
+    import redbiom.fetch
+    lineages = redbiom.fetch.taxon_ancestors(context, ids,
+                                             normalize=normalize_ranks)
+
+    import skbio
+    tree = skbio.TreeNode.from_taxonomy([(i, l)
+                                         for i, l in zip(ids, lineages)])
+
+    n_tips = float(len(list(tree.tips())))
+    click.echo("Taxon\tCount\tFractionOfInput")
+    for n in tree.postorder(include_self=False):
+        if n.is_tip():
+            n.count = 1
+        else:
+            n.count = sum(c.count for c in n.children)
+            if not n.name.endswith('__'):
+                click.echo("%s\t%d\t%0.4f" % (n.name, n.count,
+                                              n.count / n_tips))

@@ -15,6 +15,8 @@ before_install:
 install:
   - conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose sqlite joblib nltk
   - source activate test-env
+  - if [ ${PYTHON_VERSION} = "2.7" ]; then conda install -c biocore --yes scikit-bio==0.4.2; fi
+  - if [ ${PYTHON_VERSION} = "3.5" ]; then conda install --yes scikit-bio==0.5.1; fi
   - pip install flake8
   - git clone https://github.com/nicolasff/webdis
   - pushd webdis

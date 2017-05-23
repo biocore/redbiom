@@ -5,7 +5,7 @@
 
 Redbiom is a cache service for sample metadata and sample data. It allows for rapidly:
 
-* finding samples by the observations they contain
+* finding samples by the features they contain
 * finding samples by arbitrary metadata searches
 * summarizing samples over metadata
 * retieval of sample data into BIOM
@@ -64,7 +64,7 @@ Last, redbiom itself can be installed as a normal Python package.
 
 # Terminology and notation
 
-In redbiom, the word "context" refers to a way in which the sample data were processed. Data are loaded into contexts and searches for samples by observation happen within contexts.
+In redbiom, the word "context" refers to a way in which the sample data were processed. Data are loaded into contexts and searches for samples by feature happen within contexts.
 
 To support the one to many relationship between a sample's metadata and its data, within a context, a sample's IDs are prefixed by a "tag" which can be specified at load. Internally, within a context, these IDs are of the form `<tag>_<sample-id>`. The use of the `_` character ensures that they are not valid QIIME sample IDs, and is necessary so we can appropriately differentiate these IDs. Methods which write data will coerce these invalid QIIME IDs into valid IDs of the form `<sample-id>.<tag>`. **IMPORTANT**: if you run your own resource, it is important to specify `--tag` on load of sample data to differentiate BIOM tables in which the sample IDs between the tables may not be mutually exclusive. 
 
@@ -74,33 +74,34 @@ Commands which write data will notify the user if there were ambiguities. An amb
 
 Redbiom relies on `Click` to provide a tiered command line interface. An example of the first tier is below, and with the exception of `admin`, are composed of verbs:
 
-	$ redbiom --help
-	Usage: redbiom [OPTIONS] COMMAND [ARGS]...
+    $ redbiom --help
+    Usage: redbiom [OPTIONS] COMMAND [ARGS]...
 
-	Options:
-	  --version  Show the version and exit.
-	  --help     Show this message and exit.
+    Options:
+      --version  Show the version and exit.
+      --help     Show this message and exit.
 
-	Commands:
-	  admin      Update database, etc.
-	  fetch      Sample data and metadata retrieval.
-	  search     Observation and sample search support.
-	  select     Select items based on metadata
-	  summarize  Summarize things.
+    Commands:
+      admin      Update database, etc.
+      fetch      Sample data and metadata retrieval.
+      search     Feature and sample search support.
+      select     Select items based on metadata
+      summarize  Summarize things.
 
 The actual commands to execute are contained within a submodule. For instance, below are the commands associated with "search":
 
-	$ redbiom search --help
-	Usage: redbiom search [OPTIONS] COMMAND [ARGS]...
+    $ redbiom search --help
+    Usage: redbiom search [OPTIONS] COMMAND [ARGS]...
 
-	  Observation and sample search support.
+      Feature and sample search support.
 
-	Options:
-	  --help  Show this message and exit.
+    Options:
+      --help  Show this message and exit.
 
-	Commands:
-	  metadata      Find samples or categories.
-	  observations  Find samples containing observations.
+    Commands:
+      metadata      Find samples or categories.
+      features      Find samples containing features.
+      taxon         Find features associated with a taxon
 
 The intention is for commands to make sense in English. The general command form is "redbiom <verb> <noun>", however this form is not strictly enforced. 
 
@@ -116,37 +117,37 @@ The first example block surrounds loading data, because without anything in the 
 
 To make use of this cache, we need to load things. Loading can be done in parallel. First, we'll load up metadata. This will create keys in Redis which describe all of the columns associated with a sample (e.g., `metadata:categories:<sample_id>`, hash buckets for each category and sample combination (e.g., `metadata:category:<category_name>` as the hash and `<sample_id>` as the field), a set of all known categories (e.g., `metadata:categories-represented`), and a set of all known sample IDs (e.g., `metadata:samples-represented`):
 
-	$ redbiom admin load-sample-metadata --metadata path/to/qiime/compat/mapping.txt
+    $ redbiom admin load-sample-metadata --metadata path/to/qiime/compat/mapping.txt
 
 redbiom supports one to many mappings between sample metadata and actual sample data. This is done as there may be multiple types of processing performed on the same data (e.g., different nucleotide trims). Or, a physical sample may have been run through multiple protocols (e.g., 16S, WGS, etc). So before we load any data, we need to create a context for the data to be placed. The following action will add an entry into the `state:contexts` hash bucket keyed by `name` and valued by `description`:
 
     $ redbiom admin create-context --name deblur-100nt --description "16S V4 Caporaso et al data deblurred at 100nt"
 
-Next, we'll load up associations between every single observation in a BIOM table to all the samples its found in. This will create Redis sets and can be accessed using keys of the form `<context_name>:samples:<observation_id>`. Note that we specify the context we're loading into.
+Next, we'll load up associations between every single feature in a BIOM table to all the samples its found in. This will create Redis sets and can be accessed using keys of the form `<context_name>:samples:<feature_id>`. Note that we specify the context we're loading into.
 
-	$ redbiom admin load-observations --context deblur-100nt --table /path/to/biom/table.biom
+    $ redbiom admin load-features --context deblur-100nt --table /path/to/biom/table.biom
 
-Last, let's load up all of the BIOM table data. We'll only store the non-zero values, and we'll encode the sample data into something simple so that it goes in as just a string to Redis. Important: we only support storing count data right now, not floating point. The keys created are of the form `<context_name>:data:<sample_id>`. To reduce space, we reindex the observation IDs as things like sOTUs tend to be very long in name. The mapping is stable over all tables loaded (ie the same observation has the same index), and the index is stored as a JSON object under the key `<context_name>:__observation_index`. Because we need to update the index, this operation cannot be done in parallel however the code is setup with a redis-based mutex so it's okay to queue up multiple loads.
+Last, let's load up all of the BIOM table data. We'll only store the non-zero values, and we'll encode the sample data into something simple so that it goes in as just a string to Redis. Important: we only support storing count data right now, not floating point. The keys created are of the form `<context_name>:sample:<redbiom_id>`. To reduce space, we reindex the feature IDs as things like sOTUs tend to be very long in name. The mapping is stable over all tables loaded (ie the same feature has the same index), and is stored under `<context_name>:feature-index`. Because we need to update the index, this operation cannot be done in parallel however the code is setup with a redis-based mutex so it's okay to queue up multiple loads.
 
-	$ redbiom load-sample-data --context deblur-100nt --table /path/to/biom/table.biom
+    $ redbiom load-sample-data --context deblur-100nt --table /path/to/biom/table.biom
 
 ### Query for content
 
 Now that things are loaded, we can search for stuff. Let's say you have a few OTUs of interest, and you are curious about what other samples they exist in. You can find that out with:
 
-	$ redbiom search observations --context deblur-100nt <space delimited list of observation IDs>
+    $ redbiom search features --context deblur-100nt <space delimited list of feature IDs>
 
 Or, perhaps you loaded the EMP dataset and are curious about where these OTUs reside. You can get summarized environment information from the search as well:
 
-	$ redbiom search observations --context deblur-100nt --category empo_3 <space delimited list of observation IDs>
+    $ redbiom search features --context deblur-100nt --category empo_3 <space delimited list of feature IDs>
 
 That was fun. So now let's go a little further. Perhaps you are interested not just in where those sequences are found in, but also in the samples themselves for a meta-analysis. To pull out all the samples associated with your IDs of interest, and construct a BIOM table, you can do the following:
 
-	$ redbiom fetch observations --context deblur-100nt --output some/path.biom <space delimited list of observation IDs>
+    $ redbiom fetch features --context deblur-100nt --output some/path.biom <space delimited list of feature IDs>
 
 ...but you probably also want the metadata! Once you have your table, you can obtain it by passing the table back in. This will attempt to grab the metadata (only the columns in common at the moment) for all samples present in your table. Note that we do not have to specify a context here as the sample metadata are context independent:
 
-	$ redbiom fetch sample-metadata --output some/path.txt --table some/path.biom 
+    $ redbiom fetch sample-metadata --output some/path.txt --table some/path.biom 
 
 # Caveats
 
@@ -159,8 +160,6 @@ Redbiom is still in heavy active development. At this time, there are still some
      'Missing: Not provided', 'Missing: Restricted access',
      'null', 'NULL', 'no_data', 'None', 'nan'}
      
-* Taxonomy and other observation metadata are not stored at this time.
-
 * Sample IDs must be QIIME compatible.
 
 # Design
@@ -182,13 +181,13 @@ The key structures used are in the following forms:
 * `metadata:text-search:<stem>` the samples associated with a given metadata value stem
 * `metadata:category-search:<stem>` the categories associated with a given stem
 * `metadata:samples-represented` the samples that are represented by the metadata
-* `<context>:data:<redbiom-id>` the sample data within a context
-* `<context>:samples:<observation>` the set of samples associated with an observation
-* `<context>:samples-represented-data` the samples within the context which contain BIOM data
-* `<context>:samples-represented-observations` the samples represented within the context which contain observation mappings
-* `<context>:observation-index` a mapping between an observation ID and a context-unique stable integer
-* `<context>:observation-index-inverted` a mapping between a context-unique stable integer and its associated observation ID 
-
-
-
-
+* `<context>:sample:<redbiom-id>` the sample data within a context
+* `<context>:feature:<feature-id>` the feature data within a context
+* `<context>:samples-represented` the samples within the context which contain BIOM data
+* `<context>:sample-index` a mapping between a sample ID and a context-unique stable integer
+* `<context>:sample-index-inverted` a mapping between a context-unique stable integer and its associated sample ID 
+* `<context>:features-represented` the reatures represented within the context 
+* `<context>:feature-index` a mapping between a feature ID and a context-unique stable integer
+* `<context>:feature-index-inverted` a mapping between a context-unique stable integer and its associated feature ID
+* `<context>:taxonomy-children:<taxon>` the children of a taxon
+* `<context>:taxonomy-parents` child to parent taxon mappings

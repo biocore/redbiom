@@ -14,8 +14,8 @@ def contexts(detail=True):
     Redis command summary
     ---------------------
     HGETALL state:contexts
-    SCARD <context>:samples-represented-data
-    SCARD <context>:samples-represented-observations
+    SCARD <context>:samples-represented
+    SCARD <context>:features-represented
     """
     import pandas as pd
     import redbiom
@@ -30,18 +30,18 @@ def contexts(detail=True):
 
         result = []
         for name, desc in contexts.items():
-            ctx_n_data = get(name, 'SCARD', 'samples-represented-data')
-            ctx_n_obs = get(name, 'SCARD', 'samples-represented-observations')
+            ctx_n_samp = get(name, 'SCARD', 'samples-represented')
+            ctx_n_feat = get(name, 'SCARD', 'features-represented')
 
-            result.append((name, int(ctx_n_data), int(ctx_n_obs), desc))
+            result.append((name, int(ctx_n_samp), int(ctx_n_feat), desc))
 
         return pd.DataFrame(result, columns=['ContextName', 'SamplesWithData',
-                                             'SamplesWithObservations',
+                                             'FeaturesWithData',
                                              'Description'])
 
 
-def category_from_observations(context, category, observations, exact):
-    """Summarize a metadata category from samples from a set of observations
+def category_from_features(context, category, features, exact):
+    """Summarize a metadata category from samples from a set of features
 
     Parameters
     ----------
@@ -49,11 +49,11 @@ def category_from_observations(context, category, observations, exact):
         A context to search in.
     category : str
         The category to summarize.
-    observations : Iterable of str
-        The observations to search for samples with.
+    features : Iterable of str
+        The features to search for samples with.
     exact : bool
-        If true, all samples must contain all specified observations. If false,
-        all samples contain at least one of the observations.
+        If true, all samples must contain all specified features. If false,
+        all samples contain at least one of the features.
 
     Returns
     -------
@@ -65,9 +65,7 @@ def category_from_observations(context, category, observations, exact):
     redbiom._requests.valid(context)
 
     import redbiom.util
-    # TODO: should samples_from_observations be in redbiom.fetch?
-    samples = redbiom.util.samples_from_observations(observations, exact,
-                                                     [context])
+    samples = redbiom.util.ids_from(features, exact, 'feature', [context])
 
     import redbiom.fetch
     return redbiom.fetch.category_sample_values(category, samples)

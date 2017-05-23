@@ -115,18 +115,18 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None):
     return md, ambig_assoc
 
 
-def data_from_observations(context, observations, exact):
-    """Fetch sample data from an iterable of observations.
+def data_from_features(context, features, exact):
+    """Fetch sample data from an iterable of features.
 
     Parameters
     ----------
     context : str
         The name of the context to retrieve sample data from.
-    observations : Iterable of str
-        The observations of interest.
+    features : Iterable of str
+        The features of interest.
     exact : bool
-        If True, only samples in which all observations exist are obtained.
-        Otherwise, all samples with at least one observation are obtained.
+        If True, only samples in which all features exist are obtained.
+        Otherwise, all samples with at least one feature are obtained.
 
     Returns
     -------
@@ -145,9 +145,8 @@ def data_from_observations(context, observations, exact):
 
     redbiom._requests.valid(context, get)
 
-    # determine the samples which contain the observations of interest
-    samples = redbiom.util.samples_from_observations(observations, exact,
-                                                     [context], get=get)
+    # determine the samples which contain the features of interest
+    samples = redbiom.util.ids_from(features, exact, 'feature', [context])
 
     return _biom_from_samples(context, iter(samples), get=get)
 
@@ -173,7 +172,7 @@ def data_from_samples(context, samples):
     return _biom_from_samples(context, samples)
 
 
-def _biom_from_samples(context, samples, get=None):
+def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None):
     """Create a BIOM table from an iterable of samples
 
     Parameters
@@ -184,6 +183,8 @@ def _biom_from_samples(context, samples, get=None):
         The samples to fetch.
     get : a make_get instance, optional
         A constructed get method.
+    normalize_taxonomy : list, optional
+        The ranks to normalize a lineage too (e.g., [k, p, c, o, f, g, s])
 
     Returns
     -------
@@ -195,20 +196,22 @@ def _biom_from_samples(context, samples, get=None):
 
     Redis command summary
     ---------------------
-    HMGET <context>:observation-index-inverted
-    MGET <context>:data:<sample_id> ... <context>:data:<sample_id>
+    HMGET <context>:feature-index-inverted
+    EVALSHA <fetch-sample-sha1> 0 context <redbiom-id>
     """
     from operator import itemgetter
     import scipy.sparse as ss
     import biom
+    import redbiom.admin
     import redbiom._requests
     import redbiom.util
+    import redbiom
+    config = redbiom.get_config()
 
-    # TODO: centralize this as it's boilerplate
     if get is None:
-        import redbiom
-        config = redbiom.get_config()
         get = redbiom._requests.make_get(config)
+
+    se = redbiom._requests.make_script_exec(config)
 
     redbiom._requests.valid(context, get)
 
@@ -218,50 +221,158 @@ def _biom_from_samples(context, samples, get=None):
     stable_ids, unobserved, ambig_assoc, rimap = \
         redbiom.util.resolve_ambiguities(context, samples, get)
 
-    # pull out the per-sample data
     table_data = []
     unique_indices = set()
-    getter = redbiom._requests.buffered(list(rimap), 'data', 'MGET', context,
-                                        get=get, buffer_size=100)
-    for (sample_set, sample_set_data) in getter:
-        for sample, data in zip(sample_set, sample_set_data):
-            data = data.split('\t')
-            table_data.append((sample, data))
-
-            # update our perspective of total unique observations
-            unique_indices.update({i for i in data[::2]})
+    fetch_sample = redbiom.admin.ScriptManager.get('fetch-sample')
+    for id_ in rimap:
+        # 0 -> we're passing 0 keys, and instead using ARGV
+        data = se(fetch_sample, 0, context, id_)
+        table_data.append((id_, data))
+        unique_indices.update(data)
 
     # construct a mapping of
-    # {observation ID : index position in the BIOM table}
+    # {feature ID : index position in the BIOM table}
     unique_indices_map = {observed: index
                           for index, observed in enumerate(unique_indices)}
 
-    # get the inverted mapping of index -> ID
-    invdata = redbiom._requests.buffered(iter(unique_indices),
-                                         None, 'HMGET', context, get=get,
-                                         buffer_size=500,
-                                         multikey='observation-index-inverted')
-
-    inverted_obs_index = {index: id_ for indices, ids in invdata
-                          for index, id_ in zip(indices, ids)}
-
-    # pull out the observation and sample IDs in the desired ordering
-    obs_ids = [inverted_obs_index[k]
-               for k, _ in sorted(unique_indices_map.items(),
-                                  key=itemgetter(1))]
-    sample_ids = [d[0] for d in table_data]
+    # pull out the feature and sample IDs in the desired ordering
+    obs_ids = [id_ for id_, _ in sorted(unique_indices_map.items(),
+                                        key=itemgetter(1))]
+    sample_ids = [id_ for id_, _ in table_data]
 
     # fill in the matrix
     mat = ss.lil_matrix((len(unique_indices), len(table_data)))
     for col, (sample, col_data) in enumerate(table_data):
         # since this isn't dense, hopefully roworder doesn't hose us
-        for index, value in zip(col_data[::2], col_data[1::2]):
-            mat[unique_indices_map[index], col] = value
+        for obs_id, value in col_data.items():
+            mat[unique_indices_map[obs_id], col] = value
 
-    table = biom.Table(mat, obs_ids, sample_ids)
+    lineages = taxon_ancestors(context, obs_ids, get,
+                               normalize=normalize_taxonomy)
+
+    if lineages is not None:
+        obs_md = [{'taxonomy': lineage} for lineage in lineages]
+    else:
+        obs_md = None
+
+    table = biom.Table(mat, obs_ids, sample_ids, obs_md)
     table.update_ids(rimap)
 
     return table, ambig_assoc
+
+
+def taxon_ancestors(context, ids, get=None, normalize=None):
+    """Fetch the taxonomy information for a set of IDs
+
+    Parameters
+    ----------
+    context : str
+        The context to operate in
+    ids : list or tuple of str
+        The IDs to retreive
+    get : function, optional
+        A get method
+    normalize : list, optional
+        The ranks to normalize a lineage too (e.g., [k, p, c, o, f, g, s])
+
+    Returns
+    -------
+    list of list
+        The lineage information for each ID in order with ids
+
+    Redis Command Summary
+    ---------------------
+    HMGET <context>:taxonomy-parents <child> ... <child>
+    """
+    from future.moves.itertools import zip_longest
+    import redbiom._requests
+
+    if get is None:
+        import redbiom
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+    # bulk gather the taxonomy information for all the tips and their parents
+    to_get = ids
+    child_parent = {}
+    while to_get:
+        key = 'taxonomy-parents'
+        getter = redbiom._requests.buffered(iter(to_get), None, 'HMGET',
+                                            context, get=get,
+                                            buffer_size=100, multikey=key)
+
+        new_to_get = set()
+        for block in getter:
+            for child, parent in zip(*block):
+                if parent is None:
+                    continue
+
+                child_parent[child] = parent
+                new_to_get.add(parent)
+        to_get = new_to_get
+
+    if not child_parent:
+        return None
+
+    # form lineages from the child -> parent relationships
+    lineages = []
+    for id_ in ids:
+        lineage = []
+        current = id_
+        while current is not None:
+            current = child_parent.get(current)
+            if current is not None:
+                lineage.append(current)
+        lineage = lineage[::-1]
+
+        # normalize if necessary to greengenes like strings
+        if normalize is not None:
+            lineage = [l if l else "%s__" % r
+                       for l, r in zip_longest(lineage, normalize,
+                                               fillvalue=False)]
+        lineages.append(lineage)
+
+    return lineages
+
+
+def taxon_descendents(context, taxon, get=None):
+    """Get tips associated with a taxon
+
+    Parameters
+    ----------
+    context : str
+        The context to operate in
+    taxon : str
+        The taxon to search for
+    get : function, optional
+        A get method
+
+    Returns
+    -------
+    set
+        The set of feature IDs found
+
+    Redis Command Summary
+    ---------------------
+    SMEMBERS <context>:taxonomy-children:<taxon>
+    """
+    if get is None:
+        import redbiom
+        import redbiom._requests
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    to_get = [taxon]
+    to_keep = set()
+    while to_get:
+        new_to_get = []
+        for t in to_get:
+            if t.startswith('terminal:'):
+                to_keep.add(t.split(':', 1)[1])
+            else:
+                gotten = get(context, 'SMEMBERS', 'taxonomy-children:%s' % t)
+                new_to_get.extend(gotten)
+        to_get = new_to_get
+    return to_keep
 
 
 def category_sample_values(category, samples=None):
