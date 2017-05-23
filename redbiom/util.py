@@ -26,25 +26,66 @@ def from_or_nargs(from_, nargs_variable):
     return iter((s.strip() for s in nargs_variable))
 
 
-def samples_from_observations(it, exact, context, get=None):
-    """Grab samples from an iterable of observations"""
-    import redbiom._requests
+def ids_from(it, exact, axis, contexts):
+    """Grab samples from an iterable of IDs
 
-    cmd = 'SINTER' if exact else 'SUNION'
-    samples = None
-    for _, block in redbiom._requests.buffered(it, 'samples', cmd, context,
-                                               get=get):
-        block = set(block)
-        if not exact:
-            if samples is None:
-                samples = set()
-            samples.update(block)
-        else:
-            if samples is None:
-                samples = block
+    Parameters
+    ----------
+    it : iteraable of str
+        The IDs to search for
+    exact : boolean
+        If True, compute the intersection of results per context. If False,
+        compute the union of results per context.
+    axis : {'feature', 'sample'}
+        The axis to operate over.
+    contexts : list of str
+        The contexts to search in
+
+    Notes
+    -----
+    Contexts are evaluated independently, and the results of each context are
+    unioned.
+
+    Returns
+    -------
+    set
+        The sample IDs associated with the search IDs.
+
+    """
+    import redbiom
+    import redbiom._requests
+    import redbiom.admin
+    config = redbiom.get_config()
+    se = redbiom._requests.make_script_exec(config)
+
+    retrieved = set()
+
+    if axis not in {'feature', 'sample'}:
+        raise ValueError("Unknown axis: %s" % axis)
+
+    if not isinstance(contexts, (list, set, tuple)):
+        contexts = [contexts]
+
+    it = list(it)
+    fetcher = redbiom.admin.ScriptManager.get('fetch-%s' % axis)
+    for context in contexts:
+        context_ids = None
+        for id_ in it:
+            block = se(fetcher, 0, context, id_)
+            if not exact:
+                if context_ids is None:
+                    context_ids = set()
+                context_ids.update(block)
             else:
-                samples = samples.intersection(block)
-    return samples
+                if context_ids is None:
+                    context_ids = set(block)
+                else:
+                    context_ids = context_ids.intersection(block)
+
+        if context_ids:
+            retrieved = retrieved.union(context_ids)
+
+    return retrieved
 
 
 def category_exists(category, get=None):
@@ -167,7 +208,7 @@ def resolve_ambiguities(context, samples, get):
     untagged, tagged, _, tagged_clean = partition_samples_by_tags(samples)
 
     # get all known tagged samples in the context
-    ctx = get(context, 'SMEMBERS', 'samples-represented-data')
+    ctx = get(context, 'SMEMBERS', 'samples-represented')
     _, ctx_tagged, _, ctx_tagged_clean = partition_samples_by_tags(ctx)
 
     # create a map of known ambiguous ID -> known stable IDs
@@ -255,7 +296,11 @@ def df_to_stems(df):
     from collections import defaultdict
     import functools
     import nltk
+
+    # not using nltk default as we want this to be portable so that, for
+    # instance, a javascript library can query
     stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
+
     stops = frozenset(nltk.corpus.stopwords.words('english'))
     stem_f = functools.partial(stems, stops, stemmer)
 
@@ -273,9 +318,6 @@ def stems(stops, stemmer, string):
     """Gather stems from string"""
     import re
     import nltk
-    # not using nltk default as we want this to be portable so that, for
-    # instance, a javascript library can query
-
     to_skip = set('()!@#$%^&*-+=|{}[]<>./?;:')
     to_skip.update(NULL_VALUES)
 

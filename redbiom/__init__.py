@@ -15,6 +15,12 @@ import atexit
 
 __version__ = '2017.0.1.dev0'
 
+# db version follows macro/minor/micro expectations where a micro change should
+# be backwards compatible, a minor change introduces some backwards
+# incompatibility, and a major change represents a large shift in the
+# representation
+__db_version__ = '0.1.0'
+
 active_sessions = {}
 
 

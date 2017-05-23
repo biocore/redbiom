@@ -1,5 +1,6 @@
 import unittest
 import requests
+from future.moves.itertools import zip_longest
 
 import biom
 import pandas as pd
@@ -20,6 +21,7 @@ class FetchTests(unittest.TestCase):
         host = redbiom.get_config()['hostname']
         req = requests.get(host + '/FLUSHALL')
         assert req.status_code == 200
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
 
     def test_biom_from_samples(self):
         redbiom.admin.create_context('test', 'a nice test')
@@ -31,15 +33,90 @@ class FetchTests(unittest.TestCase):
         exp = table.filter(lambda v, i, md: v[qidx] > 0, inplace=False)
         exp.filter(lambda v, i, md: sum(v > 0) > 0, axis='observation')
 
+        # the taxonomy is *not* normalized in the input test table. annoying.
+        lineages = {}
+        ranks = list('kpcofgs')
+        for id_, md in zip(exp.ids(axis='observation'),
+                           exp.metadata(axis='observation')):
+            lineage = md['taxonomy']
+            lineages[id_] = {'taxonomy': [l if l is not None else "%s__" % r
+                                          for l, r in zip_longest(lineage,
+                                                                  ranks)]}
+        exp.add_metadata(lineages, axis='observation')
+
         fetch = exp.ids()[:]
 
         exp_map = {k: ["UNTAGGED_%s" % k] for k in exp.ids()}
         exp.update_ids({k: "%s.UNTAGGED" % k for k in exp.ids()})
 
-        obs, obs_map = _biom_from_samples('test', fetch)
+        obs, obs_map = _biom_from_samples('test', fetch,
+                                          normalize_taxonomy=list('kpcofgs'))
         obs = obs.sort_order(exp.ids(axis='observation'), axis='observation')
+
         self.assertEqual(obs, exp)
         self.assertEqual(obs_map, exp_map)
+
+    def test_taxon_ancestors(self):
+        redbiom.admin.create_context('test', 'a nice test')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
+        q = ('TACGGAGGATCCGAGCGTTATCCGGATTTATTGGGTTTAAAGGGAGCGTAGGCGGGTTGTTAA'
+             'GTCAGTTGTGAAAGTTTGCGGCTCAACCGTAAATTTG')
+        exp = [(['k__Bacteria',
+                 'p__Bacteroidetes',
+                 'c__Bacteroidia',
+                 'o__Bacteroidales',
+                 'f__Bacteroidaceae',
+                 'g__Bacteroides',
+                 's__']), (['%s__' % r for r in 'kpcofgs'])]
+        obs = redbiom.fetch.taxon_ancestors('test', [q, 'foo'],
+                                            normalize=list('kpcofgs'))
+        self.assertEqual(obs, exp)
+
+        # ancestors does not include self, like skbio.TreeNode.ancestors
+        q = 'o__Bacteroidales'
+        exp = [(['k__Bacteria',
+                 'p__Bacteroidetes',
+                 'c__Bacteroidia',
+                 'o__',
+                 'f__',
+                 'g__',
+                 's__'])]
+        obs = redbiom.fetch.taxon_ancestors('test', [q],
+                                            normalize=list('kpcofgs'))
+        self.assertEqual(obs, exp)
+
+    def test_taxon_descendents(self):
+        redbiom.admin.create_context('test', 'a nice test')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
+
+        exp = {'TACGTAGGTGGCGAGCGTTATCCGGAATGATTGGGCGTAAAGGGTGCGTAGGTGGCAGAACAAGTCTGGAGTAAAAGGTATGGGCTCAACCCGTACTGGC',  # noqa
+               'TACGTAGGTGGCGAGCGTTATCCGGAATGATTGGGCGTAAAGGGTGCGTAGGTGGCAGATCAAGTCTGGAGTAAAAGGTATGGGCTCAACCCGTACTGGC',  # noqa
+               'TACGTAGGTGGCGAGCGTTATCCGGAATGATTGGGCGTAAAGGGTGCGTAGGTGGCAGATCAAGTCTGGAGTAAAAGGTATGGGCTCAACCCGTACTTGC'}  # noqa
+        obs = redbiom.fetch.taxon_descendents('test', 's__biforme')
+        self.assertEqual(obs, exp)
+
+        exp = {'TACGAAGGGTGCAAGCGTTACTCGGAATTACTGGGCGTAAAGCGTGCGTAGGTGGTCGTTTAAGTCCGTTGTGAAAGCCCTGGGCTCAACCTGGGAACTG',  # noqa
+               'TACGAAGGGTGCAAGCGTTACTCGGAATTACTGGGCGTAAAGCGTGCGTAGGTGGTTATTTAAGTCCGTTGTGAAAGCCCTGGGCTCAACCTGGGAACTG',  # noqa
+               'TACGAAGGGTGCAAGCGTTACTCGGAATTACTGGGCGTAAAGCGTGCGTAGGTGGTTTGTTAAGTCTGATGTGAAAGCCCTGGGCTCAACCTGGGAATTG'}  # noqa
+        obs = redbiom.fetch.taxon_descendents('test', 'o__Xanthomonadales')
+        self.assertEqual(obs, exp)
+
+    def test_taxonomy_no_taxonomy_entries(self):
+        exp = None
+        obs = redbiom.fetch.taxon_ancestors('test', ['foo', 'bar'],
+                                            normalize=list('kpcofgs'))
+        self.assertEqual(obs, exp)
+
+    def test_sample_metadata_samples_not_represented_in_context(self):
+        redbiom.admin.create_context('test', 'a nice test')
+        redbiom.admin.load_sample_metadata(metadata)
+        with self.assertRaisesRegexp(ValueError,
+                                     "None of the samples"):
+            # sample data have not been loaded into the context
+            sample_metadata(['10317.000047188', '10317.000046868'],
+                            context='test')
 
     def test_sample_metadata_all_cols(self):
         redbiom.admin.load_sample_metadata(metadata)

@@ -36,25 +36,25 @@ def fetch_sample_metadata(from_, samples, all_columns, context, output):
     _write_ambig(map_, output)
 
 
-@fetch.command(name='observations')
+@fetch.command(name='features')
 @click.option('--from', 'from_', type=click.File('r'), required=False,
-              help='A file or stdin which provides observations to search for',
+              help='A file or stdin which provides features to search for',
               default=None)
 @click.option('--output', required=True, type=click.Path(exists=False),
               help="A filepath to write to.")
 @click.option('--exact', is_flag=True, default=False,
-              help="All found samples must contain all specified observations")
+              help="All found samples must contain all specified features")
 @click.option('--context', required=True, type=str,
               help="The context to search within.")
-@click.argument('observations', nargs=-1)
-def fetch_samples_from_obserations(observations, exact, from_, output,
+@click.argument('features', nargs=-1)
+def fetch_samples_from_obserations(features, exact, from_, output,
                                    context):
-    """Fetch sample data containing observations."""
+    """Fetch sample data containing features."""
     import redbiom.util
-    iterable = redbiom.util.from_or_nargs(from_, observations)
+    iterable = redbiom.util.from_or_nargs(from_, features)
 
     import redbiom.fetch
-    tab, map_ = redbiom.fetch.data_from_observations(context, iterable, exact)
+    tab, map_ = redbiom.fetch.data_from_features(context, iterable, exact)
 
     import h5py
     with h5py.File(output, 'w') as fp:

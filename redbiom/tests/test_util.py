@@ -10,7 +10,7 @@ import biom
 import redbiom
 import redbiom.admin
 from redbiom.util import (float_or_nan, from_or_nargs,
-                          samples_from_observations, has_sample_metadata,
+                          ids_from, has_sample_metadata,
                           partition_samples_by_tags, resolve_ambiguities,
                           _stable_ids_from_ambig, _stable_ids_from_unambig,
                           category_exists, df_to_stems, stems)
@@ -60,10 +60,36 @@ class UtilTests(unittest.TestCase):
         # deferring validation of inference of stdin to integration tests
         # as it would require overriding that standard file descriptor.
 
-    def test_samples_from_observations(self):
+    def test_ids_from_multicontext(self):
+        redbiom.admin.create_context('test', 'foo')
+        redbiom.admin.create_context('test2', 'foo')
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
+        redbiom.admin.load_sample_data(table, 'test2', tag=None)
+
+        d = table.data(table.ids()[0], dense=True)
+        ids = table.ids(axis='observation')[d.nonzero()]
+        exp = set(['UNTAGGED_' + table.ids()[0], ])
+        obs = ids_from(iter(ids), True, 'feature', ['test', 'test2'])
+        self.assertEqual(obs, exp)
+
+        redbiom.admin.create_context('testalt', 'foo')
+        redbiom.admin.load_sample_metadata(metadata_with_alt)
+        redbiom.admin.load_sample_data(table_with_alt, 'testalt', tag=None)
+
+        exp = {'UNTAGGED_10317.000051129alt', 'UNTAGGED_10317.000051129'}
+        d = table.data('10317.000051129', dense=True)
+        ids = table.ids(axis='observation')[d.nonzero()]
+        obs = ids_from(iter(ids), True, 'feature', ['test', 'test2',
+                                                    'testalt'])
+        self.assertEqual(obs, exp)
+
+    def test_ids_from(self):
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
-        redbiom.admin.load_observations(table, 'test', tag=None)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
 
         sample_ids = table.ids()[:]
         sample_ids = np.array(["UNTAGGED_%s" % i for i in sample_ids])
@@ -80,11 +106,24 @@ class UtilTests(unittest.TestCase):
             exp_exact = reduce(set.intersection, map(set, assoc_ids))
             exp_union = reduce(set.union, map(set, assoc_ids))
 
-            obs_exact = samples_from_observations(iter(fetch), True, 'test')
-            obs_union = samples_from_observations(iter(fetch), False, 'test')
+            obs_exact = ids_from(iter(fetch), True, 'feature', ['test'])
+            obs_union = ids_from(iter(fetch), False, 'feature', ['test'])
 
             self.assertEqual(obs_exact, exp_exact)
             self.assertEqual(obs_union, exp_union)
+
+    def test_ids_from_samples(self):
+        redbiom.admin.create_context('test', 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
+
+        obs_ids = table.ids(axis='observation')
+        exp = set(obs_ids[table.data(table.ids()[0]) > 0])
+        exp.update(set(obs_ids[table.data(table.ids()[1]) > 0]))
+        to_fetch = ['UNTAGGED_%s' % i for i in table.ids()[:2]]
+        obs = ids_from(to_fetch, False, 'sample', ['test'])
+        self.assertEqual(obs, exp)
 
     def test_has_sample_metadata(self):
         redbiom.admin.create_context('test', 'foo')
@@ -119,6 +158,7 @@ class UtilTests(unittest.TestCase):
 
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
         redbiom.admin.load_sample_data(table, 'test', tag=None)
 
         # all samples as ambiguous
@@ -146,6 +186,7 @@ class UtilTests(unittest.TestCase):
 
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
         redbiom.admin.load_sample_data(table, 'test', tag=None)
 
         samples = {'10317.000047188', '10317.000046868', '10317.000051129',
@@ -193,6 +234,7 @@ class UtilTests(unittest.TestCase):
 
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
         redbiom.admin.load_sample_data(table, 'test', tag='fromtest')
         redbiom.admin.load_sample_metadata(metadata_with_alt)
         redbiom.admin.load_sample_data(table_with_alt, 'test',
@@ -229,6 +271,7 @@ class UtilTests(unittest.TestCase):
 
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
         redbiom.admin.load_sample_data(table, 'test', tag='fromtest')
         redbiom.admin.load_sample_metadata(metadata_with_alt)
         redbiom.admin.load_sample_data(table_with_alt, 'test',
