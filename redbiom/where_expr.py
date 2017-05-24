@@ -5,10 +5,6 @@ import functools
 import pandas as pd
 
 
-class CastError(Exception):
-    pass
-
-
 def Expression(body):
     return body
 
@@ -29,33 +25,26 @@ def Tuple(elts, ctx):
     return tuple(elts)
 
 
+def _cast_retain_numeric(series):
+    series = pd.to_numeric(series, errors='coerce')
+    series = series[~series.isnull()]
+    return series
+
+
 def _left_and_right(left, right):
     if isinstance(left, pd.Series) and isinstance(right, pd.Series):
-        try:
-            # see if we can get away with casting
-            left_ = left.astype(float)
-            right_ = right.astype(float)
-        except:
-            pass
-        else:
-            left = left_
-            right = right_
+        left = _cast_retain_numeric(left)
+        right = _cast_retain_numeric(right)
 
         left, right = left.align(right, join='inner')
         base = pd.concat([left, right], axis=1)
     elif isinstance(left, pd.Series):
         if isinstance(right, float):
-            try:
-                left = left.astype(float)
-            except ValueError:
-                raise CastError('Unable to cast left hand to float')
+            left = _cast_retain_numeric(left)
         base = left
     elif isinstance(right, pd.Series):
         if isinstance(left, float):
-            try:
-                right = right.astype(float)
-            except ValueError:
-                raise CastError('Unable to cast right hand to float')
+            right = _cast_retain_numeric(right)
         base = right
     else:
         raise ValueError("Can only handle pd.Series or numeric types")
