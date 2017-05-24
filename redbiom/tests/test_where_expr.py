@@ -1,10 +1,12 @@
 import unittest
 
-from redbiom.where_expr import whereeval
+from redbiom.where_expr import whereeval, CastError
 
 
 mock_db = {'age': {'A': '3', 'B': '20', 'C': '10', 'D': '5'},
-           'sex': {'A': 'female', 'B': 'female', 'C': 'unknown', 'D': 'male'}}
+           'other': {'B': '5', 'E': '10', 'C': '15'},
+           'sex': {'A': 'female', 'B': 'female', 'C': 'unknown', 'D': 'male'},
+           'terrible': {'A': '3', 'C': '5', 'D': 'foo'}}
 
 
 def mock_get(ignored1, ignored2, arg):
@@ -45,11 +47,21 @@ class WhereTests(unittest.TestCase):
                  ("(age <= 10) != 8", {'A', 'C', 'D'}),
                  ("(age <= 10) != 8 and sex is not 'female'", {'C', 'D'}),
                  ("sex is not 'female' and sex is not 'male'", {'C'}),
-                 ("foo is bar", set())]
+                 ("foo is bar", set()),
+                 ("age > other", {'B', }),
+                 ("terrible in ('5', 'foo')", {'C', 'D'})]
 
         for test, exp in tests:
             obs = whereeval(test, get=mock_get)
             self.assertEqual(set(obs.index), exp)
+
+    def test_whereeval_badcast_left(self):
+        with self.assertRaisesRegexp(CastError, "Unable to cast left hand"):
+            whereeval("terrible > 2", get=mock_get)
+
+    def test_whereeval_badcast_right(self):
+        with self.assertRaisesRegexp(CastError, "Unable to cast right hand"):
+            whereeval("2 < terrible", get=mock_get)
 
 
 if __name__ == '__main__':
