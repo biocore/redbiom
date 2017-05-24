@@ -25,17 +25,26 @@ def Tuple(elts, ctx):
     return tuple(elts)
 
 
+def _cast_retain_numeric(series):
+    series = pd.to_numeric(series, errors='coerce')
+    series = series[~series.isnull()]
+    return series
+
+
 def _left_and_right(left, right):
     if isinstance(left, pd.Series) and isinstance(right, pd.Series):
+        left = _cast_retain_numeric(left)
+        right = _cast_retain_numeric(right)
+
         left, right = left.align(right, join='inner')
         base = pd.concat([left, right], axis=1)
     elif isinstance(left, pd.Series):
         if isinstance(right, float):
-            left = left.astype(float)
+            left = _cast_retain_numeric(left)
         base = left
     elif isinstance(right, pd.Series):
         if isinstance(left, float):
-            right = right.astype(float)
+            right = _cast_retain_numeric(right)
         base = right
     else:
         raise ValueError("Can only handle pd.Series or numeric types")

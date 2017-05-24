@@ -1,10 +1,14 @@
 import unittest
+import pandas as pd
+import pandas.util.testing as pdt
 
-from redbiom.where_expr import whereeval
+from redbiom.where_expr import whereeval, _cast_retain_numeric
 
 
 mock_db = {'age': {'A': '3', 'B': '20', 'C': '10', 'D': '5'},
-           'sex': {'A': 'female', 'B': 'female', 'C': 'unknown', 'D': 'male'}}
+           'other': {'B': '5', 'E': '10', 'C': '15'},
+           'sex': {'A': 'female', 'B': 'female', 'C': 'unknown', 'D': 'male'},
+           'realworld': {'A': '3', 'C': '5', 'D': 'foo'}}
 
 
 def mock_get(ignored1, ignored2, arg):
@@ -12,6 +16,17 @@ def mock_get(ignored1, ignored2, arg):
 
 
 class WhereTests(unittest.TestCase):
+    def test_cast_retain_numeric(self):
+        tests = [(pd.Series(['a', '10', '1.23']),
+                  pd.Series([10.0, 1.23], index=[1, 2])),
+                 (pd.Series(['a', 'b', 'c']), pd.Series([])),
+                 (pd.Series(['1', '2', '3', '4']),
+                  pd.Series([1, 2, 3, 4], index=[0, 1, 2, 3]))]
+
+        for test, exp in tests:
+            obs = _cast_retain_numeric(test).reindex()
+            pdt.assert_series_equal(obs, exp)
+
     def test_eval_danger(self):
         tests = ["print('hi')",
                  "",
@@ -45,7 +60,10 @@ class WhereTests(unittest.TestCase):
                  ("(age <= 10) != 8", {'A', 'C', 'D'}),
                  ("(age <= 10) != 8 and sex is not 'female'", {'C', 'D'}),
                  ("sex is not 'female' and sex is not 'male'", {'C'}),
-                 ("foo is bar", set())]
+                 ("foo is bar", set()),
+                 ("age > other", {'B', }),
+                 ("realworld in ('5', 'foo')", {'C', 'D'}),
+                 ("realworld > 4", {'C', })]
 
         for test, exp in tests:
             obs = whereeval(test, get=mock_get)

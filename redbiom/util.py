@@ -4,8 +4,12 @@ import click
 NULL_VALUES = {'Not applicable', 'Unknown', 'Unspecified',
                'Missing: Not collected', None,
                'Missing: Not provided',
+               'Missing: Not Provided', 'missing', '',
                'Missing: Restricted access',
-               'null', 'NULL', 'no_data', 'None', 'nan'}
+               'Missing:Not reported',
+               'Missing: Not applicable',
+               'NA', 'null', 'NULL', 'no_data', 'None', 'nan',
+               'NaN'}
 
 
 def from_or_nargs(from_, nargs_variable):
