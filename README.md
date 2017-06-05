@@ -1,5 +1,5 @@
 # ![redbiom](logo.png)
-# ![build-status](https://travis-ci.org/wasade/redbiom.svg?branch=master)
+# ![build-status](https://travis-ci.org/biocore/redbiom.svg?branch=master)
 
 # What is this?
 
@@ -30,9 +30,9 @@ Redbiom depends on [BIOM](http://biom-format.org/) (tested on >= 2.1.5), [Pandas
 
 If you would like to use redbiom as only a client (which is the general case), then the following instructions apply.
 
-    $ git clone https://github.com/wasade/redbiom.git
+    $ git clone https://github.com/biocore/redbiom.git
     $ cd redbiom
-    $ pip install -e .  
+    $ python setup.py install
 
 ### Server
 
@@ -59,8 +59,8 @@ Webdis packages its dependencies with the exception of libevent. It is entirely 
 
 Last, redbiom itself can be installed as a normal Python package.
 
-    $ git clone https://github.com/wasade/redbiom.git
-    $ pip install -e .    
+    $ git clone https://github.com/biocore/redbiom.git
+    $ python setup.py install    
 
 # Terminology and notation
 
