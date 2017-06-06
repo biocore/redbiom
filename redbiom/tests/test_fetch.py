@@ -10,6 +10,9 @@ import redbiom.admin
 import redbiom.fetch
 from redbiom.fetch import (_biom_from_samples, sample_metadata,
                            sample_counts_per_category)
+from redbiom.tests import assert_test_env
+
+assert_test_env()
 
 
 table = biom.load_table('test.biom')

@@ -7,6 +7,9 @@ import requests
 import json
 import numpy as np
 import pandas as pd
+from redbiom.tests import assert_test_env
+
+assert_test_env()
 
 
 table = biom.load_table('test.biom')

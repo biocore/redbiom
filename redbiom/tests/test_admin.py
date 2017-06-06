@@ -10,7 +10,9 @@ import redbiom
 import redbiom.admin
 import redbiom._requests
 import redbiom.fetch
+from redbiom.tests import assert_test_env
 
+assert_test_env()
 
 table = biom.load_table('test.biom')
 table_with_alt = biom.load_table('test_with_alts.biom')
