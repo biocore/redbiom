@@ -8,6 +8,9 @@ from redbiom import get_config
 import redbiom.admin
 from redbiom._requests import (valid, _parse_validate_request, _format_request,
                                make_post, make_get, make_put, buffered)
+from redbiom.tests import assert_test_env
+
+assert_test_env()
 
 
 config = get_config()

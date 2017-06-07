@@ -1,5 +1,5 @@
 # ![redbiom](logo.png)
-# ![build-status](https://travis-ci.org/wasade/redbiom.svg?branch=master)
+# ![build-status](https://travis-ci.org/biocore/redbiom.svg?branch=master)
 
 # What is this?
 
@@ -30,9 +30,10 @@ Redbiom depends on [BIOM](http://biom-format.org/) (tested on >= 2.1.5), [Pandas
 
 If you would like to use redbiom as only a client (which is the general case), then the following instructions apply.
 
-    $ git clone https://github.com/wasade/redbiom.git
+    $ git clone https://github.com/biocore/redbiom.git
     $ cd redbiom
-    $ pip install -e .  
+    $ pip install numpy
+    $ pip install -e .
 
 ### Server
 
@@ -59,8 +60,13 @@ Webdis packages its dependencies with the exception of libevent. It is entirely 
 
 Last, redbiom itself can be installed as a normal Python package.
 
-    $ git clone https://github.com/wasade/redbiom.git
+    $ git clone https://github.com/biocore/redbiom.git
+    $ pip install numpy
     $ pip install -e .    
+
+### Testing
+
+The test framework is setup to by default only execute tests against `localhost`, specifically, `127.0.0.1:7379`. However, the repository, by default, is setup to communicate with a remote Webdis server. If you wish to execute the test suite, please `export REDBIOM_HOST=http://127.0.0.1:7379`.
 
 # Terminology and notation
 

@@ -6,6 +6,9 @@ import requests
 import redbiom._requests
 import redbiom.admin
 import redbiom.search
+from redbiom.tests import assert_test_env
+
+assert_test_env()
 
 
 metadata = pd.read_csv('test.txt', sep='\t', dtype=str, na_values=[],
