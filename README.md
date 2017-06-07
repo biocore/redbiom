@@ -16,7 +16,7 @@ Redbiom is designed to handle biological and technical replicates. Specifically,
 
 This repository defines the de facto redbiom data representation, and one possible interface into the resource. Other interfaces (e.g., Javascript) are possible to define. Please see the Design section below for details about how other interfaces can be written.
 
-By default, redbiom will search against `qiita.ucsd.edu:7379`. This can be changed at runtime by setting the `REDBIOM_HOST` environmental variable, e.g., `export REDBIOM_HOST=http://qiita.ucsd.edu:7379`. The default host is **read-only** and administrative functions like loading data will not work against it.
+By default, redbiom will search against `qiita.ucsd.edu:7329`. This can be changed at runtime by setting the `REDBIOM_HOST` environmental variable, e.g., `export REDBIOM_HOST=http://qiita.ucsd.edu:7329`. The default host is **read-only** and administrative functions like loading data will not work against it.
 
 If you intend to **load** your own data, you must setup a local instance (please see the server installation instructions below). In addition, you must explicitly set the `REDBIOM_HOST` environment variable.
 
