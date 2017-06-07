@@ -36,6 +36,6 @@ atexit.register(_close_sessions)
 def get_config():
     """Deal with all the configy bits"""
     import os
-    hostname = os.environ.get('REDBIOM_HOST', 'http://127.0.0.1:7379')
+    hostname = os.environ.get('REDBIOM_HOST', 'http://qiita.ucsd.edu:7329')
 
     return {'hostname': hostname}

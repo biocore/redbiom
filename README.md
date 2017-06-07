@@ -62,6 +62,10 @@ Last, redbiom itself can be installed as a normal Python package.
     $ git clone https://github.com/biocore/redbiom.git
     $ python setup.py install    
 
+### Testing
+
+The test framework is setup to by default only execute tests against `localhost`, specifically, `127.0.0.1:7379`. However, the repository, by default, is setup to communicate with a remote Webdis server. If you wish to execute the test suite, please `export REDBIOM_HOST=http://127.0.0.1:7379`.
+
 # Terminology and notation
 
 In redbiom, the word "context" refers to a way in which the sample data were processed. Data are loaded into contexts and searches for samples by feature happen within contexts.
