@@ -1,4 +1,4 @@
-# ![redbiom](logo.png)
+# ![redbiom](https://raw.githubusercontent.com/biocore/redbiom/master/logo.png)
 # ![build-status](https://travis-ci.org/biocore/redbiom.svg?branch=master)
 
 # What is this?

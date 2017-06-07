@@ -1,0 +1,12 @@
+include README.md
+include COPYING.txt
+include logo.png
+
+graft redbiom
+graft licenses
+
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude .git
+global-exclude *.so
+global-exclude .*.swp
