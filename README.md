@@ -32,7 +32,8 @@ If you would like to use redbiom as only a client (which is the general case), t
 
     $ git clone https://github.com/biocore/redbiom.git
     $ cd redbiom
-    $ python setup.py install
+    $ pip install numpy
+    $ pip install -e .
 
 ### Server
 
@@ -60,7 +61,8 @@ Webdis packages its dependencies with the exception of libevent. It is entirely 
 Last, redbiom itself can be installed as a normal Python package.
 
     $ git clone https://github.com/biocore/redbiom.git
-    $ python setup.py install    
+    $ pip install numpy
+    $ pip install -e .    
 
 ### Testing
 

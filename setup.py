@@ -42,7 +42,6 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=['click >= 6.7', 'biom-format >= 2.1.5', 'requests',
-                      'h5py', 'numpy', 'scipy',
                       'pandas', 'nltk', 'joblib', 'scikit-bio >= 0.4.2'],
     #scripts=['bin/tab-redbiom'],
     entry_points='''
