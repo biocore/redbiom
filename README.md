@@ -159,7 +159,7 @@ In general, these commands are intended to be composable via Unix pipes. For exa
 
 ### Search for samples by metadata
 
-By default, redbiom is setup to query against [Qiita](https://qiita.ucsd.edu). First, let's search for some samples by metadata. Specifically, what we're going to do is identify what samples exist in Qiita in which any of their sample metadata contains the [stem](https://en.wikipedia.org/wiki/Stemming) of the word beer. This returns quite a few samples, so for the same of the example, we're only going to show the first 10 using `head`: 
+By default, redbiom is setup to query against [Qiita](https://qiita.ucsd.edu). First, let's search for some samples by metadata. Specifically, what we're going to do is identify what samples exist in Qiita in which any of their sample metadata contains the [stem](https://en.wikipedia.org/wiki/Stemming) of the word beer. This returns quite a few samples, so for the sake of the example, we're only going to show the first 10 using `head`: 
 
     $ redbiom search metadata beer | head
     10105.Ingredient.18
@@ -176,7 +176,7 @@ By default, redbiom is setup to query against [Qiita](https://qiita.ucsd.edu). F
     $ redbiom search metadata beer | wc -l
       70
 
-Now that we have some samples, let's pull out their sample data. Qiita contains a huge amount of data, which are logically partitioned by the sample preparations and processing parameters -- these partitions are denoted as **contexts** in redbiom. In order to pull out the data, we need to specify the context to operate in. There are a lot of contexts, so let's filter to only those which are 16S and V4 using `grep`. We're also going to `cut` the first three columns of data as the fourth one is a volumous description of the processing parameters. And last, let's `sort` the results by the number of samples represented in the context. Unfortunately, the `grep` removes the column headers, so we'll run a second summarize command and just grab the header:
+Now that we have some samples, let's pull out their sample data. Qiita contains a huge amount of data, which are logically partitioned by the sample preparations and processing parameters -- these partitions are denoted as **contexts** in redbiom. In order to pull out the data, we need to specify the context to operate in. There are a lot of contexts, so let's filter to only those which are 16S and V4 using `grep`. We're also going to `cut` the first three columns of data as the fourth one is a voluminous description of the processing parameters. And last, let's `sort` the results by the number of samples represented in the context. Unfortunately, the `grep` removes the column headers, so we'll run a second summarize command and just grab the header:
 
     $ redbiom summarize contexts | cut -f 1,2,3 | grep 16S-v4 | sort -k 2 -n
     Pick_closed-reference_OTUs-illumina-16S-v45-66f541  102 29598
@@ -215,7 +215,7 @@ We probably also want to get the sample metadata:
 
     $ redbiom search metadata beer | redbiom fetch sample-metadata --output example.txt --context $ctx
 
-You might note that the total number of samples found by the metadata search is not the same as the number of samples found by the metadata search. The sample information is distinct from the sample preparation, and data processing: just because there is sample information does not mean a given sample has (for instance) 16S V4 sequence data associated with it.
+You might note that the total number of samples found by the metadata search is not the same as the number of samples found by the sample data fetch. The sample information is distinct from the sample preparation, and data processing: just because there is sample information does not mean a given sample has (for instance) 16S V4 sequence data associated with it.
 
 The query structures for metadata are fairly permissive, and there are actually two types of queries that can be performed. The structure is as follows: `<set operations> where <value restrictions>`. The `<set operations>` work by finding all samples with that contain a given word, which can be combined together. For the set queries, `&` performs an intersection of the sample IDs, `|` a union, and `-` a difference:
 
@@ -271,7 +271,7 @@ We can also use redbiom to search for samples containing features of interest. L
 
 ### Search by taxon
 
-One thing you might want to do is find feaures based on taxonomy. We can do this by searching for a taxon:
+One thing you might want to do is find features based on taxonomy. We can do this by searching for a taxon:
 
     $ redbiom search taxon g__Roseburia --context $ctx | wc -l
          108
@@ -315,7 +315,7 @@ And last, we can grab the data for those samples. Fetching data for 24,667 sampl
         redbiom fetch samples --context $ctx --output roseburia_example.biom
 	16 sample ambiguities observed. Writing ambiguity mappings to: roseburia_example.biom.ambiguities
 
-Ambiguities can arise if the same sample was processed multiple times as might happen with a techinical replicate. It is the same physical sample, but it may have been processed multiple times. The `.ambiguities` file is in JSON and contains a mapping of what IDs map to the same sample.
+Ambiguities can arise if the same sample was processed multiple times as might happen with a technical replicate. It is the same physical sample, but it may have been processed multiple times. The `.ambiguities` file is in JSON and contains a mapping of what IDs map to the same sample.
 
 ### Load some data (i.e., if you are running your own server)
 
