@@ -1,4 +1,4 @@
-# ![redbiom](logo.png)
+# ![redbiom](https://raw.githubusercontent.com/biocore/redbiom/master/logo.png)
 # ![build-status](https://travis-ci.org/biocore/redbiom.svg?branch=master)
 
 # What is this?
@@ -16,9 +16,52 @@ Redbiom is designed to handle biological and technical replicates. Specifically,
 
 This repository defines the de facto redbiom data representation, and one possible interface into the resource. Other interfaces (e.g., Javascript) are possible to define. Please see the Design section below for details about how other interfaces can be written.
 
-By default, redbiom will search against `qiita.ucsd.edu:7379`. This can be changed at runtime by setting the `REDBIOM_HOST` environmental variable, e.g., `export REDBIOM_HOST=http://qiita.ucsd.edu:7379`. The default host is **read-only** and administrative functions like loading data will not work against it.
+By default, redbiom will search against `qiita.ucsd.edu:7329`. This can be changed at runtime by setting the `REDBIOM_HOST` environmental variable, e.g., `export REDBIOM_HOST=http://qiita.ucsd.edu:7329`. The default host is **read-only** and administrative functions like loading data will not work against it.
 
 If you intend to **load** your own data, you must setup a local instance (please see the server installation instructions below). In addition, you must explicitly set the `REDBIOM_HOST` environment variable.
+
+# Very brief examples
+
+A few quick examples of what can be done. More complex and detailed examples can be found later in the document.
+
+Get all the samples in which the word "beer" is found:
+
+    $ redbiom search metadata beer | head
+    10105.Ingredient.18
+    1976.Beer.286
+    1689.261
+    10105.Ingredient.19
+    1976.Beer.262
+    10105.Ingredient.23
+    1976.Beer.228
+    10105.Ingredient.17
+    10395.000041066
+    10105.Ingredient.24
+
+Get the closed reference OTU picking 16S V4 data for those samples (more on what `ctx` and `context` is in the longer examples below):
+
+    $ export ctx=Pick_closed-reference_OTUs-illumina-16S-v4-66f541
+    $ redbiom search metadata beer | head | redbiom fetch samples --context $ctx --output beer_example.biom
+    $ redbiom search metadata beer | head | redbiom fetch sample-metadata --context $ctx --output beer_example.txt
+
+Find the feature IDs (Greengenes OTU IDs in this case) associated with S. aureus (and for example purposes, an arbitrary 10):
+
+    $ redbiom search taxon --context $ctx s__aureus | head
+    943389
+    1023241
+    862312
+    1102743
+    870118
+    969777
+    1086805
+    976010
+    951488
+    951136
+
+...and then find samples which contain those 10 S. aureus features:
+
+    $ redbiom search taxon --context $ctx s__aureus | head | redbiom search features --context $ctx | wc -l
+       40164
 
 # Installation
 
@@ -28,12 +71,10 @@ Redbiom depends on [BIOM](http://biom-format.org/) (tested on >= 2.1.5), [Pandas
 
 ### Client
 
-If you would like to use redbiom as only a client (which is the general case), then the following instructions apply.
+If you would like to use redbiom as only a client (which is the general case), then the following instructions apply. Note that we need to install numpy separately as one of the dependencies, BIOM-Format, imports numpy within its installation process.
 
-    $ git clone https://github.com/biocore/redbiom.git
-    $ cd redbiom
     $ pip install numpy
-    $ pip install -e .
+    $ pip install redbiom
 
 ### Server
 
@@ -60,9 +101,8 @@ Webdis packages its dependencies with the exception of libevent. It is entirely 
 
 Last, redbiom itself can be installed as a normal Python package.
 
-    $ git clone https://github.com/biocore/redbiom.git
     $ pip install numpy
-    $ pip install -e .    
+    $ pip install redbiom
 
 ### Testing
 
@@ -117,9 +157,167 @@ In general, these commands are intended to be composable via Unix pipes. For exa
 
 # Examples
 
-The first example block surrounds loading data, because without anything in the cache, there is nothing fun to do. The second block highlights some example commands that can be run, or chained together, for querying the data loaded.
+### Search for samples by metadata
 
-### Load some data
+By default, redbiom is setup to query against [Qiita](https://qiita.ucsd.edu). First, let's search for some samples by metadata. Specifically, what we're going to do is identify what samples exist in Qiita in which any of their sample metadata contains the [stem](https://en.wikipedia.org/wiki/Stemming) of the word beer. This returns quite a few samples, so for the sake of the example, we're only going to show the first 10 using `head`: 
+
+    $ redbiom search metadata beer | head
+    10105.Ingredient.18
+    1976.Beer.286
+    1689.261
+    10105.Ingredient.19
+    1976.Beer.262
+    10105.Ingredient.23
+    1976.Beer.228
+    10105.Ingredient.17
+    10395.000041066
+    10105.Ingredient.24
+
+    $ redbiom search metadata beer | wc -l
+      70
+
+Now that we have some samples, let's pull out their sample data. Qiita contains a huge amount of data, which are logically partitioned by the sample preparations and processing parameters -- these partitions are denoted as **contexts** in redbiom. In order to pull out the data, we need to specify the context to operate in. There are a lot of contexts, so let's filter to only those which are 16S and V4 using `grep`. We're also going to `cut` the first three columns of data as the fourth one is a voluminous description of the processing parameters. And last, let's `sort` the results by the number of samples represented in the context. Unfortunately, the `grep` removes the column headers, so we'll run a second summarize command and just grab the header:
+
+    $ redbiom summarize contexts | cut -f 1,2,3 | grep 16S-v4 | sort -k 2 -n
+    Pick_closed-reference_OTUs-illumina-16S-v45-66f541  102 29598
+    Pick_closed-reference_OTUs-flx-16S-v4-66f541    116 4699
+    Pick_closed-reference_OTUs-ls454-16S-v4-66f541  145 8437
+    Pick_closed-reference_OTUs-titanium-16S-v46-66f541  214 3568
+    Pick_closed-reference_OTUs-titanium-16S-v4-66f541   800 14269
+    deblur-workflow-illumina-16S-v4-150nt-ae489c    24613   1932042
+    deblur-workflow-illumina-16S-v4-100nt-ae489c    60150   3738847
+    deblur-workflow-illumina-16S-v4-90nt-ae489c 65143   3162632
+    Pick_closed-reference_OTUs-illumina-16S-v4-66f541   89405   84828
+    
+    $ redbiom summarize contexts | head -n 1
+    ContextName SamplesWithData FeaturesWithData    Description
+
+To reduce typing later, let's just pick a context and store it as an environment variable:
+
+    $ export ctx=Pick_closed-reference_OTUs-illumina-16S-v4-66f541
+
+...and now we can grab some data:
+
+    $ redbiom search metadata beer | redbiom fetch samples --context $ctx --output example.biom
+    $ biom summarize-table -i example.biom | head
+    Num samples: 37
+    Num observations: 3653
+    Total count: 2205617
+    Table density (fraction of non-zero values): 0.091
+
+    Counts/sample summary:
+     Min: 1717.0
+     Max: 208223.0
+     Median: 59224.000
+     Mean: 59611.270
+    
+We probably also want to get the sample metadata:
+
+    $ redbiom search metadata beer | redbiom fetch sample-metadata --output example.txt --context $ctx
+
+You might note that the total number of samples found by the metadata search is not the same as the number of samples found by the sample data fetch. The sample information is distinct from the sample preparation, and data processing: just because there is sample information does not mean a given sample has (for instance) 16S V4 sequence data associated with it.
+
+The query structures for metadata are fairly permissive, and there are actually two types of queries that can be performed. The structure is as follows: `<set operations> where <value restrictions>`. The `<set operations>` work by finding all samples with that contain a given word, which can be combined together. For the set queries, `&` performs an intersection of the sample IDs, `|` a union, and `-` a difference:
+
+    $ redbiom search metadata "soil & europe where ph < 7" | wc -l
+    5521
+
+**IMPORTANT**: just because a sample may have a word associated with it, does not mean that word is used as you may expect. In the example below, we're counting the number of samples by their described `sample_type` value. We are working to improve the search functionality, and it is important for users to scrutinize their results:
+
+    $ redbiom search metadata "soil & europe where ph < 7" | redbiom summarize samples --category sample_type  | head
+    soil    1978
+    XXQIITAXX   1686
+    Soil    612
+    fresh water 519
+    peat    192
+    sebum   99
+    bodily fluid    81
+    belly   41
+    biofilm 39
+    ab_liq  38 
+
+### Search by feature
+
+We can also use redbiom to search for samples containing features of interest. Let's operate off our example table from the metadata search above. What we're going to do is find all samples in Qiita that contain any of the a handful of the feature IDs. In this particular example, let's just grab 10 arbitrary IDs:
+
+    $ biom table-ids -i example.biom --observations | head
+    4449525
+    4420570
+    471180
+    815819
+    4235445
+    1108951
+    519367
+    12364
+    4454153
+    4227110
+
+...and then let's pipe them back into redbiom to search for other samples in our context which contain those same features:
+
+    $ biom table-ids -i example.biom --observations | head | redbiom search features --context $ctx | wc -l
+       43133
+
+    $ biom table-ids -i example.biom --observations | head | redbiom search features --context $ctx | head
+    3759_10172.3338
+    2923_10317.000017653
+    2096_1716.McG.PAPrS17
+    2015_1034.CHB1
+    2150_755.SSFA.L1.D30.07.06.11.lane1.NoIndex.L001
+    2150_755.LSSF.ALPHA.D20.14.07.11.lane1.NoIndex.L001
+    26483_10317.000007237
+    3788_10119.MT.741
+    2112_1774.527.Skin.Puer
+    2102_1734.BD.ERD510
+
+### Search by taxon
+
+One thing you might want to do is find features based on taxonomy. We can do this by searching for a taxon:
+
+    $ redbiom search taxon g__Roseburia --context $ctx | wc -l
+         108
+
+What we get back are the feature IDs that are of that taxon. We can then take those feature IDs and feed them back into redbiom. So for instance, let's say we wanted to find all samples which contain a Roseburia feature:
+
+    $ redbiom search taxon g__Roseburia --context $ctx | redbiom search features --context $ctx | wc -l
+       37539
+
+**IMPORTANT** not all contexts necessarily have taxonomy, and taxonomy may not make sense for a context (e.g., if it contains KEGG Orthologous group features).
+
+### Summarizations
+
+We found a lot of samples that contain Roseburia. That isn't too surprising since Qiita contains a lot of fecal samples. How many? In this next example, we're taking all of the feature IDs associated with Roseburia, then finding all of the samples which contain that taxon, followed by binning each sample by their `sample_type` category value, and finally we're taking just the top 10 entries. You can see that the metadata are a bit noisy.
+
+	$ redbiom search taxon g__Roseburia --context $ctx | redbiom search features --context $ctx | redbiom summarize samples --category sample_type | head
+	Stool	13251
+	stool	11416
+	XXQIITAXX	1029
+	tanker milk	984
+	biopsy	930
+	Floor	622
+	skin	615
+	Stool_Stabilizer	566
+	control blank	520
+	Mouth	420
+
+We can still work through the noise though. Let's take our samples we found that contain Roseburia, and only select the ones that appear to obviously be fecal. Instead of summarizing as we did in our last example, we're going to "select" the samples in which `sample_type` is either "Stool" or "stool". (as this command is getting long, we'll break it up with \\):
+
+	$ redbiom search taxon g__Roseburia --context $ctx | \
+		redbiom search features --context $ctx | \
+		redbiom select samples-from-metadata --context $ctx "where sample_type in ('Stool', 'stool')" | \
+		wc -l
+	   24667
+
+And last, we can grab the data for those samples. Fetching data for 24,667 samples can take a few minutes, so for the purpose of the example, let's just grab the ones associated with skin. Please note the "ambiguity" on the output, more in a second on that:
+
+	$ redbiom search taxon g__Roseburia --context $ctx | \
+        redbiom search features --context $ctx | \
+        redbiom select samples-from-metadata --context $ctx "where sample_type=='skin'" | \
+        redbiom fetch samples --context $ctx --output roseburia_example.biom
+	16 sample ambiguities observed. Writing ambiguity mappings to: roseburia_example.biom.ambiguities
+
+Ambiguities can arise if the same sample was processed multiple times as might happen with a technical replicate. It is the same physical sample, but it may have been processed multiple times. The `.ambiguities` file is in JSON and contains a mapping of what IDs map to the same sample.
+
+### Load some data (i.e., if you are running your own server)
 
 To make use of this cache, we need to load things. Loading can be done in parallel. First, we'll load up metadata. This will create keys in Redis which describe all of the columns associated with a sample (e.g., `metadata:categories:<sample_id>`, hash buckets for each category and sample combination (e.g., `metadata:category:<category_name>` as the hash and `<sample_id>` as the field), a set of all known categories (e.g., `metadata:categories-represented`), and a set of all known sample IDs (e.g., `metadata:samples-represented`):
 
@@ -136,24 +334,6 @@ Next, we'll load up associations between every single feature in a BIOM table to
 Last, let's load up all of the BIOM table data. We'll only store the non-zero values, and we'll encode the sample data into something simple so that it goes in as just a string to Redis. Important: we only support storing count data right now, not floating point. The keys created are of the form `<context_name>:sample:<redbiom_id>`. To reduce space, we reindex the feature IDs as things like sOTUs tend to be very long in name. The mapping is stable over all tables loaded (ie the same feature has the same index), and is stored under `<context_name>:feature-index`. Because we need to update the index, this operation cannot be done in parallel however the code is setup with a redis-based mutex so it's okay to queue up multiple loads.
 
     $ redbiom load-sample-data --context deblur-100nt --table /path/to/biom/table.biom
-
-### Query for content
-
-Now that things are loaded, we can search for stuff. Let's say you have a few OTUs of interest, and you are curious about what other samples they exist in. You can find that out with:
-
-    $ redbiom search features --context deblur-100nt <space delimited list of feature IDs>
-
-Or, perhaps you loaded the EMP dataset and are curious about where these OTUs reside. You can get summarized environment information from the search as well:
-
-    $ redbiom search features --context deblur-100nt --category empo_3 <space delimited list of feature IDs>
-
-That was fun. So now let's go a little further. Perhaps you are interested not just in where those sequences are found in, but also in the samples themselves for a meta-analysis. To pull out all the samples associated with your IDs of interest, and construct a BIOM table, you can do the following:
-
-    $ redbiom fetch features --context deblur-100nt --output some/path.biom <space delimited list of feature IDs>
-
-...but you probably also want the metadata! Once you have your table, you can obtain it by passing the table back in. This will attempt to grab the metadata (only the columns in common at the moment) for all samples present in your table. Note that we do not have to specify a context here as the sample metadata are context independent:
-
-    $ redbiom fetch sample-metadata --output some/path.txt --table some/path.biom 
 
 # Caveats
 
