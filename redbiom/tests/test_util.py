@@ -14,7 +14,9 @@ from redbiom.util import (float_or_nan, from_or_nargs,
                           partition_samples_by_tags, resolve_ambiguities,
                           _stable_ids_from_ambig, _stable_ids_from_unambig,
                           category_exists, df_to_stems, stems)
+from redbiom.tests import assert_test_env
 
+assert_test_env()
 
 table = biom.load_table('test.biom')
 table_with_alt = biom.load_table('test_with_alts.biom')

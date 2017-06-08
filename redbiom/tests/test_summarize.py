@@ -9,6 +9,9 @@ import redbiom
 import redbiom.admin
 import redbiom._requests
 from redbiom.summarize import contexts
+from redbiom.tests import assert_test_env
+
+assert_test_env()
 
 
 table = biom.load_table('test.biom')

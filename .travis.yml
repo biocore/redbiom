@@ -26,5 +26,7 @@ install:
   - alias md5=md5sum
   - pip install -e . --no-deps
 script:
-  - flake8 --ignore=E731 redbiom 
+  - flake8 --ignore=E731 redbiom
+  - redbiom summarize contexts  # will return a nonzero exit status if it cannot communicate with the default host
+  - export REDBIOM_HOST=http://127.0.0.1:7379
   - make test

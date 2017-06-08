@@ -8,6 +8,16 @@ else
     md5=md5sum
 fi
 
+# https://stackoverflow.com/a/13864829/19741
+if [ ! -z ${REDBIOM_HOST+x} ]; then 
+    if [[ ${REDBIOM_HOST} != *"http://127.0.0.1"* ]]; then
+        if [ -z ${REDBIOM_OVERRIDE_HOST_AND_TEST+x} ]; then
+            echo "An unexpected host is set for testing, and \$REDBIOM_OVERRIDE_HOST_AND_TEST is not set"
+            exit 1
+        fi
+    fi
+fi
+
 alias md5=md5sum
 function md5test ()
 {
