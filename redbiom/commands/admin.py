@@ -45,13 +45,15 @@ def coherency(context):
               help="The filepath to the table to load.")
 @click.option('--context', required=True, type=str,
               help="The name of the context to load into.")
+@click.option('--tag', required=False, type=str, default=None,
+              help="The tag associated to the samples (e.g., preparation ID).")
 @click.option('--mass-insertion', default=False, is_flag=True)
-def load_sample_data(table, context, mass_insertion):
+def load_sample_data(table, context, tag, mass_insertion):
     """Load nonzero entries per sample."""
     import redbiom.admin
     import biom
     table = biom.load_table(table)
-    redbiom.admin.load_sample_data(table, context,
+    redbiom.admin.load_sample_data(table, context, tag=tag,
                                    redis_protocol=mass_insertion)
 
 
