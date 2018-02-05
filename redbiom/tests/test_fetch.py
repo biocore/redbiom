@@ -34,13 +34,15 @@ class FetchTests(unittest.TestCase):
 
         table2 = table.subsample(5, by_id=True)
         redbiom.admin.create_context('test-2', 'a nice test')
-        redbiom.admin.load_sample_metadata(metadata.loc[set(table2.ids())])
+        md = metadata[metadata['#SampleID'].isin(set(table2.ids()))]
+        redbiom.admin.load_sample_metadata(md)
         redbiom.admin.load_sample_data(table2, 'test-2', tag='tagged')
 
         table3 = table.subsample(5, by_id=True)
         redbiom.admin.create_context('test-3', 'a nice test')
-        redbiom.admin.load_sample_metadata(metadata.loc[set(table2.ids())])
-        redbiom.admin.load_sample_data(table2, 'test-3', tag='tagged')
+        md = metadata[metadata['#SampleID'].isin(set(table3.ids()))]
+        redbiom.admin.load_sample_metadata(md)
+        redbiom.admin.load_sample_data(table3, 'test-3', tag='tagged')
 
         obs = samples_in_context('test', ambiguous=False)
         self.assertEqual(obs, set(table.ids()))
@@ -51,6 +53,23 @@ class FetchTests(unittest.TestCase):
         obs = samples_in_context('test-3', ambiguous=True)
         exp = {'tagged_%s' % i for i in table3.ids()}
         self.assertEqual(obs, exp)
+
+    def test_features_in_context(self):
+        redbiom.admin.create_context('test', 'a nice test')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
+
+        table2 = table.subsample(5, by_id=True)
+        redbiom.admin.create_context('test-2', 'a nice test')
+        md = metadata[metadata['#SampleID'].isin(set(table2.ids()))]
+        redbiom.admin.load_sample_metadata(md)
+        redbiom.admin.load_sample_data(table2, 'test-2', tag='tagged')
+
+        obs = features_in_context('test')
+        self.assertEqual(obs, set(table.ids(axis='observation')))
+
+        obs = samples_in_context('test-2')
+        self.assertEqual(obs, set(table2.ids(axis='observation')))
 
     def test_biom_from_samples(self):
         redbiom.admin.create_context('test', 'a nice test')
