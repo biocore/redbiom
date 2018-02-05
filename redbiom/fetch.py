@@ -8,6 +8,8 @@ def samples_in_context(context, ambiguous, get=None):
     ambiguous : bool
         If True, return ambiguous identifiers, if false return disambiguated
         identifiers.
+    get : a make_get instance, optional
+        A constructed get method.
 
     Returns
     -------
@@ -40,6 +42,45 @@ def samples_in_context(context, ambiguous, get=None):
     else:
         _, _, _, tagged_clean = redbiom.util.partition_samples_by_tags(obs)
         return set(tagged_clean)
+
+
+def features_in_context(context, get=None):
+    """Features in a context
+
+    Parameters
+    ----------
+    context : str
+        The context to obtain samples from.
+    get : a make_get instance, optional
+        A constructed get method.
+
+    Returns
+    -------
+    set
+        The set of features within a context.
+
+    Raises
+    ------
+    ValueError
+        If the requested context is not known.
+
+    Redis Command Summary
+    ---------------------
+    SMEMBERS <context>:features-represented
+    """
+    import redbiom
+    import redbiom._requests
+    import redbiom.util
+
+    if get is None:
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    redbiom._requests.valid(context, get)
+
+    obs = get(context, 'SMEMBERS', 'features-represented')
+
+    return set(obs)
 
 
 def sample_metadata(samples, common=True, context=None, restrict_to=None):

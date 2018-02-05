@@ -9,7 +9,7 @@ import pandas.util.testing as pdt
 import redbiom.admin
 import redbiom.fetch
 from redbiom.fetch import (_biom_from_samples, sample_metadata,
-                           samples_in_context,
+                           samples_in_context, features_in_context,
                            sample_counts_per_category)
 from redbiom.tests import assert_test_env
 
@@ -68,7 +68,7 @@ class FetchTests(unittest.TestCase):
         obs = features_in_context('test')
         self.assertEqual(obs, set(table.ids(axis='observation')))
 
-        obs = samples_in_context('test-2')
+        obs = features_in_context('test-2')
         self.assertEqual(obs, set(table2.ids(axis='observation')))
 
     def test_biom_from_samples(self):
