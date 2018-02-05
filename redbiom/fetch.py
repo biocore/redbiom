@@ -1,3 +1,47 @@
+def samples_in_context(context, ambiguous, get=None):
+    """Fetch samples in a context
+
+    Parameters
+    ----------
+    context : str
+        The context to obtain samples from.
+    ambiguous : bool
+        If True, return ambiguous identifiers, if false return disambiguated
+        identifiers.
+
+    Returns
+    -------
+    set
+        The set of sample identifers within a context.
+
+    Raises
+    ------
+    ValueError
+        If the requested context is not known.
+
+    Redis Command Summary
+    ---------------------
+    SMEMBERS <context>:samples-represented
+    """
+    import redbiom
+    import redbiom._requests
+    import redbiom.util
+
+    if get is None:
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    redbiom._requests.valid(context, get)
+
+    obs = get(context, 'SMEMBERS', 'samples-represented')
+
+    if ambiguous:
+        return set(obs)
+    else:
+        _, _, _, tagged_clean = redbiom.util.partition_samples_by_tags(obs)
+        return set(tagged_clean)
+
+
 def sample_metadata(samples, common=True, context=None, restrict_to=None):
     """Fetch metadata for the corresponding samples
 
