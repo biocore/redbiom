@@ -45,6 +45,20 @@ md5test ${obs} ${exp}
 echo ${query} | redbiom search features --context test | sort - > ${obs}
 md5test ${obs} ${exp}
 
+# fetch sample identifiers
+redbiom fetch samples-contained --context test --ambiguous=False | sort - > test_obs_samples_contained.txt
+biom table-ids -i test.biom > test_exp_samples_contained_tmp.txt
+biom table-ids -i test_with_alts.biom >> test_exp_samples_contained_tmp.txt
+sort test_exp_samples_contained_tmp.txt | uniq > test_exp_samples_contained.txt
+md5test test_obs_samples_contained.txt test_exp_samples_contained.txt
+
+# fetch feature identifiers
+redbiom fetch features-contained --context test | sort - > test_obs_features_contained.txt
+biom table-ids -i test.biom --observations > test_exp_features_contained_tmp.txt
+biom table-ids -i test_with_alts.biom --observations >> test_exp_features_contained_tmp.txt
+sort test_exp_features_contained_tmp.txt | uniq > test_exp_features_contained.txt
+md5test test_obs_features_contained.txt test_exp_features_contained.txt
+
 # fetch samples based on features and sanity check
 echo ${query} | redbiom fetch features --context test --output pipetest.biom --from -
 python -c "import biom; t = biom.load_table('pipetest.biom'); assert len(t.ids() == 3)"
