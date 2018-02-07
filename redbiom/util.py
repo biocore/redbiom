@@ -126,7 +126,7 @@ def float_or_nan(t):
     import numpy as np
     try:
         return float(t)
-    except Exception as e:
+    except Exception:
         return np.nan
 
 
@@ -352,5 +352,5 @@ def stems(stops, stemmer, string):
 
         try:
             yield stemmer.stem(word).lower()
-        except Exception as e:
+        except Exception:
             continue
