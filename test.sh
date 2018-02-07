@@ -161,7 +161,7 @@ md5test obs_anewid.txt exp_anewid.txt
 redbiom search metadata "where AGE_YEARS > 40" | redbiom fetch samples --context test --output metadata_search_test.biom
 echo "Num samples: 2" > exp_metadata_search.txt
 echo "Num observations: 425" >> exp_metadata_search.txt
-echo "Total count: 21462" >> exp_metadata_search.txt
+echo "Total count: 21,462" >> exp_metadata_search.txt
 biom summarize-table -i metadata_search_test.biom | head -n 3 > obs_metadata_search.txt
 md5test obs_metadata_search.txt exp_metadata_search.txt
 
