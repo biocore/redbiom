@@ -15,10 +15,9 @@ class ScriptManager:
                     local result = {}
                     local formedkey = context .. ':' .. 'feature' .. ':' .. key
 
-                    local items = redis.call('ZRANGEBYSCORE',
+                    local items = redis.call('LRANGE',
                                              formedkey,
-                                             '-inf', 'inf',
-                                             'withscores')
+                                             '0', '-1')
 
                     -- adapted from https://gist.github.com/klovadis/5170446
                     local resultkey
@@ -39,10 +38,9 @@ class ScriptManager:
                     local result = {}
                     local formedkey = context .. ':' .. 'sample' .. ':' .. key
 
-                    local items = redis.call('ZRANGEBYSCORE',
+                    local items = redis.call('LRANGE',
                                              formedkey,
-                                             '-inf', 'inf',
-                                             'withscores')
+                                             '0', '-1')
 
                     -- adapted from https://gist.github.com/klovadis/5170446
                     local resultkey
@@ -203,8 +201,8 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     ---------------------
     EVALSHA <get-index-sha1> 1 <context>:feature-index <feature_id>
     EVALSHA <get-index-sha1> 1 <context>:sample-index <redbiom_id>
-    ZADD <context>:samples:<redbiom_id> <count> <feature_id> ...
-    ZADD <context>:features:<redbiom_id> <count> <redbiom_id> ...
+    LPUSH <context>:samples:<redbiom_id> <count> <feature_id> ...
+    LPUSH <context>:features:<redbiom_id> <count> <redbiom_id> ...
     SADD <context>:samples-represented <redbiom_id> ... <redbiom_id>
     SADD <context>:features-represented <feature_id> ... <feature_id>
 
@@ -243,7 +241,7 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
         packed = '/'.join(["%d/%s" % (v, i)
                            for i, v in zip(remapped,
                                            int_values.data)])
-        post(context, 'ZADD', 'sample:%s/%s' % (id_, packed))
+        post(context, 'LPUSH', 'sample:%s/%s' % (id_, packed))
 
     payload = "samples-represented/%s" % '/'.join(samples)
     post(context, 'SADD', payload)
@@ -256,7 +254,7 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
         packed = '/'.join(["%d/%s" % (v, i)
                            for i, v in zip(remapped,
                                            int_values.data)])
-        post(context, 'ZADD', 'feature:%s/%s' % (id_, packed))
+        post(context, 'LPUSH', 'feature:%s/%s' % (id_, packed))
 
     payload = "features-represented/%s" % '/'.join(obs)
     post(context, 'SADD', payload)
