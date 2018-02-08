@@ -9,6 +9,34 @@ def fetch():
     pass
 
 
+@fetch.command(name='samples-contained')
+@click.option('--context', required=False, type=str, default=None,
+              help="The context to fetch from.")
+@click.option('--ambiguous', required=False, type=bool, default=False,
+              help="Return ambiguous or unambiguous identifiers")
+def fetch_samples_contained(context, ambiguous):
+    """Get samples within a context.
+
+    Return all of the sample identifiers which are represented in a context.
+    """
+    import redbiom.fetch
+    for id_ in redbiom.fetch.samples_in_context(context, ambiguous):
+        click.echo(id_)
+
+
+@fetch.command(name='features-contained')
+@click.option('--context', required=False, type=str, default=None,
+              help="The context to fetch from.")
+def fetch_features_contained(context):
+    """Get features within a context.
+
+    Return all of the features which are represented in a context.
+    """
+    import redbiom.fetch
+    for id_ in redbiom.fetch.features_in_context(context):
+        click.echo(id_)
+
+
 @fetch.command(name='sample-metadata')
 @click.option('--from', 'from_', type=click.File('r'), required=False,
               help='A file or stdin which provides samples to search for',
