@@ -12,15 +12,15 @@ def fetch():
 @fetch.command(name='samples-contained')
 @click.option('--context', required=False, type=str, default=None,
               help="The context to fetch from.")
-@click.option('--ambiguous', required=False, type=bool, default=False,
+@click.option('--unambiguous', required=False, is_flag=True, default=False,
               help="Return ambiguous or unambiguous identifiers")
-def fetch_samples_contained(context, ambiguous):
+def fetch_samples_contained(context, unambiguous):
     """Get samples within a context.
 
     Return all of the sample identifiers which are represented in a context.
     """
     import redbiom.fetch
-    for id_ in redbiom.fetch.samples_in_context(context, ambiguous):
+    for id_ in redbiom.fetch.samples_in_context(context, not unambiguous):
         click.echo(id_)
 
 
