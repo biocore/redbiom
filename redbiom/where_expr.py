@@ -162,7 +162,6 @@ def whereeval(str_, get=None):
 
     for node in ast.walk(formed):
         if not isinstance(node, node_types):
-            print(type(node))
             raise TypeError("Unsupported node type: %s" % ast.dump(node))
 
     result = eval(ast.dump(formed))
