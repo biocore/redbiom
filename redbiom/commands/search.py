@@ -43,7 +43,8 @@ def search_features(from_, exact, context, features):
               help='A file or stdin which provides samples to search for',
               default=None)
 @click.option('--exact', is_flag=True, default=False,
-              help="All found features must be present in all specified samples")
+              help=("All found features must be present in all specified "
+                    "samples")
 @click.option('--context', required=True, type=str,
               help="The context to search within.")
 @click.argument('samples', nargs=-1)
