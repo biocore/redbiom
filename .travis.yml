@@ -13,7 +13,7 @@ before_install:
   - ./miniconda.sh -b
   - export PATH=/home/travis/miniconda3/bin:$PATH
 install:
-  - conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python
+  - conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format 'requests < 2.19.0' pandas click==6.7 nose sqlite joblib nltk msgpack-python
   - source activate test-env
   - if [ ${PYTHON_VERSION} = "2.7" ]; then conda install -c biocore --yes scikit-bio==0.4.2; fi
   - if [ ${PYTHON_VERSION} = "3.5" ]; then conda install --yes scikit-bio==0.5.1; fi
