@@ -1,3 +1,4 @@
+import sys
 import ast
 import operator
 import functools
@@ -10,6 +11,8 @@ def Expression(body):
 
 
 def Name(id, ctx):
+    if id in {'None', 'none', None}:
+        return None
     return pd.Series(dict(ctx('metadata:category', 'HGETALL', id)), name=id)
 
 
@@ -136,11 +139,14 @@ def Compare(left, ops, comparators):
     return left
 
 
-def NameConstant(value=None):
-    if value in {'None', 'none', None}:
-        return None
-    else:
-        raise TypeError("Unknown NameConstant: %s" % value)
+if sys.version_info.major == 3:
+    # In Python 3, None is parsed as NameConstant
+    # In Python 2, None is parsed as a Name
+    def NameConstant(value=None):
+        if value in {'None', 'none', None}:
+            return None
+        else:
+            raise TypeError("Unknown NameConstant: %s" % value)
 
 
 def whereeval(str_, get=None):
@@ -155,10 +161,15 @@ def whereeval(str_, get=None):
 
     formed = ast.parse(str_, mode='eval')
 
-    node_types = (ast.Compare, ast.In, ast.NotIn, ast.BoolOp, ast.And,
+    node_types = [ast.Compare, ast.In, ast.NotIn, ast.BoolOp, ast.And,
                   ast.Name, ast.Or, ast.Eq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
                   ast.NotEq, ast.Str, ast.Num, ast.Load, ast.Expression,
-                  ast.Tuple, ast.Is, ast.IsNot, ast.NameConstant)
+                  ast.Tuple, ast.Is, ast.IsNot]
+
+    if sys.version_info.major == 3:
+        node_types.append(ast.NameConstant)
+
+    node_types = tuple(node_types)
 
     for node in ast.walk(formed):
         if not isinstance(node, node_types):
