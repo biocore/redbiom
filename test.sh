@@ -217,4 +217,4 @@ python -c "import biom; t = biom.load_table('test.biom'); print('\n'.join(sorted
 redbiom search samples --context test 10317.000003302 | sort - > obs_sample_search.txt
 redbiom search samples --context test UNTAGGED_10317.000003302 | sort - > obs_sample_search_rbid.txt
 md5test obs_sample_search.txt exp_sample_search.txt
-md5test obs_sample_search.txt exp_sample_search_rbid.txt
+md5test obs_sample_search_rbid.txt exp_sample_search.txt
