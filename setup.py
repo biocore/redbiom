@@ -56,7 +56,7 @@ except(IOError, ImportError):
 
 setup(
     name='redbiom',
-    version='0.1.0',
+    version='0.1.0-dev',
     license='BSD-3-Clause',
     author='Daniel McDonald',
     author_email='wasade@gmail.com',
@@ -64,9 +64,9 @@ setup(
     packages=find_packages(),
     long_description=long_description,
     include_package_data=True,
-    install_requires=['click >= 6.7', 'biom-format >= 2.1.5', 'requests',
-                      'h5py', 'pandas', 'nltk', 'joblib',
-                      'scikit-bio >= 0.4.2'],
+    install_requires=['click >= 6.7', 'biom-format >= 2.1.5',
+                      'requests', 'h5py', 'pandas', 'nltk',
+                      'joblib', 'scikit-bio >= 0.4.2', 'msgpack'],
     entry_points='''
         [console_scripts]
         redbiom=redbiom.commands:cli

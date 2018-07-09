@@ -9,6 +9,34 @@ def fetch():
     pass
 
 
+@fetch.command(name='samples-contained')
+@click.option('--context', required=False, type=str, default=None,
+              help="The context to fetch from.")
+@click.option('--ambiguous', required=False, type=bool, default=False,
+              help="Return ambiguous or unambiguous identifiers")
+def fetch_samples_contained(context, ambiguous):
+    """Get samples within a context.
+
+    Return all of the sample identifiers which are represented in a context.
+    """
+    import redbiom.fetch
+    for id_ in redbiom.fetch.samples_in_context(context, ambiguous):
+        click.echo(id_)
+
+
+@fetch.command(name='features-contained')
+@click.option('--context', required=False, type=str, default=None,
+              help="The context to fetch from.")
+def fetch_features_contained(context):
+    """Get features within a context.
+
+    Return all of the features which are represented in a context.
+    """
+    import redbiom.fetch
+    for id_ in redbiom.fetch.features_in_context(context):
+        click.echo(id_)
+
+
 @fetch.command(name='sample-metadata')
 @click.option('--from', 'from_', type=click.File('r'), required=False,
               help='A file or stdin which provides samples to search for',
@@ -21,15 +49,20 @@ def fetch():
               help=("If set, all metadata columns for all samples are "
                     "obtained. The empty string is used if the column is not "
                     "present for a given sample."))
+@click.option('--tagged', is_flag=True, default=False,
+              help=("Obtain the tag specific metadata (e.g., preparation "
+                    "information)."))
 @click.argument('samples', nargs=-1)
-def fetch_sample_metadata(from_, samples, all_columns, context, output):
+def fetch_sample_metadata(from_, samples, all_columns, context, output,
+                          tagged):
     """Retreive sample metadata."""
     import redbiom.util
     iterator = redbiom.util.from_or_nargs(from_, samples)
 
     import redbiom.fetch
     md, map_ = redbiom.fetch.sample_metadata(iterator, context=context,
-                                             common=not all_columns)
+                                             common=not all_columns,
+                                             tagged=tagged)
 
     md.to_csv(output, sep='\t', header=True, index=False, encoding='utf-8')
 

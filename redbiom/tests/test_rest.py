@@ -42,9 +42,9 @@ class RESTTests(unittest.TestCase):
         inv_index = get('HGETALL', 'test:sample-index-inverted')
         for values, id_, _ in table.iter(axis='observation'):
             exp = set(sample_ids[values > 0])
-            obs = get('ZRANGEBYSCORE', 'test:feature:%s/%s/%s' %
-                      (id_, '-inf', 'inf'))
-            obs = {inv_index[i] for i in obs}
+            obs = get('LRANGE', 'test:feature:%s/%s/%s' %
+                      (id_, '0', '-1'))
+            obs = {inv_index[i] for i in obs[::2]}
             self.assertEqual(obs, exp)
 
     def test_sample_data(self):
@@ -64,9 +64,9 @@ class RESTTests(unittest.TestCase):
             exp_ids = feature_ids[values > 0]
             exp_dict = {i: v for i, v in zip(exp_ids, exp_data)}
 
-            obs = get('ZRANGEBYSCORE',
-                      'test:sample:UNTAGGED_%s/%s/%s/%s' %
-                      (id_, "-inf", "inf", "withscores"))
+            obs = get('LRANGE',
+                      'test:sample:UNTAGGED_%s/%s/%s' %
+                      (id_, "0", "-1"))
             obs_dict = {inv_index[i]: float(v) for i, v in zip(obs[::2],
                                                                obs[1::2])}
 

@@ -9,6 +9,7 @@ import pandas.util.testing as pdt
 import redbiom.admin
 import redbiom.fetch
 from redbiom.fetch import (_biom_from_samples, sample_metadata,
+                           samples_in_context, features_in_context,
                            sample_counts_per_category)
 from redbiom.tests import assert_test_env
 
@@ -25,6 +26,50 @@ class FetchTests(unittest.TestCase):
         req = requests.get(host + '/FLUSHALL')
         assert req.status_code == 200
         redbiom.admin.ScriptManager.load_scripts(read_only=False)
+
+    def test_samples_in_context(self):
+        redbiom.admin.create_context('test', 'a nice test')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
+
+        table2 = table.subsample(5, by_id=True)
+        redbiom.admin.create_context('test-2', 'a nice test')
+        md = metadata[metadata['#SampleID'].isin(set(table2.ids()))]
+        redbiom.admin.load_sample_metadata(md)
+        redbiom.admin.load_sample_data(table2, 'test-2', tag='tagged')
+
+        table3 = table.subsample(5, by_id=True)
+        redbiom.admin.create_context('test-3', 'a nice test')
+        md = metadata[metadata['#SampleID'].isin(set(table3.ids()))]
+        redbiom.admin.load_sample_metadata(md)
+        redbiom.admin.load_sample_data(table3, 'test-3', tag='tagged')
+
+        obs = samples_in_context('test', ambiguous=False)
+        self.assertEqual(obs, set(table.ids()))
+
+        obs = samples_in_context('test-2', ambiguous=False)
+        self.assertEqual(obs, set(table2.ids()))
+
+        obs = samples_in_context('test-3', ambiguous=True)
+        exp = {'tagged_%s' % i for i in table3.ids()}
+        self.assertEqual(obs, exp)
+
+    def test_features_in_context(self):
+        redbiom.admin.create_context('test', 'a nice test')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
+
+        table2 = table.subsample(5, by_id=True)
+        redbiom.admin.create_context('test-2', 'a nice test')
+        md = metadata[metadata['#SampleID'].isin(set(table2.ids()))]
+        redbiom.admin.load_sample_metadata(md)
+        redbiom.admin.load_sample_data(table2, 'test-2', tag='tagged')
+
+        obs = features_in_context('test')
+        self.assertEqual(obs, set(table.ids(axis='observation')))
+
+        obs = features_in_context('test-2')
+        self.assertEqual(obs, set(table2.ids(axis='observation')))
 
     def test_biom_from_samples(self):
         redbiom.admin.create_context('test', 'a nice test')
@@ -111,6 +156,32 @@ class FetchTests(unittest.TestCase):
         obs = redbiom.fetch.taxon_ancestors('test', ['foo', 'bar'],
                                             normalize=list('kpcofgs'))
         self.assertEqual(obs, exp)
+
+    def test_sample_metadata_with_tagged(self):
+        tagged_md = [(ix, 'abc', i % 2)
+                     for i, ix in enumerate(metadata['#SampleID'])]
+        tagged_md = pd.DataFrame(tagged_md,
+                                 columns=['#SampleID', 'foo', 'bar'],
+                                 dtype=str)
+
+        redbiom.admin.create_context('test', 'a nice test')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_metadata(tagged_md, 'testtag')
+        redbiom.admin.load_sample_data(table, 'test', tag='testtag')
+
+        exp = metadata.copy()
+        exp['#SampleID'] = [i + '.testtag' for i in exp['#SampleID']]
+        exp['foo'] = tagged_md['foo']
+        exp['bar'] = tagged_md['bar']
+
+        exp.set_index('#SampleID', inplace=True)
+        obs, ambig = sample_metadata(table.ids(), common=False, context='test',
+                                     tagged=True)
+        obs.set_index('#SampleID', inplace=True)
+        self.assertEqual(sorted(exp.index), sorted(obs.index))
+        self.assertTrue(set(obs.columns).issubset(exp.columns))
+        self.assertIn('foo', obs.columns)
+        self.assertIn('bar', obs.columns)
 
     def test_sample_metadata_samples_not_represented_in_context(self):
         redbiom.admin.create_context('test', 'a nice test')

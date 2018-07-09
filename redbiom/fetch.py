@@ -1,4 +1,90 @@
-def sample_metadata(samples, common=True, context=None, restrict_to=None):
+def samples_in_context(context, ambiguous, get=None):
+    """Fetch samples in a context
+
+    Parameters
+    ----------
+    context : str
+        The context to obtain samples from.
+    ambiguous : bool
+        If True, return ambiguous identifiers, if false return disambiguated
+        identifiers.
+    get : a make_get instance, optional
+        A constructed get method.
+
+    Returns
+    -------
+    set
+        The set of sample identifers within a context.
+
+    Raises
+    ------
+    ValueError
+        If the requested context is not known.
+
+    Redis Command Summary
+    ---------------------
+    SMEMBERS <context>:samples-represented
+    """
+    import redbiom
+    import redbiom._requests
+    import redbiom.util
+
+    if get is None:
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    redbiom._requests.valid(context, get)
+
+    obs = get(context, 'SMEMBERS', 'samples-represented')
+
+    if ambiguous:
+        return set(obs)
+    else:
+        _, _, _, tagged_clean = redbiom.util.partition_samples_by_tags(obs)
+        return set(tagged_clean)
+
+
+def features_in_context(context, get=None):
+    """Features in a context
+
+    Parameters
+    ----------
+    context : str
+        The context to obtain samples from.
+    get : a make_get instance, optional
+        A constructed get method.
+
+    Returns
+    -------
+    set
+        The set of features within a context.
+
+    Raises
+    ------
+    ValueError
+        If the requested context is not known.
+
+    Redis Command Summary
+    ---------------------
+    SMEMBERS <context>:features-represented
+    """
+    import redbiom
+    import redbiom._requests
+    import redbiom.util
+
+    if get is None:
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    redbiom._requests.valid(context, get)
+
+    obs = get(context, 'SMEMBERS', 'features-represented')
+
+    return set(obs)
+
+
+def sample_metadata(samples, common=True, context=None, restrict_to=None,
+                    tagged=False):
     """Fetch metadata for the corresponding samples
 
     Parameters
@@ -16,6 +102,8 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None):
     restrict_to : Iterable of str, optional
         Restrict the retrieval of metadata to a subset of columns. If this
         parameter is specified, it will override the use of `common`.
+    tagged : bool, optional
+        Retrieve tagged metadata (e.g., preparation information).
 
     Returns
     -------
@@ -49,8 +137,11 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None):
 
     # resolve ambiguities
     if context is not None:
-        _, _, ambig_assoc, _ = \
+        _, _, ambig_assoc, rbid_map = \
             redbiom.util.resolve_ambiguities(context, samples, get)
+
+        if tagged:
+            ambig_assoc = {rbid: [rbid] for rbid in rbid_map}
     else:
         ambig_assoc = {k: [k] for k in samples}
 

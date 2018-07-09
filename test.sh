@@ -45,6 +45,20 @@ md5test ${obs} ${exp}
 echo ${query} | redbiom search features --context test | sort - > ${obs}
 md5test ${obs} ${exp}
 
+# fetch sample identifiers
+redbiom fetch samples-contained --context test --ambiguous=False | sort - > test_obs_samples_contained.txt
+biom table-ids -i test.biom > test_exp_samples_contained_tmp.txt
+biom table-ids -i test_with_alts.biom >> test_exp_samples_contained_tmp.txt
+sort test_exp_samples_contained_tmp.txt | uniq > test_exp_samples_contained.txt
+md5test test_obs_samples_contained.txt test_exp_samples_contained.txt
+
+# fetch feature identifiers
+redbiom fetch features-contained --context test | sort - > test_obs_features_contained.txt
+biom table-ids -i test.biom --observations > test_exp_features_contained_tmp.txt
+biom table-ids -i test_with_alts.biom --observations >> test_exp_features_contained_tmp.txt
+sort test_exp_features_contained_tmp.txt | uniq > test_exp_features_contained.txt
+md5test test_obs_features_contained.txt test_exp_features_contained.txt
+
 # fetch samples based on features and sanity check
 echo ${query} | redbiom fetch features --context test --output pipetest.biom --from -
 python -c "import biom; t = biom.load_table('pipetest.biom'); assert len(t.ids() == 3)"
@@ -147,7 +161,7 @@ md5test obs_anewid.txt exp_anewid.txt
 redbiom search metadata "where AGE_YEARS > 40" | redbiom fetch samples --context test --output metadata_search_test.biom
 echo "Num samples: 2" > exp_metadata_search.txt
 echo "Num observations: 425" >> exp_metadata_search.txt
-echo "Total count: 21462" >> exp_metadata_search.txt
+echo "Total count: 21,462" >> exp_metadata_search.txt
 biom summarize-table -i metadata_search_test.biom | head -n 3 > obs_metadata_search.txt
 md5test obs_metadata_search.txt exp_metadata_search.txt
 
@@ -197,3 +211,10 @@ echo "p__Proteobacteria	10	0.0235" >> exp_taxonomy.txt
 echo "p__Tenericutes	15	0.0353" >> exp_taxonomy.txt
 echo "p__Verrucomicrobia	2	0.0047" >> exp_taxonomy.txt
 md5test obs_taxonomy.txt exp_taxonomy.txt
+
+# test getting features in samples
+python -c "import biom; t = biom.load_table('test.biom'); print('\n'.join(sorted(t.ids(axis='observation')[t.data('10317.000003302') > 0])))" > exp_sample_search.txt
+redbiom search samples --context test 10317.000003302 | sort - > obs_sample_search.txt
+redbiom search samples --context test UNTAGGED_10317.000003302 | sort - > obs_sample_search_rbid.txt
+md5test obs_sample_search.txt exp_sample_search.txt
+md5test obs_sample_search_rbid.txt exp_sample_search.txt
