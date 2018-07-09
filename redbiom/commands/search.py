@@ -3,6 +3,21 @@ import click
 from . import cli
 
 
+def _axis_search(from_, exact, context, ids, axis):
+    import redbiom._requests
+    import redbiom.util
+
+    redbiom._requests.valid(context)
+
+    it = redbiom.util.from_or_nargs(from_, ids)
+
+    # determine the opposite axis ids associated with query ids
+    observed = redbiom.util.ids_from(it, exact, axis, context)
+
+    for id_ in observed:
+        click.echo(id_)
+
+
 @cli.group()
 def search():
     """Feature and sample search support."""
@@ -19,19 +34,31 @@ def search():
               help="The context to search within.")
 @click.argument('features', nargs=-1)
 def search_features(from_, exact, context, features):
-    """Find samples containing features."""
+    """Get samples containing features."""
+    _axis_search(from_, exact, context, features, 'feature')
+
+
+@search.command(name="samples")
+@click.option('--from', 'from_', type=click.File('r'), required=False,
+              help='A file or stdin which provides samples to search for',
+              default=None)
+@click.option('--exact', is_flag=True, default=False,
+              help=("All found features must be present in all specified "
+                    "samples"))
+@click.option('--context', required=True, type=str,
+              help="The context to search within.")
+@click.argument('samples', nargs=-1)
+def search_samples(from_, exact, context, samples):
+    """Get features present in samples."""
+    import redbiom
     import redbiom._requests
     import redbiom.util
 
-    redbiom._requests.valid(context)
-
-    it = redbiom.util.from_or_nargs(from_, features)
-
-    # determine the samples which contain the features of interest
-    samples = redbiom.util.ids_from(it, exact, 'feature', context)
-
-    for sample in samples:
-        click.echo(sample)
+    config = redbiom.get_config()
+    get = redbiom._requests.make_get(config)
+    _, _, _, rb_ids = redbiom.util.resolve_ambiguities(context, samples, get)
+    rb_ids = list(rb_ids)
+    _axis_search(from_, exact, context, iter(rb_ids), 'sample')
 
 
 @search.command(name='metadata')
