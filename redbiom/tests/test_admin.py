@@ -128,6 +128,14 @@ class AdminTests(unittest.TestCase):
         obs = self.get(context, 'SMEMBERS', 'samples-represented')
         self.assertEqual(set(obs), exp)
 
+    def test_load_sample_data_empty(self):
+        context = 'load-data-empty'
+        redbiom.admin.create_context(context, 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        with self.assertRaises(ValueError):
+            redbiom.admin.load_sample_data(biom.Table([], [], []), context,
+                                           tag=None)
+
     def test_load_features_partial(self):
         context = 'load-features-partial'
         redbiom.admin.create_context(context, 'foo')

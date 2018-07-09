@@ -44,13 +44,13 @@ class FetchTests(unittest.TestCase):
         redbiom.admin.load_sample_metadata(md)
         redbiom.admin.load_sample_data(table3, 'test-3', tag='tagged')
 
-        obs = samples_in_context('test', ambiguous=False)
+        obs = samples_in_context('test', unambiguous=False)
         self.assertEqual(obs, set(table.ids()))
 
-        obs = samples_in_context('test-2', ambiguous=False)
+        obs = samples_in_context('test-2', unambiguous=False)
         self.assertEqual(obs, set(table2.ids()))
 
-        obs = samples_in_context('test-3', ambiguous=True)
+        obs = samples_in_context('test-3', unambiguous=True)
         exp = {'tagged_%s' % i for i in table3.ids()}
         self.assertEqual(obs, exp)
 
