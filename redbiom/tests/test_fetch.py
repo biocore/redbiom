@@ -157,6 +157,32 @@ class FetchTests(unittest.TestCase):
                                             normalize=list('kpcofgs'))
         self.assertEqual(obs, exp)
 
+    def test_sample_metadata_with_tagged(self):
+        tagged_md = [(ix, 'abc', i % 2)
+                     for i, ix in enumerate(metadata['#SampleID'])]
+        tagged_md = pd.DataFrame(tagged_md,
+                                 columns=['#SampleID', 'foo', 'bar'],
+                                 dtype=str)
+
+        redbiom.admin.create_context('test', 'a nice test')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_metadata(tagged_md, 'testtag')
+        redbiom.admin.load_sample_data(table, 'test', tag='testtag')
+
+        exp = metadata.copy()
+        exp['#SampleID'] = [i + '.testtag' for i in exp['#SampleID']]
+        exp['foo'] = tagged_md['foo']
+        exp['bar'] = tagged_md['bar']
+
+        exp.set_index('#SampleID', inplace=True)
+        obs, ambig = sample_metadata(table.ids(), common=False, context='test',
+                                     tagged=True)
+        obs.set_index('#SampleID', inplace=True)
+        self.assertEqual(sorted(exp.index), sorted(obs.index))
+        self.assertTrue(set(obs.columns).issubset(exp.columns))
+        self.assertIn('foo', obs.columns)
+        self.assertIn('bar', obs.columns)
+
     def test_sample_metadata_samples_not_represented_in_context(self):
         redbiom.admin.create_context('test', 'a nice test')
         redbiom.admin.load_sample_metadata(metadata)
