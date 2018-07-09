@@ -12,7 +12,7 @@ Redbiom is a cache service for sample metadata and sample data. It allows for ra
 * discovering metadata categories
 * pulling out sample data from different processing types (e.g., search over 16S, retrieve WGS)
 
-Redbiom is designed to handle biological and technical replicates. Specifically, it allows for a one to many relationship between a sample's metadata and its data, both within and between preparation types.
+redbiom is designed to handle biological and technical replicates. Specifically, it allows for a one to many relationship between a sample's metadata and its data, both within and between preparation types.
 
 This repository defines the de facto redbiom data representation, and one possible interface into the resource. Other interfaces (e.g., Javascript) are possible to define. Please see the Design section below for details about how other interfaces can be written.
 

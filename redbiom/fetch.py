@@ -83,7 +83,8 @@ def features_in_context(context, get=None):
     return set(obs)
 
 
-def sample_metadata(samples, common=True, context=None, restrict_to=None):
+def sample_metadata(samples, common=True, context=None, restrict_to=None,
+                    tagged=False):
     """Fetch metadata for the corresponding samples
 
     Parameters
@@ -101,6 +102,8 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None):
     restrict_to : Iterable of str, optional
         Restrict the retrieval of metadata to a subset of columns. If this
         parameter is specified, it will override the use of `common`.
+    tagged : bool, optional
+        Retrieve tagged metadata (e.g., preparation information).
 
     Returns
     -------
@@ -134,8 +137,11 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None):
 
     # resolve ambiguities
     if context is not None:
-        _, _, ambig_assoc, _ = \
+        _, _, ambig_assoc, rbid_map = \
             redbiom.util.resolve_ambiguities(context, samples, get)
+
+        if tagged:
+            ambig_assoc = {rbid: [rbid] for rbid in rbid_map}
     else:
         ambig_assoc = {k: [k] for k in samples}
 
