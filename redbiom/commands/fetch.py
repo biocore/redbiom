@@ -20,7 +20,7 @@ def fetch_samples_contained(context, unambiguous):
     Return all of the sample identifiers which are represented in a context.
     """
     import redbiom.fetch
-    for id_ in redbiom.fetch.samples_in_context(context, not unambiguous):
+    for id_ in redbiom.fetch.samples_in_context(context, unambiguous):
         click.echo(id_)
 
 
