@@ -63,7 +63,8 @@ class WhereTests(unittest.TestCase):
                  ("foo is bar", set()),
                  ("age > other", {'B', }),
                  ("realworld in ('5', 'foo')", {'C', 'D'}),
-                 ("realworld > 4", {'C', })]
+                 ("realworld > 4", {'C', }),
+                 ("other is not None", {'B', 'E', 'C'})]
 
         for test, exp in tests:
             obs = whereeval(test, get=mock_get)
