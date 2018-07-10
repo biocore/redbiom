@@ -182,6 +182,7 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     ValueError
         If the context to load into does not exist.
         If a samples metadata has not already been loaded.
+        If a table is empty.
 
     Notes
     -----
@@ -224,6 +225,9 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     table = _stage_for_load(table, context, get, tag)
     samples = table.ids()[:]
     obs = table.ids(axis='observation')
+
+    if len(table.ids()) == 0:
+        raise ValueError("The table is empty.")
 
     obs_index = {}
     for id_ in obs:

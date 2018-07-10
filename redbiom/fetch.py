@@ -1,12 +1,12 @@
-def samples_in_context(context, ambiguous, get=None):
+def samples_in_context(context, unambiguous, get=None):
     """Fetch samples in a context
 
     Parameters
     ----------
     context : str
         The context to obtain samples from.
-    ambiguous : bool
-        If True, return ambiguous identifiers, if false return disambiguated
+    unambiguous : bool
+        If True, return unambiguous identifiers, if false return ambiguated
         identifiers.
     get : a make_get instance, optional
         A constructed get method.
@@ -37,11 +37,11 @@ def samples_in_context(context, ambiguous, get=None):
 
     obs = get(context, 'SMEMBERS', 'samples-represented')
 
-    if ambiguous:
-        return set(obs)
-    else:
+    if not unambiguous:
         _, _, _, tagged_clean = redbiom.util.partition_samples_by_tags(obs)
         return set(tagged_clean)
+    else:
+        return set(obs)
 
 
 def features_in_context(context, get=None):

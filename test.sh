@@ -46,7 +46,7 @@ echo ${query} | redbiom search features --context test | sort - > ${obs}
 md5test ${obs} ${exp}
 
 # fetch sample identifiers
-redbiom fetch samples-contained --context test --ambiguous=False | sort - > test_obs_samples_contained.txt
+redbiom fetch samples-contained --context test | sort - > test_obs_samples_contained.txt
 biom table-ids -i test.biom > test_exp_samples_contained_tmp.txt
 biom table-ids -i test_with_alts.biom >> test_exp_samples_contained_tmp.txt
 sort test_exp_samples_contained_tmp.txt | uniq > test_exp_samples_contained.txt
