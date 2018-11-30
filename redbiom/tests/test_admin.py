@@ -201,7 +201,6 @@ class AdminTests(unittest.TestCase):
 
         key = 'terminal-of:f__Actinomycetaceae'
         obs_Actinomycetaceae_terminal = self.get(context, 'SMEMBERS', key)
-        print(obs_Actinomycetaceae_terminal)
         self.assertEqual(len(obs_Actinomycetaceae_terminal), 1)
         id_ = obs_Actinomycetaceae_terminal[0]
         key = 'feature-index-inverted/%d' % int(id_)
@@ -215,8 +214,6 @@ class AdminTests(unittest.TestCase):
                        (id_, 'f__Actinomycetaceae')]
         for name, exp in exp_parents:
             obs = self.get(context, 'HGET', 'taxonomy-parents/%s' % name)
-            print(name, exp)
-            print(obs)
             self.assertEqual(obs, exp)
 
     def test_load_sample_metadata(self):
