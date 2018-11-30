@@ -376,14 +376,29 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
         import redbiom
         config = redbiom.get_config()
         get = redbiom._requests.make_get(config)
+
+    hmgetter = redbiom._requests.buffered
+    remapped_bulk = hmgetter(iter(ids), None, 'HMGET', context,
+                             get=get, buffer_size=100,
+                             multikey='feature-index')
+
+    # map the feature identifier to an internal ID
+    # if an internal ID does not exist, keep the provided ID
+    # the provided ID is kept in the event a taxon name such as
+    # p__Firmicutes is provided
+    remapped = {name: id_ if id_ is not None else name
+                for names, idx in remapped_bulk
+                for name, id_ in zip(names, idx)}
+
     # bulk gather the taxonomy information for all the tips and their parents
-    to_get = ids
+    to_get = list(remapped.values())
     child_parent = {}
+
     while to_get:
         key = 'taxonomy-parents'
-        getter = redbiom._requests.buffered(iter(to_get), None, 'HMGET',
-                                            context, get=get,
-                                            buffer_size=100, multikey=key)
+        getter = hmgetter(iter(to_get), None, 'HMGET',
+                          context, get=get,
+                          buffer_size=100, multikey=key)
 
         new_to_get = set()
         for block in getter:
@@ -402,7 +417,7 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
     lineages = []
     for id_ in ids:
         lineage = []
-        current = id_
+        current = remapped[id_]
         while current is not None:
             current = child_parent.get(current)
             if current is not None:
@@ -440,24 +455,40 @@ def taxon_descendents(context, taxon, get=None):
     ---------------------
     SMEMBERS <context>:taxonomy-children:<taxon>
     """
+    import redbiom._requests
+
     if get is None:
         import redbiom
-        import redbiom._requests
         config = redbiom.get_config()
         get = redbiom._requests.make_get(config)
+    hmgetter = redbiom._requests.buffered
 
-    to_get = [taxon]
+    to_get = [(None, taxon), ]
     to_keep = set()
     while to_get:
         new_to_get = []
-        for t in to_get:
-            if t.startswith('terminal:'):
-                to_keep.add(t.split(':', 1)[1])
+        for parent, taxon in to_get:
+            if taxon == 'has-terminal':
+                tips = get(context, 'SMEMBERS', 'terminal-of:%s' % parent)
+                to_keep.update(set(tips))
             else:
-                gotten = get(context, 'SMEMBERS', 'taxonomy-children:%s' % t)
-                new_to_get.extend(gotten)
+                gotten = get(context, 'SMEMBERS', 'taxonomy-children:%s' % taxon)
+                new_to_get.extend([(taxon, child) for child in gotten])
         to_get = new_to_get
-    return to_keep
+
+    remapped_bulk = hmgetter(to_keep, None, 'HMGET', context,
+                             get=get, buffer_size=100,
+                             multikey='feature-index-inverted')
+
+    remapped = {name
+                for idx, names in remapped_bulk
+                for id_, name in zip(idx, names)}
+
+    if None in remapped:
+        # this should not happen and is a consistency check
+        raise ValueError("An unassociated index has been found")
+
+    return remapped
 
 
 def category_sample_values(category, samples=None):

@@ -150,7 +150,7 @@ md5test obs_metadata_counts.txt exp_metadata_counts.txt
 # load table with some duplicate sample IDs
 head -n 1 test.txt > test.with_dups.txt
 tail -n 2 test.txt >> test.with_dups.txt
-tail -n 1 test.txt | sed -s 's/^10317\.[0-9]*/anewID/' >> test.with_dups.txt
+tail -n 1 test.txt | sed 's/^10317\.[0-9]*/anewID/' >> test.with_dups.txt
 echo "Loaded 1 samples" > exp_load_count.txt
 redbiom admin load-sample-metadata --metadata test.with_dups.txt > obs_load_count.txt
 md5test obs_load_count.txt exp_load_count.txt
