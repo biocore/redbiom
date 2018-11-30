@@ -267,7 +267,7 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
         hmgetter = redbiom._requests.buffered
 
         tip_names = {n.name: n for n in taxonomy.tips()}
-        ids_ = hmgetter(tip_names.keys(), None, 'HMGET', context,
+        ids_ = hmgetter(tip_names, None, 'HMGET', context,
                         get=get, buffer_size=100,
                         multikey='feature-index')
         ids = []

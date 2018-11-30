@@ -204,7 +204,6 @@ def taxonomy(from_, context, normalize_ranks, features):
     import redbiom.fetch
     lineages = redbiom.fetch.taxon_ancestors(context, ids,
                                              normalize=normalize_ranks)
-    print(lineages)
 
     import skbio
     tree = skbio.TreeNode.from_taxonomy([(i, l)
