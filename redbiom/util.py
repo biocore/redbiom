@@ -326,11 +326,11 @@ def stems(stops, stemmer, string):
     to_skip.update(NULL_VALUES)
 
     # match numbers (doesn't catch sci notation...)
-    numeric_regex = re.compile('(^-?\d+\.\d+$)|(^-?\d+$)')
+    numeric_regex = re.compile(r'(^-?\d+\.\d+$)|(^-?\d+$)')
 
     # time like. we don't actually care if this doesn't match time
     # as things like 1234:23123 are probably not useful for *general* search
-    time_regex = re.compile("^\d+:\d+(am|AM|pm|PM)?$")
+    time_regex = re.compile(r"^\d+:\d+(am|AM|pm|PM)?$")
 
     if string in to_skip:
         raise StopIteration

@@ -472,7 +472,8 @@ def taxon_descendents(context, taxon, get=None):
                 tips = get(context, 'SMEMBERS', 'terminal-of:%s' % parent)
                 to_keep.update(set(tips))
             else:
-                gotten = get(context, 'SMEMBERS', 'taxonomy-children:%s' % taxon)
+                gotten = get(context, 'SMEMBERS',
+                             'taxonomy-children:%s' % taxon)
                 new_to_get.extend([(taxon, child) for child in gotten])
         to_get = new_to_get
 

@@ -270,7 +270,7 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
         ids_ = hmgetter(tip_names, None, 'HMGET', context,
                         get=get, buffer_size=100,
                         multikey='feature-index')
-        ids = []
+
         for blk in ids_:
             for entity, idx in zip(*blk):
                 tip_names[entity].name = idx
