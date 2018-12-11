@@ -268,14 +268,26 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
                                           table.metadata(axis='observation'))
     if taxonomy is not None:
         post(context, 'HSET', "state/has-taxonomy/1")
+        hmgetter = redbiom._requests.buffered
+
+        tip_names = {n.name: n for n in taxonomy.tips()}
+        ids_ = hmgetter(tip_names, None, 'HMGET', context,
+                        get=get, buffer_size=100,
+                        multikey='feature-index')
+
+        for blk in ids_:
+            for entity, idx in zip(*blk):
+                tip_names[entity].name = idx
 
         for node in taxonomy.postorder(include_self=False):
             if not node.is_tip():
                 # define node -> children relationships
                 pack = []
+                terminal_pack = []
                 for c in node.children:
                     if c.is_tip():
-                        pack.append('terminal:%s' % c.name)
+                        pack.append('has-terminal')
+                        terminal_pack.append(c.name)
                     else:
                         pack.append(c.name)
 
@@ -287,6 +299,11 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
                 pack = ['%s/%s' % (c.name, node.name)
                         for c in node.children]
                 post(context, 'HMSET', 'taxonomy-parents/%s' % '/'.join(pack))
+
+                if terminal_pack:
+                    id_pack = '/'.join(terminal_pack)
+                    post(context, 'SADD', 'terminal-of:%s/%s' % (node.name,
+                                                                 id_pack))
 
     return len(samples)
 

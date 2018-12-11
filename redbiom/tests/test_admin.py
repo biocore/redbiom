@@ -195,7 +195,8 @@ class AdminTests(unittest.TestCase):
         # has an unclassified genus, so it should have tips directly descending
         f__Actinomycetaceae = {'g__Varibaculum',
                                'g__Actinomyces',
-                               'terminal:TACGTAGGGCGCGAGCGTTGTCCGGAATTATTGGGCGTAAAGGGCTCGTAGGCGGCTTGTCGCGTCTGCTGTGAAAATGCGGGGCTTAACTCCGTACGTG'}  # noqa
+                               'has-terminal'}
+        f__Actinomycetaceae_terminal = 'TACGTAGGGCGCGAGCGTTGTCCGGAATTATTGGGCGTAAAGGGCTCGTAGGCGGCTTGTCGCGTCTGCTGTGAAAATGCGGGGCTTAACTCCGTACGTG'  # noqa
 
         obs_bacteria = self.get(context, 'SMEMBERS',
                                 ':'.join(['taxonomy-children',
@@ -206,10 +207,19 @@ class AdminTests(unittest.TestCase):
                                                   'f__Actinomycetaceae']))
         self.assertEqual(set(obs_Actinomycetaceae), f__Actinomycetaceae)
 
+        key = 'terminal-of:f__Actinomycetaceae'
+        obs_Actinomycetaceae_terminal = self.get(context, 'SMEMBERS', key)
+        self.assertEqual(len(obs_Actinomycetaceae_terminal), 1)
+        id_ = obs_Actinomycetaceae_terminal[0]
+        key = 'feature-index-inverted/%d' % int(id_)
+        obs_Actinomycetaceae_terminal = self.get(context, 'HGET', key)
+        self.assertEqual(obs_Actinomycetaceae_terminal,
+                         f__Actinomycetaceae_terminal)
+
         exp_parents = [('p__Firmicutes', 'k__Bacteria'),
                        ('p__Fusobacteria', 'k__Bacteria'),
                        ('g__Actinomyces', 'f__Actinomycetaceae'),
-                       ('TACGTAGGGCGCGAGCGTTGTCCGGAATTATTGGGCGTAAAGGGCTCGTAGGCGGCTTGTCGCGTCTGCTGTGAAAATGCGGGGCTTAACTCCGTACGTG', 'f__Actinomycetaceae')]  # noqa
+                       (id_, 'f__Actinomycetaceae')]
         for name, exp in exp_parents:
             obs = self.get(context, 'HGET', 'taxonomy-parents/%s' % name)
             self.assertEqual(obs, exp)
