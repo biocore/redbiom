@@ -84,7 +84,7 @@ In addition to the general requirements, redbiom server needs [Redis](https://re
 
 For Redis, the following has worked on OSX and multiple flavors of Linux without issue.
 
-    $ http://download.redis.io/releases/redis-3.2.6.tar.gz
+    $ wget http://download.redis.io/releases/redis-3.2.6.tar.gz
     $ tar xzf redis-3.2.6.tar.gz
     $ pushd redis-3.2.6
     $ make
@@ -234,7 +234,7 @@ The query structures for metadata are fairly permissive, and there are actually 
     bodily fluid    81
     belly   41
     biofilm 39
-    ab_liq  38 
+    ab_liq  38
 
 ### Search by feature
 
@@ -282,6 +282,7 @@ What we get back are the feature IDs that are of that taxon. We can then take th
        37539
 
 **IMPORTANT** not all contexts necessarily have taxonomy, and taxonomy may not make sense for a context (e.g., if it contains KEGG Orthologous group features).
+
 
 ### Summarizations
 
