@@ -8,7 +8,7 @@ Redbiom is a cache service for sample metadata and sample data. It allows for ra
 * finding samples by the features they contain
 * finding samples by arbitrary metadata searches
 * summarizing samples over metadata
-* retieval of sample data into BIOM
+* retrieval of sample data into BIOM
 * discovering metadata categories
 * pulling out sample data from different processing types (e.g., search over 16S, retrieve WGS)
 
