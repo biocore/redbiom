@@ -178,23 +178,23 @@ By default, redbiom is setup to query against [Qiita](https://qiita.ucsd.edu). F
 
 Now that we have some samples, let's pull out their sample data. Qiita contains a huge amount of data, which are logically partitioned by the sample preparations and processing parameters -- these partitions are denoted as **contexts** in redbiom. In order to pull out the data, we need to specify the context to operate in. There are a lot of contexts, so let's filter to only those which are 16S and V4 using `grep`. We're also going to `cut` the first three columns of data as the fourth one is a voluminous description of the processing parameters. And last, let's `sort` the results by the number of samples represented in the context. Unfortunately, the `grep` removes the column headers, so we'll run a second summarize command and just grab the header:
 
-    $ redbiom summarize contexts | cut -f 1,2,3 | grep 16S-v4 | sort -k 2 -n
-    Pick_closed-reference_OTUs-illumina-16S-v45-66f541  102 29598
-    Pick_closed-reference_OTUs-flx-16S-v4-66f541    116 4699
-    Pick_closed-reference_OTUs-ls454-16S-v4-66f541  145 8437
-    Pick_closed-reference_OTUs-titanium-16S-v46-66f541  214 3568
-    Pick_closed-reference_OTUs-titanium-16S-v4-66f541   800 14269
-    deblur-workflow-illumina-16S-v4-150nt-ae489c    24613   1932042
-    deblur-workflow-illumina-16S-v4-100nt-ae489c    60150   3738847
-    deblur-workflow-illumina-16S-v4-90nt-ae489c 65143   3162632
-    Pick_closed-reference_OTUs-illumina-16S-v4-66f541   89405   84828
-    
+    $ redbiom summarize contexts | cut -f 1,2,3 | grep 16S-v4 | grep Greengenes-illumina |  sort -k 2 -n
+    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v45-100nt-a243a1	22	8178
+	Pick_closed-reference_OTUs-Greengenes-illumina-16S-v45-90nt-44feac	22	8471
+	Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-41ebc6	100	14434
+	Pick_closed-reference_OTUs-Greengenes-illumina-16S-v45-5c6506	102	29598
+	Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-125nt-65468f	1122	13277
+	Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-150nt-bd7d4d	90500	69304
+	Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-90nt-44feac	125354	73083
+	Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-5c6506	128222	82492
+	Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-100nt-a243a1	129596	74983
+
     $ redbiom summarize contexts | head -n 1
     ContextName SamplesWithData FeaturesWithData    Description
 
 To reduce typing later, let's just pick a context and store it as an environment variable:
 
-    $ export ctx=Pick_closed-reference_OTUs-illumina-16S-v4-66f541
+    $ export ctx=Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-5c6506
 
 ...and now we can grab some data:
 
@@ -282,6 +282,35 @@ What we get back are the feature IDs that are of that taxon. We can then take th
        37539
 
 **IMPORTANT** not all contexts necessarily have taxonomy, and taxonomy may not make sense for a context (e.g., if it contains KEGG Orthologous group features).
+
+### Retrieving pre-selected samples
+
+In additional to allowing you to search based on specific metadata or features, you can also retrieve a list of samples based on the sample ID. For instance, we might want to get a list of all the samples with cider associated with them, and then potentially access only these samples later, after a database update. 
+
+To do this, we can pulldown a list of the first five samples with cider associated.
+
+	$ redbiom search metadata cider | head -5 > cider.txt
+	$ head cider.txt
+		11261.CW91.R1.T7
+		11261.CW130.S.F2.T7
+		11261.CW120.F1.T4
+		11261.CW75.R3.T1
+		11261.CW125.F3.T5 
+	
+Then, we can use this list of samples to retrieve the biom table. The text file simply needs to be a list of sample IDs in the databse, one per line.
+
+	$ redbiom fetch samples --from cider.txt --context $ctx --output cider.biom
+	$ biom summarize-table -i cider.biom
+	Num samples: 5
+	Num observations: 281
+	Total count: 173,579
+	Table density (fraction of non-zero values): 0.396
+	
+	Counts/sample summary:
+	 Min: 25,936.000
+	 Max: 38,900.000
+	 Median: 36,602.000
+	 Mean: 34,715.800
 
 
 ### Summarizations
