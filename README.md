@@ -84,7 +84,7 @@ In addition to the general requirements, redbiom server needs [Redis](https://re
 
 For Redis, the following has worked on OSX and multiple flavors of Linux without issue.
 
-    $ http://download.redis.io/releases/redis-3.2.6.tar.gz
+    $ wget http://download.redis.io/releases/redis-3.2.6.tar.gz
     $ tar xzf redis-3.2.6.tar.gz
     $ pushd redis-3.2.6
     $ make
@@ -178,23 +178,23 @@ By default, redbiom is setup to query against [Qiita](https://qiita.ucsd.edu). F
 
 Now that we have some samples, let's pull out their sample data. Qiita contains a huge amount of data, which are logically partitioned by the sample preparations and processing parameters -- these partitions are denoted as **contexts** in redbiom. In order to pull out the data, we need to specify the context to operate in. There are a lot of contexts, so let's filter to only those which are 16S and V4 using `grep`. We're also going to `cut` the first three columns of data as the fourth one is a voluminous description of the processing parameters. And last, let's `sort` the results by the number of samples represented in the context. Unfortunately, the `grep` removes the column headers, so we'll run a second summarize command and just grab the header:
 
-    $ redbiom summarize contexts | cut -f 1,2,3 | grep 16S-v4 | sort -k 2 -n
-    Pick_closed-reference_OTUs-illumina-16S-v45-66f541  102 29598
-    Pick_closed-reference_OTUs-flx-16S-v4-66f541    116 4699
-    Pick_closed-reference_OTUs-ls454-16S-v4-66f541  145 8437
-    Pick_closed-reference_OTUs-titanium-16S-v46-66f541  214 3568
-    Pick_closed-reference_OTUs-titanium-16S-v4-66f541   800 14269
-    deblur-workflow-illumina-16S-v4-150nt-ae489c    24613   1932042
-    deblur-workflow-illumina-16S-v4-100nt-ae489c    60150   3738847
-    deblur-workflow-illumina-16S-v4-90nt-ae489c 65143   3162632
-    Pick_closed-reference_OTUs-illumina-16S-v4-66f541   89405   84828
-    
+    $ redbiom summarize contexts | cut -f 1,2,3 | grep 16S-v4 | grep Greengenes-illumina |  sort -k 2 -n
+    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v45-100nt-a243a1 22  8178
+    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v45-90nt-44feac  22  8471
+    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-41ebc6    100 14434
+    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v45-5c6506   102 29598
+    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-125nt-65468f  1122    13277
+    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-150nt-bd7d4d  90500   69304
+    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-90nt-44feac   125354  73083
+    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-5c6506    128222  82492
+    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-100nt-a243a1  129596  74983
+
     $ redbiom summarize contexts | head -n 1
     ContextName SamplesWithData FeaturesWithData    Description
 
 To reduce typing later, let's just pick a context and store it as an environment variable:
 
-    $ export ctx=Pick_closed-reference_OTUs-illumina-16S-v4-66f541
+    $ export ctx=Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-5c6506
 
 ...and now we can grab some data:
 
@@ -234,7 +234,7 @@ The query structures for metadata are fairly permissive, and there are actually 
     bodily fluid    81
     belly   41
     biofilm 39
-    ab_liq  38 
+    ab_liq  38
 
 ### Search by feature
 
@@ -283,37 +283,67 @@ What we get back are the feature IDs that are of that taxon. We can then take th
 
 **IMPORTANT** not all contexts necessarily have taxonomy, and taxonomy may not make sense for a context (e.g., if it contains KEGG Orthologous group features).
 
+### Retrieving pre-selected samples
+
+In additional to allowing you to search based on specific metadata or features, you can also retrieve a list of samples based on the sample ID. For instance, we might want to get a list of all the samples with cider associated with them, and then potentially access only these samples later, after a database update. 
+
+To do this, we can pulldown a list of the first five samples with cider associated.
+
+    $ redbiom search metadata cider | head -5 > cider.txt
+    $ head cider.txt
+        11261.CW91.R1.T7
+        11261.CW130.S.F2.T7
+        11261.CW120.F1.T4
+        11261.CW75.R3.T1
+        11261.CW125.F3.T5 
+    
+Then, we can use this list of samples to retrieve the biom table. The text file simply needs to be a list of sample IDs in the databse, one per line.
+
+    $ redbiom fetch samples --from cider.txt --context $ctx --output cider.biom
+    $ biom summarize-table -i cider.biom | head
+    Num samples: 5
+    Num observations: 281
+    Total count: 173,579
+    Table density (fraction of non-zero values): 0.396
+    
+    Counts/sample summary:
+     Min: 25,936.000
+     Max: 38,900.000
+     Median: 36,602.000
+     Mean: 34,715.800
+
+
 ### Summarizations
 
 We found a lot of samples that contain Roseburia. That isn't too surprising since Qiita contains a lot of fecal samples. How many? In this next example, we're taking all of the feature IDs associated with Roseburia, then finding all of the samples which contain that taxon, followed by binning each sample by their `sample_type` category value, and finally we're taking just the top 10 entries. You can see that the metadata are a bit noisy.
 
-	$ redbiom search taxon g__Roseburia --context $ctx | redbiom search features --context $ctx | redbiom summarize samples --category sample_type | head
-	Stool	13251
-	stool	11416
-	XXQIITAXX	1029
-	tanker milk	984
-	biopsy	930
-	Floor	622
-	skin	615
-	Stool_Stabilizer	566
-	control blank	520
-	Mouth	420
+    $ redbiom search taxon g__Roseburia --context $ctx | redbiom search features --context $ctx | redbiom summarize samples --category sample_type | head
+    Stool   13251
+    stool   11416
+    XXQIITAXX   1029
+    tanker milk 984
+    biopsy  930
+    Floor   622
+    skin    615
+    Stool_Stabilizer    566
+    control blank   520
+    Mouth   420
 
 We can still work through the noise though. Let's take our samples we found that contain Roseburia, and only select the ones that appear to obviously be fecal. Instead of summarizing as we did in our last example, we're going to "select" the samples in which `sample_type` is either "Stool" or "stool". (as this command is getting long, we'll break it up with \\):
 
-	$ redbiom search taxon g__Roseburia --context $ctx | \
-		redbiom search features --context $ctx | \
-		redbiom select samples-from-metadata --context $ctx "where sample_type in ('Stool', 'stool')" | \
-		wc -l
-	   24667
+    $ redbiom search taxon g__Roseburia --context $ctx | \
+        redbiom search features --context $ctx | \
+        redbiom select samples-from-metadata --context $ctx "where sample_type in ('Stool', 'stool')" | \
+        wc -l
+       24667
 
 And last, we can grab the data for those samples. Fetching data for 24,667 samples can take a few minutes, so for the purpose of the example, let's just grab the ones associated with skin. Please note the "ambiguity" on the output, more in a second on that:
 
-	$ redbiom search taxon g__Roseburia --context $ctx | \
+    $ redbiom search taxon g__Roseburia --context $ctx | \
         redbiom search features --context $ctx | \
         redbiom select samples-from-metadata --context $ctx "where sample_type=='skin'" | \
         redbiom fetch samples --context $ctx --output roseburia_example.biom
-	16 sample ambiguities observed. Writing ambiguity mappings to: roseburia_example.biom.ambiguities
+    16 sample ambiguities observed. Writing ambiguity mappings to: roseburia_example.biom.ambiguities
 
 Ambiguities can arise if the same sample was processed multiple times as might happen with a technical replicate. It is the same physical sample, but it may have been processed multiple times. The `.ambiguities` file is in JSON and contains a mapping of what IDs map to the same sample.
 
