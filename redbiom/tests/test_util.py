@@ -62,6 +62,20 @@ class UtilTests(unittest.TestCase):
         # deferring validation of inference of stdin to integration tests
         # as it would require overriding that standard file descriptor.
 
+    def test_ids_from_filter(self):
+        redbiom.admin.create_context('test', 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
+        id_ = [table.ids(axis='observation')[0], ]
+        obs = ids_from(id_,
+                       False, 'feature', ['test', ],
+                       min_count=3)
+        self.assertEqual(len(obs), 3)
+        obs = ids_from(id_,
+                       False, 'feature', ['test', ])
+        self.assertEqual(len(obs), 4)
+
     def test_ids_from_multicontext(self):
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.create_context('test2', 'foo')

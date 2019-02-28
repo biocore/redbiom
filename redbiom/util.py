@@ -30,7 +30,7 @@ def from_or_nargs(from_, nargs_variable):
     return iter((s.strip() for s in nargs_variable))
 
 
-def ids_from(it, exact, axis, contexts):
+def ids_from(it, exact, axis, contexts, min_count=1):
     """Grab samples from an iterable of IDs
 
     Parameters
@@ -44,6 +44,8 @@ def ids_from(it, exact, axis, contexts):
         The axis to operate over.
     contexts : list of str
         The contexts to search in
+    min_count : int, optional
+        The minimum count (inclusive) to retain an observation.
 
     Notes
     -----
@@ -53,7 +55,7 @@ def ids_from(it, exact, axis, contexts):
     Returns
     -------
     set
-        The sample IDs associated with the search IDs.
+        The IDs associated with the search IDs.
 
     """
     import redbiom
@@ -70,12 +72,15 @@ def ids_from(it, exact, axis, contexts):
     if not isinstance(contexts, (list, set, tuple)):
         contexts = [contexts]
 
+    def min_count_filter(dat):
+        return {k: v for k, v in dat.items() if v >= min_count}
+
     it = list(it)
     fetcher = redbiom.admin.ScriptManager.get('fetch-%s' % axis)
     for context in contexts:
         context_ids = None
         for id_ in it:
-            block = se(fetcher, 0, context, id_)
+            block = min_count_filter(se(fetcher, 0, context, id_))
             if not exact:
                 if context_ids is None:
                     context_ids = set()
