@@ -32,7 +32,8 @@ def search():
               help="All found samples must contain all specified features")
 @click.option('--context', required=True, type=str,
               help="The context to search within.")
-@click.option('--min-count', required=False, type=int, default=1,
+@click.option('--min-count', required=False,
+              type=click.IntRange(min=1), default=1,
               help="The minimum number of times the feature was observed.")
 @click.argument('features', nargs=-1)
 def search_features(from_, exact, context, features, min_count):
@@ -49,7 +50,8 @@ def search_features(from_, exact, context, features, min_count):
                     "samples"))
 @click.option('--context', required=True, type=str,
               help="The context to search within.")
-@click.option('--min-count', required=False, type=int, default=1,
+@click.option('--min-count', required=False,
+              type=click.IntRange(min=1), default=1,
               help="The minimum number of times the feature was observed.")
 @click.argument('samples', nargs=-1)
 def search_samples(from_, exact, context, samples, min_count):
