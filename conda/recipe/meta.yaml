@@ -1,0 +1,55 @@
+{% set name = "redbiom" %}
+{% set version = "0.3.1" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: f265467c76d6211148fa1a1423d6fc9b398da294d0c93249bb8398302ff309f4
+
+build:
+  number: 0
+  entry_points:
+    - redbiom=redbiom.commands:cli
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vvv "
+
+requirements:
+  host:
+    - biom-format >=2.1.5
+    - click >=6.7
+    - h5py
+    - joblib
+    - nltk
+    - pandas
+    - pip
+    - pip
+    - python
+    - requests
+    - scikit-bio >=0.4.2
+    - setuptools
+  run:
+    - biom-format >=2.1.5
+    - click >=6.7
+    - h5py
+    - joblib
+    - nltk
+    - pandas
+    - python
+    - requests
+    - scikit-bio >=0.4.2
+    - setuptools
+
+test:
+  imports:
+    - redbiom
+    - redbiom.commands
+    - redbiom.tests
+  commands:
+    - redbiom --help
+
+about:
+  home: https://github.com/biocore/redbiom
+  license: BSD-3-Clause
+  license_family: BSD
