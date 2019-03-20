@@ -1,19 +1,16 @@
-{% set name = "redbiom" %}
-{% set version = "0.3.1" %}
+{% set data = load_setup_py_data() %}
+{% set version = data.get('version') or 'placehold' %}
 
 package:
-  name: "{{ name|lower }}"
+  name: redbiom
   version: "{{ version }}"
 
 source:
-  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: f265467c76d6211148fa1a1423d6fc9b398da294d0c93249bb8398302ff309f4
+  path: ../..
 
 build:
-  number: 0
-  entry_points:
-    - redbiom=redbiom.commands:cli
-  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vvv "
+  script: python setup.py install
+  noarch: generic
 
 requirements:
   host:

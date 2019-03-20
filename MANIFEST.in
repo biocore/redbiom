@@ -1,6 +1,8 @@
 include README.md
 include COPYING.txt
 include logo.png
+include redbiom/assets/nltk_data/corpora/stopwords/README
+include redbiom/assets/nltk_data/corpora/stopwords/english
 
 graft redbiom
 graft licenses

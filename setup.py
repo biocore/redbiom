@@ -9,30 +9,6 @@
 # ----------------------------------------------------------------------------
 
 from setuptools import setup, find_packages
-from setuptools.command.install import install
-from setuptools.command.develop import develop
-from setuptools.command.sdist import sdist
-
-# based on http://stackoverflow.com/a/36902139
-
-def _post():
-    import nltk
-    nltk.download('stopwords')
-    nltk.download('punkt')
-
-
-class PostInstallCommand(install):
-    """Post-installation for installation mode."""
-    def run(self):
-        install.run(self)
-        _post()
-
-
-class PostDevelopCommand(develop):
-    """Post-installation for development mode."""
-    def run(self):
-        develop.run(self)
-        _post()
 
 
 long_description = open('README.md').read()
@@ -42,7 +18,7 @@ long_description = open('README.md').read()
 
 setup(
     name='redbiom',
-    version='0.3.1',
+    version='0.3.2',
     license='BSD-3-Clause',
     author='Daniel McDonald',
     author_email='wasade@gmail.com',
@@ -57,7 +33,5 @@ setup(
     entry_points='''
         [console_scripts]
         redbiom=redbiom.commands:cli
-    ''',
-    cmdclass={'install': PostInstallCommand,
-              'develop': PostDevelopCommand}
+    '''
 )
