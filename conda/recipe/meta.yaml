@@ -20,7 +20,7 @@ requirements:
     - joblib
     - nltk
     - pandas
-    - pip
+    - singledispatch
     - pip
     - python
     - requests
@@ -33,6 +33,7 @@ requirements:
     - joblib
     - nltk
     - pandas
+    - singledispatch
     - python
     - requests
     - scikit-bio >=0.4.2
