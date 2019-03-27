@@ -302,7 +302,7 @@ def df_to_stems(df):
     dict
         {stem: {set of indices}}
     """
-    from pathlib import Path
+    from os.path import join, dirname
     from collections import defaultdict
     import functools
     import nltk
@@ -310,10 +310,9 @@ def df_to_stems(df):
     # not using nltk default as we want this to be portable so that, for
     # instance, a javascript library can query
     stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
-
-    nltk_data_path = str(Path(__file__).parent / 'assets' / 'nltk_data')
+    nltk_data_path = join(dirname(__file__), 'assets', 'nltk_data')
     if nltk.data.path[0] != nltk_data_path:
-        nltk.data.path = [str(nltk_data_path)] + nltk.data.path
+        nltk.data.path = [nltk_data_path] + nltk.data.path
     stops = frozenset(nltk.corpus.stopwords.words('english'))
     stem_f = functools.partial(stems, stops, stemmer)
 
@@ -329,6 +328,7 @@ def df_to_stems(df):
 
 def stems(stops, stemmer, string):
     """Gather stems from string"""
+    from os.path import join, dirname
     import re
     import nltk
     to_skip = set('()!@#$%^&*-+=|{}[]<>./?;:')
@@ -345,6 +345,9 @@ def stems(stops, stemmer, string):
         raise StopIteration
 
     # for each word
+    nltk_data_path = join(dirname(__file__), 'assets', 'nltk_data')
+    if nltk.data.path[0] != nltk_data_path:
+        nltk.data.path = [nltk_data_path] + nltk.data.path
     for word in nltk.tokenize.word_tokenize(string):
         if word in to_skip or len(word) == 1:
             continue
