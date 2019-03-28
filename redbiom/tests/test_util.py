@@ -354,8 +354,12 @@ class UtilTests(unittest.TestCase):
         self.assertEqual(obs, exp)
 
     def test_stems(self):
+        from os.path import join, dirname
         import nltk
         stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
+        nltk_data_path = join(dirname(__file__), 'assets', 'nltk_data')
+        if nltk.data.path[0] != nltk_data_path:
+            nltk.data.path = [nltk_data_path] + nltk.data.path
         stops = frozenset(nltk.corpus.stopwords.words('english'))
         tests = [("foo bar", ['foo', 'bar']),
                  ("foo $1.23 is the bar", ['foo', 'bar']),

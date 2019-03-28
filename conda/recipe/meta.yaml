@@ -1,0 +1,55 @@
+{% set data = load_setup_py_data() %}
+{% set version = data.get('version') or 'placehold' %}
+
+package:
+  name: redbiom
+  version: "{{ version }}"
+
+source:
+  path: ../..
+
+build:
+  script: python setup.py install
+  noarch: generic
+
+requirements:
+  host:
+    - cython
+    - biom-format >=2.1.5
+    - click >=6.7
+    - h5py
+    - joblib
+    - nltk
+    - pandas
+    - singledispatch
+    - pip
+    - python
+    - requests
+    - scikit-bio >=0.4.2
+    - setuptools
+  run:
+    - cython
+    - biom-format >=2.1.5
+    - click >=6.7
+    - h5py
+    - joblib
+    - nltk
+    - pandas
+    - singledispatch
+    - python
+    - requests
+    - scikit-bio >=0.4.2
+    - setuptools
+
+test:
+  imports:
+    - redbiom
+    - redbiom.commands
+    - redbiom.tests
+  commands:
+    - redbiom --help
+
+about:
+  home: https://github.com/biocore/redbiom
+  license: BSD-3-Clause
+  license_family: BSD

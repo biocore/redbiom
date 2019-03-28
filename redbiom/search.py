@@ -22,6 +22,7 @@ def metadata_full(query, categories=False, get=None):
     set
         The observed sample IDs
     """
+    from os.path import join, dirname
     import redbiom
     import redbiom.set_expr
     import redbiom.where_expr
@@ -40,6 +41,9 @@ def metadata_full(query, categories=False, get=None):
         target = 'text-search'
 
     stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
+    nltk_data_path = join(dirname(__file__), 'assets', 'nltk_data')
+    if nltk.data.path[0] != nltk_data_path:
+        nltk.data.path = [nltk_data_path] + nltk.data.path
     stops = frozenset(nltk.corpus.stopwords.words('english'))
     stem_f = functools.partial(redbiom.util.stems, stops, stemmer)
 
