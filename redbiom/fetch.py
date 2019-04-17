@@ -1,3 +1,42 @@
+def tags_in_context(context, get=None):
+    """Fetch the unique tags within a context
+
+    Parameters
+    ----------
+    context : str
+        The context to obtain tags from.
+
+    Returns
+    -------
+    set
+        The set of sample identifers within a context.
+
+    Raises
+    ------
+    ValueError
+        If the requested context is not known.
+
+    Redis Command Summary
+    ---------------------
+    SMEMBERS <context>:samples-represented
+    """
+    import redbiom
+    import redbiom._requests
+    import redbiom.util
+
+    if get is None:
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    redbiom._requests.valid(context, get)
+
+    obs = get(context, 'SMEMBERS', 'samples-represented')
+
+    _, _, tags, _ = redbiom.util.partition_samples_by_tags(obs)
+
+    return set(tags)
+
+
 def samples_in_context(context, unambiguous, get=None):
     """Fetch samples in a context
 
