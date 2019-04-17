@@ -54,6 +54,22 @@ class FetchTests(unittest.TestCase):
         exp = {'tagged_%s' % i for i in table3.ids()}
         self.assertEqual(obs, exp)
 
+    def test_tags_in_context(self):
+        redbiom.admin.create_context('test', 'a nice test')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
+
+        exp = {'UNTAGGED', }
+        obs = redbiom.fetch.tags_in_context('test')
+        self.assertEqual(obs, exp)
+
+        redbiom.admin.load_sample_data(table, 'test', tag='foo')
+        redbiom.admin.load_sample_data(table, 'test', tag='bar')
+
+        exp = {'foo', 'bar', 'UNTAGGED'}
+        obs = redbiom.fetch.tags_in_context('test')
+        self.assertEqual(obs, exp)
+
     def test_features_in_context(self):
         redbiom.admin.create_context('test', 'a nice test')
         redbiom.admin.load_sample_metadata(metadata)

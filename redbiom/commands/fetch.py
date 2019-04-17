@@ -9,6 +9,16 @@ def fetch():
     pass
 
 
+@fetch.command(name='tags-contained')
+@click.option('--context', required=True, type=str, default=None,
+              help="The context to fetch from.")
+def fetch_tags_contained(context):
+    """Get the observed tags within a context"""
+    import redbiom.fetch
+    for id_ in redbiom.fetch.tags_in_context(context):
+        click.echo(id_)
+
+
 @fetch.command(name='samples-contained')
 @click.option('--context', required=False, type=str, default=None,
               help="The context to fetch from.")
