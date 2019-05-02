@@ -18,6 +18,7 @@ install:
   - source activate test-env
   - if [ ${PYTHON_VERSION} = "2.7" ]; then conda install -c biocore --yes scikit-bio==0.4.2; fi
   - if [ ${PYTHON_VERSION} = "3.5" ]; then conda install --yes scikit-bio==0.5.1; fi
+  - if [ ${PYTHON_VERSION} = "3.6" ]; then conda install --yes scikit-bio==0.5.1; fi
   - pip install flake8 msgpack
   - git clone https://github.com/nicolasff/webdis
   - pushd webdis
