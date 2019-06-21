@@ -331,6 +331,28 @@ class UtilTests(unittest.TestCase):
         self.assertEqual(obs_stable, exp_stable)
         self.assertEqual(obs_ri, exp_ri)
 
+    def test_df_to_stems_pandas_null(self):
+        # at some point, pandas.read_csv stopped fully honoring dtype=str
+        df = pd.DataFrame([('A', 'the lazy fox', '10', '1/2/3', 'infants are'),
+                           ('B', 'quickly', '11', '2/3/4', 'jump humans'),
+                           ('C', 'jumped over', '11', '2/3/4', 'tiny. humans'),
+                           ('D', 'the brown', '12', '2/3/4', 'large humans'),
+                           ('E', 'fence. LAzy', '14', '2/3/4', np.nan)],
+                          columns=['#SampleID', 'catA', 'catB', 'catC',
+                                   'catD']).set_index('#SampleID')
+        exp = {'lazi': {'A', 'E'},
+               'fox': {'A', },
+               'quickli': {'B', },
+               'jump': {'C', 'B'},
+               'brown': {'D', },
+               'fenc': {'E', },
+               'infant': {'A', },
+               'human': {'B', 'C', 'D'},
+               'tini': {'C', },
+               'larg': {'D',}}
+        obs = df_to_stems(df)
+        self.assertEqual(obs, exp)
+
     def test_df_to_stems(self):
         df = pd.DataFrame([('A', 'the lazy fox', '10', '1/2/3', 'infants are'),
                            ('B', 'quickly', '11', '2/3/4', 'jump humans'),
