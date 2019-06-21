@@ -349,7 +349,7 @@ class UtilTests(unittest.TestCase):
                'infant': {'A', },
                'human': {'B', 'C', 'D'},
                'tini': {'C', },
-               'larg': {'D',}}
+               'larg': {'D', }}
         obs = df_to_stems(df)
         self.assertEqual(obs, exp)
 
