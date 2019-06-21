@@ -1,8 +1,9 @@
 import click
+import numpy as np
 
 
 NULL_VALUES = {'Not applicable', 'Unknown', 'Unspecified',
-               'Missing: Not collected', None,
+               'Missing: Not collected', None, np.nan,
                'Missing: Not provided',
                'Missing: Not Provided', 'missing', '',
                'Missing: Restricted access',
@@ -128,7 +129,6 @@ def category_exists(category, get=None):
 
 
 def float_or_nan(t):
-    import numpy as np
     try:
         return float(t)
     except Exception:
@@ -319,6 +319,7 @@ def df_to_stems(df):
     d = defaultdict(set)
 
     for sample, row in df.iterrows():
+        row = row[~row.isnull()]
         for value in row.values:
             for stem in stem_f(value):
                 d[stem].add(sample)
@@ -348,6 +349,7 @@ def stems(stops, stemmer, string):
     nltk_data_path = join(dirname(__file__), 'assets', 'nltk_data')
     if nltk.data.path[0] != nltk_data_path:
         nltk.data.path = [nltk_data_path] + nltk.data.path
+
     for word in nltk.tokenize.word_tokenize(string):
         if word in to_skip or len(word) == 1:
             continue
