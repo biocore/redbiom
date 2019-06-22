@@ -78,7 +78,7 @@ class RESTTests(unittest.TestCase):
         redbiom.admin.load_sample_metadata(metadata)
 
         null_values = {'Not applicable', 'Unknown', 'Unspecified',
-                       'Missing: Not collected',
+                       'Missing: Not collected', np.nan,
                        'Missing: Not provided',
                        'Missing: Restricted access',
                        'null', 'NULL', 'no_data', 'None', 'nan'}
@@ -96,7 +96,7 @@ class RESTTests(unittest.TestCase):
         redbiom.admin.load_sample_metadata(metadata)
 
         null_values = {'Not applicable', 'Unknown', 'Unspecified',
-                       'Missing: Not collected',
+                       'Missing: Not collected', np.nan,
                        'Missing: Not provided',
                        'Missing: Restricted access',
                        'null', 'NULL', 'no_data', 'None', 'nan'}
