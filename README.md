@@ -12,13 +12,19 @@ Redbiom is a cache service for sample metadata and sample data. It allows for ra
 * discovering metadata categories
 * pulling out sample data from different processing types (e.g., search over 16S, retrieve WGS)
 
-redbiom is designed to handle biological and technical replicates. Specifically, it allows for a one to many relationship between a sample's metadata and its data, both within and between preparation types.
+redbiom is designed to handle biological and technical replicates. Specifically, it allows for a one to many relationship between a sample's metadata and its data, both within and between preparation types. Additional information about `redbiom` can be found in our [mSystems](https://msystems.asm.org/content/4/4/e00215-19) article.  
 
 This repository defines the de facto redbiom data representation, and one possible interface into the resource. Other interfaces (e.g., Javascript) are possible to define. Please see the Design section below for details about how other interfaces can be written.
 
 By default, redbiom will search against `qiita.ucsd.edu:7329`. This can be changed at runtime by setting the `REDBIOM_HOST` environmental variable, e.g., `export REDBIOM_HOST=http://qiita.ucsd.edu:7329`. The default host is **read-only** and administrative functions like loading data will not work against it.
 
 If you intend to **load** your own data, you must setup a local instance (please see the server installation instructions below). In addition, you must explicitly set the `REDBIOM_HOST` environment variable.
+
+# Citation
+
+To cite `redbiom`, please refer to:
+
+    redbiom: a Rapid Sample Discovery and Feature Characterization System. Daniel McDonald, Benjamin Kaehler, Antonio Gonzalez, Jeff DeReus, Gail Ackermann, Clarisse Marotz, Gavin Huttley, Rob Knight. mSystems Jun 2019, 4 (4) e00215-19; DOI: 10.1128/mSystems.00215-19
 
 # Very brief examples
 
