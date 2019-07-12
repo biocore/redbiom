@@ -24,7 +24,7 @@ If you intend to **load** your own data, you must setup a local instance (please
 
 To cite `redbiom`, please refer to:
 
-    redbiom: a Rapid Sample Discovery and Feature Characterization System. Daniel McDonald, Benjamin Kaehler, Antonio Gonzalez, Jeff DeReus, Gail Ackermann, Clarisse Marotz, Gavin Huttley, Rob Knight. mSystems Jun 2019, 4 (4) e00215-19; DOI: 10.1128/mSystems.00215-19
+redbiom: a Rapid Sample Discovery and Feature Characterization System. Daniel McDonald, Benjamin Kaehler, Antonio Gonzalez, Jeff DeReus, Gail Ackermann, Clarisse Marotz, Gavin Huttley, Rob Knight. *mSystems* Jun 2019, 4 (4) e00215-19; DOI: 10.1128/mSystems.00215-19
 
 # Very brief examples
 
