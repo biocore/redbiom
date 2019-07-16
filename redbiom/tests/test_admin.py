@@ -136,6 +136,14 @@ class AdminTests(unittest.TestCase):
             redbiom.admin.load_sample_data(biom.Table([], [], []), context,
                                            tag=None)
 
+    def test_load_sample_data_alreadyloaded(self):
+        context = 'load-data-loaded'
+        redbiom.admin.create_context(context, 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, context, tag=None)
+        with self.assertRaises(redbiom.admin.AlreadyLoaded):
+            redbiom.admin.load_sample_data(table, context, tag=None)
+
     def test_load_features_partial(self):
         context = 'load-features-partial'
         redbiom.admin.create_context(context, 'foo')
