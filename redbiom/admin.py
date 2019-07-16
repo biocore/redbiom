@@ -226,9 +226,6 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     samples = table.ids()[:]
     obs = table.ids(axis='observation')
 
-    if len(table.ids()) == 0:
-        raise ValueError("The table is empty or already loaded.")
-
     obs_index = {}
     for id_ in obs:
         obs_index[id_] = get_index(context, id_, 'feature')
@@ -545,6 +542,10 @@ def _stage_for_load(table, context, get, tag=None):
     ------
     ValueError
         If a samples metadata has not already been loaded.
+    ValueError
+        If the table is empty.
+    AlreadyLoaded
+        If the table appears to already be loaded.
 
     Returns
     -------
@@ -560,6 +561,9 @@ def _stage_for_load(table, context, get, tag=None):
     table = table.update_ids({i: "%s_%s" % (tag, i) for i in table.ids()},
                              inplace=False)
     samples = set(table.ids())
+
+    if not samples:
+        raise ValueError("The table is empty.")
 
     represented = get(context, 'SMEMBERS', 'samples-represented')
     represented = set(represented)
