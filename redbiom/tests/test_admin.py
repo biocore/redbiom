@@ -1,5 +1,6 @@
 import unittest
 import hashlib
+import datetime
 
 import skbio
 import pandas as pd
@@ -67,8 +68,34 @@ class AdminTests(unittest.TestCase):
         req = requests.get(self.host + '/flushall')
         assert req.status_code == 200
         self.get = redbiom._requests.make_get(redbiom.get_config())
+        self.post = redbiom._requests.make_post(redbiom.get_config())
         self.se = redbiom._requests.make_script_exec(redbiom.get_config())
         redbiom.admin.ScriptManager.load_scripts(read_only=False)
+
+    def test_create_timestamp(self):
+        today = datetime.datetime.now()
+        today = datetime.datetime(today.year, today.month, today.day)
+        exp = today.strftime('%d.%b.%Y')
+        redbiom.admin.create_timestamp()
+        obs = self.get('state', 'LRANGE', 'timestamps/0/-1')
+        self.assertEqual(obs, [exp])
+
+    def test_get_timestamps(self):
+        exp = []
+        obs = redbiom.admin.get_timestamps()
+        self.assertEqual(obs, exp)
+
+        self.post('state', 'LPUSH', 'timestamps/foo')
+        self.post('state', 'LPUSH', 'timestamps/bar')
+        today = datetime.datetime.now()
+        today = datetime.datetime(today.year, today.month, today.day)
+        today = today.strftime('%d.%b.%Y')
+
+        redbiom.admin.create_timestamp()
+
+        exp = [today, 'bar', 'foo']
+        obs = redbiom.admin.get_timestamps()
+        self.assertEqual(obs, exp)
 
     def test_metadata_to_taxonomy_tree(self):
         exp = None
