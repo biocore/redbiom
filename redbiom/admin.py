@@ -136,6 +136,45 @@ class ScriptManager:
         ScriptManager._cache = {}
 
 
+def create_timestamp():
+    """Create a new timestamp in the database
+
+    Notes
+    -----
+    Time is represented as "%d.%b.%Y" (e.g., 25.Jul.2019).
+
+    Timestamps are pushed into an array such that index 0 is the latest
+    timestamp. A reasonable interpretation of this field, and the use of
+    this method, is to obtain the timestamps of when the database was
+    last updated.
+
+    Redis command summary
+    ---------------------
+    LPUSH state:timestamps <current_time>
+    """
+    import redbiom
+    import redbiom._requests
+    import datetime
+    config = redbiom.get_config()
+    post = redbiom._requests.make_post(config)
+    fmt = datetime.datetime.now().strftime("%d.%b.%Y")
+    post('state', 'LPUSH', 'timestamps/%s' % fmt)
+
+
+def get_timestamps():
+    """Obtain the stored timestamps
+
+    Redis command summary
+    ---------------------
+    LRANGE state:timestamps 0 -1
+    """
+    import redbiom
+    import redbiom._requests
+    config = redbiom.get_config()
+    get = redbiom._requests.make_get(config)
+    return get('state', 'LRANGE', 'timestamps/0/-1')
+
+
 def create_context(name, description):
     """Create a context within the cache
 
