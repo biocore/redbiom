@@ -265,9 +265,6 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     samples = table.ids()[:]
     obs = table.ids(axis='observation')
 
-    if len(table.ids()) == 0:
-        raise ValueError("The table is empty.")
-
     obs_index = {}
     for id_ in obs:
         obs_index[id_] = get_index(context, id_, 'feature')
@@ -562,6 +559,10 @@ def _indexable(value, nullables):
         return '/' not in value
 
 
+class AlreadyLoaded(ValueError):
+    pass
+
+
 def _stage_for_load(table, context, get, tag=None):
     """Tag samples, reduce to only those relevant to load
 
@@ -580,6 +581,10 @@ def _stage_for_load(table, context, get, tag=None):
     ------
     ValueError
         If a samples metadata has not already been loaded.
+    ValueError
+        If the table is empty.
+    AlreadyLoaded
+        If the table appears to already be loaded.
 
     Returns
     -------
@@ -596,9 +601,15 @@ def _stage_for_load(table, context, get, tag=None):
                              inplace=False)
     samples = set(table.ids())
 
+    if not samples:
+        raise ValueError("The table is empty.")
+
     represented = get(context, 'SMEMBERS', 'samples-represented')
     represented = set(represented)
     to_load = samples - represented
+
+    if not to_load and samples:
+        raise AlreadyLoaded("The table appears to already be loaded.")
 
     if not redbiom.util.has_sample_metadata(to_load):
         raise ValueError("Sample metadata must be loaded first.")
