@@ -18,7 +18,7 @@ long_description = open('README.md').read()
 
 setup(
     name='redbiom',
-    version='0.3.2',
+    version='0.3.3',
     license='BSD-3-Clause',
     author='Daniel McDonald',
     author_email='wasade@gmail.com',
