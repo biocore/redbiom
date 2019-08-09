@@ -368,3 +368,19 @@ def stems(stops, stemmer, string):
             yield stemmer.stem(word).lower()
         except Exception:
             continue
+
+
+def biom_md5_feature_ids(table, output):
+    """convert biom feature ids to md5 and save a map of those changes"""
+    import hashlib
+    new_ids = dict()
+    for _id in table.ids(axis='observation'):
+        m = hashlib.md5()
+        m.update(_id.encode('utf-8'))
+        new_ids[_id] = m.hexdigest()
+    table.update_ids(new_ids, axis="observation")
+
+    with open(output, 'w') as f:
+        f.write('\n'.join(['\t'.join(x) for x in new_ids.items()]))
+
+    return table
