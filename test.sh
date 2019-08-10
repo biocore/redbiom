@@ -9,7 +9,7 @@ else
 fi
 
 # https://stackoverflow.com/a/13864829/19741
-if [ ! -z ${REDBIOM_HOST+x} ]; then 
+if [ ! -z ${REDBIOM_HOST+x} ]; then
     if [[ ${REDBIOM_HOST} != *"http://127.0.0.1"* ]]; then
         if [ -z ${REDBIOM_OVERRIDE_HOST_AND_TEST+x} ]; then
             echo "An unexpected host is set for testing, and \$REDBIOM_OVERRIDE_HOST_AND_TEST is not set"
@@ -35,8 +35,8 @@ query="TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTG
 exp="exp_test_query_results.txt"
 obs="obs_test_query_results.txt"
 echo "UNTAGGED_10317.000033804" > ${exp}
-echo "UNTAGGED_10317.000047188" >> ${exp} 
-echo "UNTAGGED_10317.000046868" >> ${exp} 
+echo "UNTAGGED_10317.000047188" >> ${exp}
+echo "UNTAGGED_10317.000046868" >> ${exp}
 
 redbiom search features --context test ${query} | sort - > ${obs}
 md5test ${obs} ${exp}
@@ -70,7 +70,7 @@ python -c "import biom; t = biom.load_table('cmdlinetest.biom'); assert sorted(t
 
 # we do _NOT_ expect the qiime compatible ID "10317.000046868.UNTAGGED" to work.
 # this is because we cannot safely convert it into a redbiom ID as we cannot
-# assume it is safe to rsplit('.', 1) on it as "." is a valid sample ID 
+# assume it is safe to rsplit('.', 1) on it as "." is a valid sample ID
 # character
 redbiom fetch samples --context test --output cmdlinetest.biom 10317.000033804 UNTAGGED_10317.000047188
 python -c "import biom; t = biom.load_table('cmdlinetest.biom'); assert sorted(t.ids()) == ['10317.000033804.UNTAGGED', '10317.000047188.UNTAGGED']"
@@ -180,10 +180,10 @@ md5test obs_contexts.txt exp_contexts.txt
 
 # exercise table summary
 redbiom summarize table --table test.biom --context test --category COUNTRY --output obs_tablesummary_full.txt
-echo "feature	Australia	USA	United Kingdom" > exp_tablesummary.txt
+echo -e "feature\tAustralia\tUSA\tUnited Kingdom" > exp_tablesummary.txt
 head -n 1 obs_tablesummary_full.txt > obs_tablesummary.txt
 md5test obs_tablesummary.txt exp_tablesummary.txt
-if [[ "$(wc -l obs_tablesummary_full.txt | awk '{ print $1 }')" != "924" ]];  
+if [[ "$(wc -l obs_tablesummary_full.txt | awk '{ print $1 }')" != "924" ]];
 then
     echo "fail"
     exit 1
