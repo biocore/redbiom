@@ -182,6 +182,8 @@ md5test obs_contexts.txt exp_contexts.txt
 redbiom summarize table --table test.biom --context test --category COUNTRY --output obs_tablesummary_full.txt
 echo -e "feature\tAustralia\tUSA\tUnited Kingdom" > exp_tablesummary.txt
 head -n 1 obs_tablesummary_full.txt > obs_tablesummary.txt
+cat obs_tablesummary.txt
+cat exp_tablesummary.txt
 md5test obs_tablesummary.txt exp_tablesummary.txt
 if [[ "$(wc -l obs_tablesummary_full.txt | awk '{ print $1 }')" != "924" ]];
 then
