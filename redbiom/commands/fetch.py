@@ -104,7 +104,9 @@ def fetch_samples_from_obserations(features, exact, from_, output,
     tab, map_ = redbiom.fetch.data_from_features(context, iterable, exact)
 
     if md5:
-        tab = redbiom.util.biom_md5_feature_ids(tab, output + '.tsv')
+        tab, new_ids = redbiom.util.convert_biom_ids_to_md5(tab)
+        with open(output + '.tsv', 'w') as f:
+            f.write('\n'.join(['\t'.join(x) for x in new_ids.items()]))
 
     import h5py
     with h5py.File(output, 'w') as fp:
@@ -135,7 +137,9 @@ def fetch_samples_from_samples(samples, from_, output, context, md5):
     table, ambig = redbiom.fetch.data_from_samples(context, iterable)
 
     if md5:
-        table = redbiom.util.biom_md5_feature_ids(table, output + '.tsv')
+        table, new_ids = redbiom.util.convert_biom_ids_to_md5(table)
+        with open(output + '.tsv', 'w') as f:
+            f.write('\n'.join(['\t'.join(x) for x in new_ids.items()]))
 
     import h5py
     with h5py.File(output, 'w') as fp:

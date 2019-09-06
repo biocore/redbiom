@@ -370,8 +370,20 @@ def stems(stops, stemmer, string):
             continue
 
 
-def biom_md5_feature_ids(table, output):
-    """convert biom feature ids to md5 and save a map of those changes"""
+def convert_biom_ids_to_md5(table):
+    """convert biom feature ids to md5 and return new table
+
+    Parameters
+    ----------
+    table : BIOM table
+
+    Returns
+    -------
+    BIOM table
+        The new BIOM table
+    dict
+        {original_id: new_id}
+    """
     import hashlib
     new_ids = dict()
     for _id in table.ids(axis='observation'):
@@ -380,7 +392,4 @@ def biom_md5_feature_ids(table, output):
         new_ids[_id] = m.hexdigest()
     table.update_ids(new_ids, axis="observation")
 
-    with open(output, 'w') as f:
-        f.write('\n'.join(['\t'.join(x) for x in new_ids.items()]))
-
-    return table
+    return table, new_ids
