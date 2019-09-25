@@ -10,7 +10,7 @@ import redbiom.admin
 import redbiom.fetch
 from redbiom.fetch import (_biom_from_samples, sample_metadata,
                            samples_in_context, features_in_context,
-                           sample_counts_per_category)
+                           sample_counts_per_category, get_sample_values)
 from redbiom.tests import assert_test_env
 
 assert_test_env()
@@ -207,6 +207,43 @@ class FetchTests(unittest.TestCase):
             # sample data have not been loaded into the context
             sample_metadata(['10317.000047188', '10317.000046868'],
                             context='test')
+
+    def test_get_sample_values(self):
+        redbiom.admin.create_context('test', 'a nice test')
+        redbiom.admin.load_sample_metadata(metadata)
+        exp = {'10317.000047188': '50s',
+               '10317.000051129': '30s',
+               '10317.000012975': '40s',
+               '10317.000033804': '20s',
+               '10317.000001405': '30s',
+               '10317.000022252': '30s',
+               '10317.000001378': '20s',
+               '10317.000005080': '30s'}
+        obs = dict(get_sample_values(None, 'AGE_CAT'))
+        self.assertEqual(obs, exp)
+        obs1, obs2, obs3 = get_sample_values(['10317.000033804', 'missing',
+                                              '10317.000005080'], 'AGE_CAT')
+        self.assertEqual(obs1, ('10317.000033804', '20s'))
+        self.assertEqual(obs2, ('missing', None))
+        self.assertEqual(obs3, ('10317.000005080', '30s'))
+
+    def test_get_sample_values_encoded(self):
+        redbiom.admin.create_context('test', 'a nice test')
+
+        df = metadata.copy()
+        df.set_index('#SampleID', inplace=True)
+
+        df.loc[['10317.000047188',
+                '10317.000051129',
+                '10317.000012975'], 'encoded'] = ['foo/bar',
+                                                  'baz$',
+                                                  '#bing']
+        redbiom.admin.load_sample_metadata(metadata)
+        exp = {'10317.000047188': 'foo/bar',
+               '10317.000051129': 'baz$',
+               '10317.000012975': '#bing'}
+        obs = dict(get_sample_values(None, 'encoded'))
+        self.assertEqual(obs, exp)
 
     def test_sample_metadata_all_cols(self):
         redbiom.admin.load_sample_metadata(metadata)

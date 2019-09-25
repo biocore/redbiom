@@ -268,6 +268,19 @@ class AdminTests(unittest.TestCase):
         obs = set(self.get('metadata', 'SMEMBERS', 'samples-represented'))
         self.assertEqual(obs, exp)
 
+    def test_load_sample_metadata_encoded(self):
+        md = metadata.copy()
+        md['http_quoted_characters'] = ['foo', 'bar', 'foo/bar', 'baz$12',
+                                        'thing', 'stuff', 'asd#asd',
+                                        'a', 'b', 'c']
+        redbiom.admin.load_sample_metadata(md)
+        exp = ['foo', 'bar', 'foo%2Fbar', 'baz%2412',
+               'thing', 'stuff', 'asd%23asd', 'a', 'b', 'c']
+        obs = self.get('metadata:category', 'HGETALL',
+                       'http_quoted_characters')
+        self.assertEqual(sorted([v for k, v in obs.items()]),
+                         sorted(exp))
+
     def test_load_sample_metadata_full_search(self):
         redbiom.admin.load_sample_metadata(metadata)
         redbiom.admin.load_sample_metadata_full_search(metadata)
