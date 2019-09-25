@@ -465,16 +465,11 @@ def load_sample_metadata(md, tag=None):
         put('metadata', 'SET', key, json.dumps(columns))
 
     for col in indexed_columns:
-        try:
-            bulk_set = ["%s/%s" % (idx, quote_plus(str(v)))
-                        for idx, v in zip(md.index, md[col])
-                        if _indexable(v, null_values)]
-            payload = "category:%s/%s" % (col, '/'.join(bulk_set))
-            post('metadata', 'HMSET', payload)
-
-        except:
-            print(col)
-            print(md[col])
+        bulk_set = ["%s/%s" % (idx, quote_plus(str(v)))
+                    for idx, v in zip(md.index, md[col])
+                    if _indexable(v, null_values)]
+        payload = "category:%s/%s" % (col, '/'.join(bulk_set))
+        post('metadata', 'HMSET', payload)
 
     payload = "samples-represented/%s" % '/'.join(md.index)
     post('metadata', 'SADD', payload)
@@ -554,10 +549,7 @@ def load_sample_metadata_full_search(md, tag=None):
 
 def _indexable(value, nullables):
     """Returns true if the value appears to be something that storable"""
-    if value in nullables:
-        return False
-    else:
-        return True
+    return value not in nullables
 
 
 class AlreadyLoaded(ValueError):
