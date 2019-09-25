@@ -274,8 +274,11 @@ class AdminTests(unittest.TestCase):
                                         'thing', 'stuff', 'asd#asd',
                                         'a', 'b', 'c']
         redbiom.admin.load_sample_metadata(md)
-        exp = ['foo', 'bar', 'foo%2Fbar', 'baz%2412',
-               'thing', 'stuff', 'asd%23asd', 'a', 'b', 'c']
+
+        # NOTE: webdis decodes the encoded strings so they are stored in redis
+        # in their native representation
+        exp = ['foo', 'bar', 'foo/bar', 'baz$12',
+               'thing', 'stuff', 'asd#asd', 'a', 'b', 'c']
         obs = self.get('metadata:category', 'HGETALL',
                        'http_quoted_characters')
         self.assertEqual(sorted([v for k, v in obs.items()]),

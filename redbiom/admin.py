@@ -1,3 +1,6 @@
+from urllib.parse import quote_plus
+
+
 class ScriptManager:
     """Static singleton for managing Lua scripts in the Redis backend"""
     # derived from http://stackoverflow.com/a/43900922/19741
@@ -462,11 +465,16 @@ def load_sample_metadata(md, tag=None):
         put('metadata', 'SET', key, json.dumps(columns))
 
     for col in indexed_columns:
-        bulk_set = ["%s/%s" % (idx, v) for idx, v in zip(md.index, md[col])
-                    if _indexable(v, null_values)]
+        try:
+            bulk_set = ["%s/%s" % (idx, quote_plus(str(v)))
+                        for idx, v in zip(md.index, md[col])
+                        if _indexable(v, null_values)]
+            payload = "category:%s/%s" % (col, '/'.join(bulk_set))
+            post('metadata', 'HMSET', payload)
 
-        payload = "category:%s/%s" % (col, '/'.join(bulk_set))
-        post('metadata', 'HMSET', payload)
+        except:
+            print(col)
+            print(md[col])
 
     payload = "samples-represented/%s" % '/'.join(md.index)
     post('metadata', 'SADD', payload)
@@ -545,18 +553,11 @@ def load_sample_metadata_full_search(md, tag=None):
 
 
 def _indexable(value, nullables):
-    """Returns true if the value appears to be something that storable
-
-    IMPORTANT: we cannot store values which contain a "/" as that character
-    has a special meaning for a path.
-    """
+    """Returns true if the value appears to be something that storable"""
     if value in nullables:
         return False
-
-    if isinstance(value, (float, int, bool)):
-        return True
     else:
-        return '/' not in value
+        return True
 
 
 class AlreadyLoaded(ValueError):

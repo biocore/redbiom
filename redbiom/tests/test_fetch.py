@@ -238,7 +238,9 @@ class FetchTests(unittest.TestCase):
                 '10317.000012975'], 'encoded'] = ['foo/bar',
                                                   'baz$',
                                                   '#bing']
-        redbiom.admin.load_sample_metadata(metadata)
+        df.loc[df['encoded'].isnull(), 'encoded'] = None
+
+        redbiom.admin.load_sample_metadata(df)
         exp = {'10317.000047188': 'foo/bar',
                '10317.000051129': 'baz$',
                '10317.000012975': '#bing'}
