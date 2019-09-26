@@ -85,7 +85,7 @@ class RESTTests(unittest.TestCase):
 
         for idx, row in md.iterrows():
             exp = [c for c, v in zip(md.columns, row.values)
-                   if v not in null_values and '/' not in str(v)]
+                   if v not in null_values]
             obs = json.loads(get('GET', 'metadata:categories:%s' % idx))
 
             self.assertEqual(obs, exp)
