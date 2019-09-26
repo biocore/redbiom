@@ -703,6 +703,8 @@ def get_sample_values(samples, category, get=None):
         The samples to obtain
     category : str
         The category to obtain values for.
+    get : function, optional
+        A get method
 
     Returns
     -------
@@ -712,6 +714,7 @@ def get_sample_values(samples, category, get=None):
     Redis command summary
     ---------------------
     HMGET metadata:category:<column> <sample_id> ... <sample_id>
+    HMKEYS metadata:category:<column>
     """
     import redbiom
 
