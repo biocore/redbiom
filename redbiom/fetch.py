@@ -222,16 +222,9 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None,
             metadata[sample_ambiguity]['#SampleID'] = sample_ambiguity
 
     for category in columns_to_get:
-        key = 'category:%s' % category
-        getter = redbiom._requests.buffered(iter(all_samples), None, 'HMGET',
-                                            'metadata', get=get,
-                                            buffer_size=100,
-                                            multikey=key)
-
-        for samples, category_values in getter:
-            for sample, value in zip(samples, category_values):
-                for sample_ambiguity in ambig_assoc[sample]:
-                    metadata[sample_ambiguity][category] = value
+        for sample, value in get_sample_values(all_samples, category):
+            for sample_ambiguity in ambig_assoc[sample]:
+                metadata[sample_ambiguity][category] = value
 
     md = pd.DataFrame(metadata).T
 
@@ -564,20 +557,12 @@ def category_sample_values(category, samples=None):
 
     get = redbiom._requests.make_get(redbiom.get_config())
 
-    key = 'category:%s' % category
-    if samples is None:
-        keys_vals = list(get('metadata', 'HGETALL', key).items())
-    else:
+    if samples is not None:
         untagged, _, _, tagged_clean = \
             redbiom.util.partition_samples_by_tags(samples)
         samples = untagged + tagged_clean
-        getter = redbiom._requests.buffered(iter(samples), None, 'HMGET',
-                                            'metadata', get=get,
-                                            buffer_size=100, multikey=key)
 
-        # there is probably some niftier method than this.
-        keys_vals = [(sample, obs_val) for idx, vals in getter
-                     for sample, obs_val in zip(idx, vals)]
+    keys_vals = get_sample_values(samples, category, get=get)
 
     index = (v[0] for v in keys_vals)
     data = (v[1] for v in keys_vals)
@@ -697,16 +682,8 @@ def metadata(where=None, tag=None, restrict_to=None):
         metadata[sample]['#SampleID'] = sample
 
     for category in categories:
-        key = 'category:%s' % category
-        getter = redbiom._requests.buffered(iter(samples_to_get), None,
-                                            'HMGET',
-                                            'metadata', get=get,
-                                            buffer_size=100,
-                                            multikey=key)
-
-        for chunk in getter:
-            for sample, value in zip(*chunk):
-                metadata[sample][category] = value
+        for sample, value in get_sample_values(samples_to_get, category, get):
+            metadata[sample][category] = value
 
     md = pd.DataFrame(metadata).T
 
@@ -715,3 +692,44 @@ def metadata(where=None, tag=None, restrict_to=None):
     else:
         md = redbiom.metadata.Metadata(md.set_index('#SampleID'))
         return md.ids(where=where)
+
+
+def get_sample_values(samples, category, get=None):
+    """Obtain the metadata values associated with the requested samples
+
+    Parameters
+    ----------
+    samples : Iterable of str or None
+        The samples to obtain
+    category : str
+        The category to obtain values for.
+    get : function, optional
+        A get method
+
+    Returns
+    -------
+    [(str, str), ...]
+        A list of (sample, value) tuples
+
+    Redis command summary
+    ---------------------
+    HMGET metadata:category:<column> <sample_id> ... <sample_id>
+    HMKEYS metadata:category:<column>
+    """
+    import redbiom
+
+    if get is None:
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    key = 'category:%s' % category
+    if samples is None:
+        samples = get('metadata', 'HKEYS', key)
+
+    getter = redbiom._requests.buffered(iter(samples), None,
+                                        'HMGET',
+                                        'metadata', get=get,
+                                        buffer_size=100,
+                                        multikey=key)
+
+    return [item for chunk in getter for item in zip(*chunk)]
