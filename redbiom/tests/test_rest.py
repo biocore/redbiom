@@ -78,14 +78,14 @@ class RESTTests(unittest.TestCase):
         redbiom.admin.load_sample_metadata(metadata)
 
         null_values = {'Not applicable', 'Unknown', 'Unspecified',
-                       'Missing: Not collected',
+                       'Missing: Not collected', np.nan,
                        'Missing: Not provided',
                        'Missing: Restricted access',
                        'null', 'NULL', 'no_data', 'None', 'nan'}
 
         for idx, row in md.iterrows():
             exp = [c for c, v in zip(md.columns, row.values)
-                   if v not in null_values and '/' not in str(v)]
+                   if v not in null_values]
             obs = json.loads(get('GET', 'metadata:categories:%s' % idx))
 
             self.assertEqual(obs, exp)
@@ -96,7 +96,7 @@ class RESTTests(unittest.TestCase):
         redbiom.admin.load_sample_metadata(metadata)
 
         null_values = {'Not applicable', 'Unknown', 'Unspecified',
-                       'Missing: Not collected',
+                       'Missing: Not collected', np.nan,
                        'Missing: Not provided',
                        'Missing: Restricted access',
                        'null', 'NULL', 'no_data', 'None', 'nan'}

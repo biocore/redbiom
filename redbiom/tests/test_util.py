@@ -62,6 +62,20 @@ class UtilTests(unittest.TestCase):
         # deferring validation of inference of stdin to integration tests
         # as it would require overriding that standard file descriptor.
 
+    def test_ids_from_filter(self):
+        redbiom.admin.create_context('test', 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.ScriptManager.load_scripts(read_only=False)
+        redbiom.admin.load_sample_data(table, 'test', tag=None)
+        id_ = [table.ids(axis='observation')[0], ]
+        obs = ids_from(id_,
+                       False, 'feature', ['test', ],
+                       min_count=3)
+        self.assertEqual(len(obs), 3)
+        obs = ids_from(id_,
+                       False, 'feature', ['test', ])
+        self.assertEqual(len(obs), 4)
+
     def test_ids_from_multicontext(self):
         redbiom.admin.create_context('test', 'foo')
         redbiom.admin.create_context('test2', 'foo')
@@ -317,6 +331,28 @@ class UtilTests(unittest.TestCase):
         self.assertEqual(obs_stable, exp_stable)
         self.assertEqual(obs_ri, exp_ri)
 
+    def test_df_to_stems_pandas_null(self):
+        # at some point, pandas.read_csv stopped fully honoring dtype=str
+        df = pd.DataFrame([('A', 'the lazy fox', '10', '1/2/3', 'infants are'),
+                           ('B', 'quickly', '11', '2/3/4', 'jump humans'),
+                           ('C', 'jumped over', '11', '2/3/4', 'tiny. humans'),
+                           ('D', 'the brown', '12', '2/3/4', 'large humans'),
+                           ('E', 'fence. LAzy', '14', '2/3/4', np.nan)],
+                          columns=['#SampleID', 'catA', 'catB', 'catC',
+                                   'catD']).set_index('#SampleID')
+        exp = {'lazi': {'A', 'E'},
+               'fox': {'A', },
+               'quickli': {'B', },
+               'jump': {'C', 'B'},
+               'brown': {'D', },
+               'fenc': {'E', },
+               'infant': {'A', },
+               'human': {'B', 'C', 'D'},
+               'tini': {'C', },
+               'larg': {'D', }}
+        obs = df_to_stems(df)
+        self.assertEqual(obs, exp)
+
     def test_df_to_stems(self):
         df = pd.DataFrame([('A', 'the lazy fox', '10', '1/2/3', 'infants are'),
                            ('B', 'quickly', '11', '2/3/4', 'jump humans'),
@@ -340,8 +376,12 @@ class UtilTests(unittest.TestCase):
         self.assertEqual(obs, exp)
 
     def test_stems(self):
+        from os.path import join, dirname
         import nltk
         stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
+        nltk_data_path = join(dirname(__file__), 'assets', 'nltk_data')
+        if nltk.data.path[0] != nltk_data_path:
+            nltk.data.path = [nltk_data_path] + nltk.data.path
         stops = frozenset(nltk.corpus.stopwords.words('english'))
         tests = [("foo bar", ['foo', 'bar']),
                  ("foo $1.23 is the bar", ['foo', 'bar']),

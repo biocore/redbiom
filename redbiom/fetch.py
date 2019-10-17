@@ -1,12 +1,51 @@
-def samples_in_context(context, ambiguous, get=None):
+def tags_in_context(context, get=None):
+    """Fetch the unique tags within a context
+
+    Parameters
+    ----------
+    context : str
+        The context to obtain tags from.
+
+    Returns
+    -------
+    set
+        The set of sample identifers within a context.
+
+    Raises
+    ------
+    ValueError
+        If the requested context is not known.
+
+    Redis Command Summary
+    ---------------------
+    SMEMBERS <context>:samples-represented
+    """
+    import redbiom
+    import redbiom._requests
+    import redbiom.util
+
+    if get is None:
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    redbiom._requests.valid(context, get)
+
+    obs = get(context, 'SMEMBERS', 'samples-represented')
+
+    _, _, tags, _ = redbiom.util.partition_samples_by_tags(obs)
+
+    return set(tags)
+
+
+def samples_in_context(context, unambiguous, get=None):
     """Fetch samples in a context
 
     Parameters
     ----------
     context : str
         The context to obtain samples from.
-    ambiguous : bool
-        If True, return ambiguous identifiers, if false return disambiguated
+    unambiguous : bool
+        If True, return unambiguous identifiers, if false return ambiguated
         identifiers.
     get : a make_get instance, optional
         A constructed get method.
@@ -37,11 +76,11 @@ def samples_in_context(context, ambiguous, get=None):
 
     obs = get(context, 'SMEMBERS', 'samples-represented')
 
-    if ambiguous:
-        return set(obs)
-    else:
+    if not unambiguous:
         _, _, _, tagged_clean = redbiom.util.partition_samples_by_tags(obs)
         return set(tagged_clean)
+    else:
+        return set(obs)
 
 
 def features_in_context(context, get=None):
@@ -183,16 +222,9 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None,
             metadata[sample_ambiguity]['#SampleID'] = sample_ambiguity
 
     for category in columns_to_get:
-        key = 'category:%s' % category
-        getter = redbiom._requests.buffered(iter(all_samples), None, 'HMGET',
-                                            'metadata', get=get,
-                                            buffer_size=100,
-                                            multikey=key)
-
-        for samples, category_values in getter:
-            for sample, value in zip(samples, category_values):
-                for sample_ambiguity in ambig_assoc[sample]:
-                    metadata[sample_ambiguity][category] = value
+        for sample, value in get_sample_values(all_samples, category):
+            for sample_ambiguity in ambig_assoc[sample]:
+                metadata[sample_ambiguity][category] = value
 
     md = pd.DataFrame(metadata).T
 
@@ -382,14 +414,29 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
         import redbiom
         config = redbiom.get_config()
         get = redbiom._requests.make_get(config)
+
+    hmgetter = redbiom._requests.buffered
+    remapped_bulk = hmgetter(iter(ids), None, 'HMGET', context,
+                             get=get, buffer_size=100,
+                             multikey='feature-index')
+
+    # map the feature identifier to an internal ID
+    # if an internal ID does not exist, keep the provided ID
+    # the provided ID is kept in the event a taxon name such as
+    # p__Firmicutes is provided
+    remapped = {name: id_ if id_ is not None else name
+                for names, idx in remapped_bulk
+                for name, id_ in zip(names, idx)}
+
     # bulk gather the taxonomy information for all the tips and their parents
-    to_get = ids
+    to_get = list(remapped.values())
     child_parent = {}
+
     while to_get:
         key = 'taxonomy-parents'
-        getter = redbiom._requests.buffered(iter(to_get), None, 'HMGET',
-                                            context, get=get,
-                                            buffer_size=100, multikey=key)
+        getter = hmgetter(iter(to_get), None, 'HMGET',
+                          context, get=get,
+                          buffer_size=100, multikey=key)
 
         new_to_get = set()
         for block in getter:
@@ -408,7 +455,7 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
     lineages = []
     for id_ in ids:
         lineage = []
-        current = id_
+        current = remapped[id_]
         while current is not None:
             current = child_parent.get(current)
             if current is not None:
@@ -446,24 +493,41 @@ def taxon_descendents(context, taxon, get=None):
     ---------------------
     SMEMBERS <context>:taxonomy-children:<taxon>
     """
+    import redbiom._requests
+
     if get is None:
         import redbiom
-        import redbiom._requests
         config = redbiom.get_config()
         get = redbiom._requests.make_get(config)
+    hmgetter = redbiom._requests.buffered
 
-    to_get = [taxon]
+    to_get = [(None, taxon), ]
     to_keep = set()
     while to_get:
         new_to_get = []
-        for t in to_get:
-            if t.startswith('terminal:'):
-                to_keep.add(t.split(':', 1)[1])
+        for parent, taxon in to_get:
+            if taxon == 'has-terminal':
+                tips = get(context, 'SMEMBERS', 'terminal-of:%s' % parent)
+                to_keep.update(set(tips))
             else:
-                gotten = get(context, 'SMEMBERS', 'taxonomy-children:%s' % t)
-                new_to_get.extend(gotten)
+                gotten = get(context, 'SMEMBERS',
+                             'taxonomy-children:%s' % taxon)
+                new_to_get.extend([(taxon, child) for child in gotten])
         to_get = new_to_get
-    return to_keep
+
+    remapped_bulk = hmgetter(to_keep, None, 'HMGET', context,
+                             get=get, buffer_size=100,
+                             multikey='feature-index-inverted')
+
+    remapped = {name
+                for idx, names in remapped_bulk
+                for id_, name in zip(idx, names)}
+
+    if None in remapped:
+        # this should not happen and is a consistency check
+        raise ValueError("An unassociated index has been found")
+
+    return remapped
 
 
 def category_sample_values(category, samples=None):
@@ -493,20 +557,12 @@ def category_sample_values(category, samples=None):
 
     get = redbiom._requests.make_get(redbiom.get_config())
 
-    key = 'category:%s' % category
-    if samples is None:
-        keys_vals = list(get('metadata', 'HGETALL', key).items())
-    else:
+    if samples is not None:
         untagged, _, _, tagged_clean = \
             redbiom.util.partition_samples_by_tags(samples)
         samples = untagged + tagged_clean
-        getter = redbiom._requests.buffered(iter(samples), None, 'HMGET',
-                                            'metadata', get=get,
-                                            buffer_size=100, multikey=key)
 
-        # there is probably some niftier method than this.
-        keys_vals = [(sample, obs_val) for idx, vals in getter
-                     for sample, obs_val in zip(idx, vals)]
+    keys_vals = get_sample_values(samples, category, get=get)
 
     index = (v[0] for v in keys_vals)
     data = (v[1] for v in keys_vals)
@@ -626,16 +682,8 @@ def metadata(where=None, tag=None, restrict_to=None):
         metadata[sample]['#SampleID'] = sample
 
     for category in categories:
-        key = 'category:%s' % category
-        getter = redbiom._requests.buffered(iter(samples_to_get), None,
-                                            'HMGET',
-                                            'metadata', get=get,
-                                            buffer_size=100,
-                                            multikey=key)
-
-        for chunk in getter:
-            for sample, value in zip(*chunk):
-                metadata[sample][category] = value
+        for sample, value in get_sample_values(samples_to_get, category, get):
+            metadata[sample][category] = value
 
     md = pd.DataFrame(metadata).T
 
@@ -644,3 +692,44 @@ def metadata(where=None, tag=None, restrict_to=None):
     else:
         md = redbiom.metadata.Metadata(md.set_index('#SampleID'))
         return md.ids(where=where)
+
+
+def get_sample_values(samples, category, get=None):
+    """Obtain the metadata values associated with the requested samples
+
+    Parameters
+    ----------
+    samples : Iterable of str or None
+        The samples to obtain
+    category : str
+        The category to obtain values for.
+    get : function, optional
+        A get method
+
+    Returns
+    -------
+    [(str, str), ...]
+        A list of (sample, value) tuples
+
+    Redis command summary
+    ---------------------
+    HMGET metadata:category:<column> <sample_id> ... <sample_id>
+    HMKEYS metadata:category:<column>
+    """
+    import redbiom
+
+    if get is None:
+        config = redbiom.get_config()
+        get = redbiom._requests.make_get(config)
+
+    key = 'category:%s' % category
+    if samples is None:
+        samples = get('metadata', 'HKEYS', key)
+
+    getter = redbiom._requests.buffered(iter(samples), None,
+                                        'HMGET',
+                                        'metadata', get=get,
+                                        buffer_size=100,
+                                        multikey=key)
+
+    return [item for chunk in getter for item in zip(*chunk)]

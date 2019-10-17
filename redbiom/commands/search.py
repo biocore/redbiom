@@ -3,7 +3,7 @@ import click
 from . import cli
 
 
-def _axis_search(from_, exact, context, ids, axis):
+def _axis_search(from_, exact, context, ids, axis, min_count):
     import redbiom._requests
     import redbiom.util
 
@@ -12,7 +12,7 @@ def _axis_search(from_, exact, context, ids, axis):
     it = redbiom.util.from_or_nargs(from_, ids)
 
     # determine the opposite axis ids associated with query ids
-    observed = redbiom.util.ids_from(it, exact, axis, context)
+    observed = redbiom.util.ids_from(it, exact, axis, context, min_count)
 
     for id_ in observed:
         click.echo(id_)
@@ -32,10 +32,13 @@ def search():
               help="All found samples must contain all specified features")
 @click.option('--context', required=True, type=str,
               help="The context to search within.")
+@click.option('--min-count', required=False,
+              type=click.IntRange(min=1), default=1,
+              help="The minimum number of times the feature was observed.")
 @click.argument('features', nargs=-1)
-def search_features(from_, exact, context, features):
+def search_features(from_, exact, context, features, min_count):
     """Get samples containing features."""
-    _axis_search(from_, exact, context, features, 'feature')
+    _axis_search(from_, exact, context, features, 'feature', min_count)
 
 
 @search.command(name="samples")
@@ -47,8 +50,11 @@ def search_features(from_, exact, context, features):
                     "samples"))
 @click.option('--context', required=True, type=str,
               help="The context to search within.")
+@click.option('--min-count', required=False,
+              type=click.IntRange(min=1), default=1,
+              help="The minimum number of times the feature was observed.")
 @click.argument('samples', nargs=-1)
-def search_samples(from_, exact, context, samples):
+def search_samples(from_, exact, context, samples, min_count):
     """Get features present in samples."""
     import redbiom
     import redbiom._requests
@@ -58,7 +64,7 @@ def search_samples(from_, exact, context, samples):
     get = redbiom._requests.make_get(config)
     _, _, _, rb_ids = redbiom.util.resolve_ambiguities(context, samples, get)
     rb_ids = list(rb_ids)
-    _axis_search(from_, exact, context, iter(rb_ids), 'sample')
+    _axis_search(from_, exact, context, iter(rb_ids), 'sample', min_count)
 
 
 @search.command(name='metadata')

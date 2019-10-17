@@ -1,3 +1,6 @@
+from urllib.parse import quote_plus
+
+
 class ScriptManager:
     """Static singleton for managing Lua scripts in the Redis backend"""
     # derived from http://stackoverflow.com/a/43900922/19741
@@ -136,6 +139,45 @@ class ScriptManager:
         ScriptManager._cache = {}
 
 
+def create_timestamp():
+    """Create a new timestamp in the database
+
+    Notes
+    -----
+    Time is represented as "%d.%b.%Y" (e.g., 25.Jul.2019).
+
+    Timestamps are pushed into an array such that index 0 is the latest
+    timestamp. A reasonable interpretation of this field, and the use of
+    this method, is to obtain the timestamps of when the database was
+    last updated.
+
+    Redis command summary
+    ---------------------
+    LPUSH state:timestamps <current_time>
+    """
+    import redbiom
+    import redbiom._requests
+    import datetime
+    config = redbiom.get_config()
+    post = redbiom._requests.make_post(config)
+    fmt = datetime.datetime.now().strftime("%d.%b.%Y")
+    post('state', 'LPUSH', 'timestamps/%s' % fmt)
+
+
+def get_timestamps():
+    """Obtain the stored timestamps
+
+    Redis command summary
+    ---------------------
+    LRANGE state:timestamps 0 -1
+    """
+    import redbiom
+    import redbiom._requests
+    config = redbiom.get_config()
+    get = redbiom._requests.make_get(config)
+    return get('state', 'LRANGE', 'timestamps/0/-1')
+
+
 def create_context(name, description):
     """Create a context within the cache
 
@@ -182,6 +224,7 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     ValueError
         If the context to load into does not exist.
         If a samples metadata has not already been loaded.
+        If a table is empty.
 
     Notes
     -----
@@ -264,14 +307,26 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
                                           table.metadata(axis='observation'))
     if taxonomy is not None:
         post(context, 'HSET', "state/has-taxonomy/1")
+        hmgetter = redbiom._requests.buffered
+
+        tip_names = {n.name: n for n in taxonomy.tips()}
+        ids_ = hmgetter(tip_names, None, 'HMGET', context,
+                        get=get, buffer_size=100,
+                        multikey='feature-index')
+
+        for blk in ids_:
+            for entity, idx in zip(*blk):
+                tip_names[entity].name = idx
 
         for node in taxonomy.postorder(include_self=False):
             if not node.is_tip():
                 # define node -> children relationships
                 pack = []
+                terminal_pack = []
                 for c in node.children:
                     if c.is_tip():
-                        pack.append('terminal:%s' % c.name)
+                        pack.append('has-terminal')
+                        terminal_pack.append(c.name)
                     else:
                         pack.append(c.name)
 
@@ -283,6 +338,11 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
                 pack = ['%s/%s' % (c.name, node.name)
                         for c in node.children]
                 post(context, 'HMSET', 'taxonomy-parents/%s' % '/'.join(pack))
+
+                if terminal_pack:
+                    id_pack = '/'.join(terminal_pack)
+                    post(context, 'SADD', 'terminal-of:%s/%s' % (node.name,
+                                                                 id_pack))
 
     return len(samples)
 
@@ -405,9 +465,9 @@ def load_sample_metadata(md, tag=None):
         put('metadata', 'SET', key, json.dumps(columns))
 
     for col in indexed_columns:
-        bulk_set = ["%s/%s" % (idx, v) for idx, v in zip(md.index, md[col])
+        bulk_set = ["%s/%s" % (idx, quote_plus(str(v)))
+                    for idx, v in zip(md.index, md[col])
                     if _indexable(v, null_values)]
-
         payload = "category:%s/%s" % (col, '/'.join(bulk_set))
         post('metadata', 'HMSET', payload)
 
@@ -488,18 +548,12 @@ def load_sample_metadata_full_search(md, tag=None):
 
 
 def _indexable(value, nullables):
-    """Returns true if the value appears to be something that storable
+    """Returns true if the value appears to be something that storable"""
+    return value not in nullables
 
-    IMPORTANT: we cannot store values which contain a "/" as that character
-    has a special meaning for a path.
-    """
-    if value in nullables:
-        return False
 
-    if isinstance(value, (float, int, bool)):
-        return True
-    else:
-        return '/' not in value
+class AlreadyLoaded(ValueError):
+    pass
 
 
 def _stage_for_load(table, context, get, tag=None):
@@ -520,6 +574,10 @@ def _stage_for_load(table, context, get, tag=None):
     ------
     ValueError
         If a samples metadata has not already been loaded.
+    ValueError
+        If the table is empty.
+    AlreadyLoaded
+        If the table appears to already be loaded.
 
     Returns
     -------
@@ -536,9 +594,15 @@ def _stage_for_load(table, context, get, tag=None):
                              inplace=False)
     samples = set(table.ids())
 
+    if not samples:
+        raise ValueError("The table is empty.")
+
     represented = get(context, 'SMEMBERS', 'samples-represented')
     represented = set(represented)
     to_load = samples - represented
+
+    if not to_load and samples:
+        raise AlreadyLoaded("The table appears to already be loaded.")
 
     if not redbiom.util.has_sample_metadata(to_load):
         raise ValueError("Sample metadata must be loaded first.")

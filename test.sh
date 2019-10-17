@@ -9,7 +9,7 @@ else
 fi
 
 # https://stackoverflow.com/a/13864829/19741
-if [ ! -z ${REDBIOM_HOST+x} ]; then 
+if [ ! -z ${REDBIOM_HOST+x} ]; then
     if [[ ${REDBIOM_HOST} != *"http://127.0.0.1"* ]]; then
         if [ -z ${REDBIOM_OVERRIDE_HOST_AND_TEST+x} ]; then
             echo "An unexpected host is set for testing, and \$REDBIOM_OVERRIDE_HOST_AND_TEST is not set"
@@ -35,8 +35,8 @@ query="TACGTAGGTGGCAAGCGTTGTCCGGATTTACTGGGTGTAAAGGGCGTGCAGCCGGGCATGCAAGTCAGATGTG
 exp="exp_test_query_results.txt"
 obs="obs_test_query_results.txt"
 echo "UNTAGGED_10317.000033804" > ${exp}
-echo "UNTAGGED_10317.000047188" >> ${exp} 
-echo "UNTAGGED_10317.000046868" >> ${exp} 
+echo "UNTAGGED_10317.000047188" >> ${exp}
+echo "UNTAGGED_10317.000046868" >> ${exp}
 
 redbiom search features --context test ${query} | sort - > ${obs}
 md5test ${obs} ${exp}
@@ -46,7 +46,7 @@ echo ${query} | redbiom search features --context test | sort - > ${obs}
 md5test ${obs} ${exp}
 
 # fetch sample identifiers
-redbiom fetch samples-contained --context test --ambiguous=False | sort - > test_obs_samples_contained.txt
+redbiom fetch samples-contained --context test | sort - > test_obs_samples_contained.txt
 biom table-ids -i test.biom > test_exp_samples_contained_tmp.txt
 biom table-ids -i test_with_alts.biom >> test_exp_samples_contained_tmp.txt
 sort test_exp_samples_contained_tmp.txt | uniq > test_exp_samples_contained.txt
@@ -70,7 +70,7 @@ python -c "import biom; t = biom.load_table('cmdlinetest.biom'); assert sorted(t
 
 # we do _NOT_ expect the qiime compatible ID "10317.000046868.UNTAGGED" to work.
 # this is because we cannot safely convert it into a redbiom ID as we cannot
-# assume it is safe to rsplit('.', 1) on it as "." is a valid sample ID 
+# assume it is safe to rsplit('.', 1) on it as "." is a valid sample ID
 # character
 redbiom fetch samples --context test --output cmdlinetest.biom 10317.000033804 UNTAGGED_10317.000047188
 python -c "import biom; t = biom.load_table('cmdlinetest.biom'); assert sorted(t.ids()) == ['10317.000033804.UNTAGGED', '10317.000047188.UNTAGGED']"
@@ -150,7 +150,7 @@ md5test obs_metadata_counts.txt exp_metadata_counts.txt
 # load table with some duplicate sample IDs
 head -n 1 test.txt > test.with_dups.txt
 tail -n 2 test.txt >> test.with_dups.txt
-tail -n 1 test.txt | sed -s 's/^10317\.[0-9]*/anewID/' >> test.with_dups.txt
+tail -n 1 test.txt | sed 's/^10317\.[0-9]*/anewID/' >> test.with_dups.txt
 echo "Loaded 1 samples" > exp_load_count.txt
 redbiom admin load-sample-metadata --metadata test.with_dups.txt > obs_load_count.txt
 md5test obs_load_count.txt exp_load_count.txt
@@ -180,10 +180,10 @@ md5test obs_contexts.txt exp_contexts.txt
 
 # exercise table summary
 redbiom summarize table --table test.biom --context test --category COUNTRY --output obs_tablesummary_full.txt
-echo "feature	Australia	USA	United Kingdom" > exp_tablesummary.txt
-head -n 1 obs_tablesummary_full.txt > obs_tablesummary.txt
+echo "feature	Australia	USA	United Kingdom" | tr "	" "\n" | sort > exp_tablesummary.txt
+head -n 1 obs_tablesummary_full.txt | tr "	" "\n" | sort > obs_tablesummary.txt
 md5test obs_tablesummary.txt exp_tablesummary.txt
-if [[ "$(wc -l obs_tablesummary_full.txt | awk '{ print $1 }')" != "924" ]];  
+if [[ "$(wc -l obs_tablesummary_full.txt | awk '{ print $1 }')" != "924" ]];
 then
     echo "fail"
     exit 1

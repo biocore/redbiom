@@ -1,8 +1,9 @@
 import click
+import numpy as np
 
 
 NULL_VALUES = {'Not applicable', 'Unknown', 'Unspecified',
-               'Missing: Not collected', None,
+               'Missing: Not collected', None, np.nan,
                'Missing: Not provided',
                'Missing: Not Provided', 'missing', '',
                'Missing: Restricted access',
@@ -30,7 +31,7 @@ def from_or_nargs(from_, nargs_variable):
     return iter((s.strip() for s in nargs_variable))
 
 
-def ids_from(it, exact, axis, contexts):
+def ids_from(it, exact, axis, contexts, min_count=1):
     """Grab samples from an iterable of IDs
 
     Parameters
@@ -44,6 +45,8 @@ def ids_from(it, exact, axis, contexts):
         The axis to operate over.
     contexts : list of str
         The contexts to search in
+    min_count : int, optional
+        The minimum count (inclusive) to retain an observation.
 
     Notes
     -----
@@ -53,7 +56,7 @@ def ids_from(it, exact, axis, contexts):
     Returns
     -------
     set
-        The sample IDs associated with the search IDs.
+        The IDs associated with the search IDs.
 
     """
     import redbiom
@@ -70,12 +73,15 @@ def ids_from(it, exact, axis, contexts):
     if not isinstance(contexts, (list, set, tuple)):
         contexts = [contexts]
 
+    def min_count_filter(dat):
+        return {k: v for k, v in dat.items() if v >= min_count}
+
     it = list(it)
     fetcher = redbiom.admin.ScriptManager.get('fetch-%s' % axis)
     for context in contexts:
         context_ids = None
         for id_ in it:
-            block = se(fetcher, 0, context, id_)
+            block = min_count_filter(se(fetcher, 0, context, id_))
             if not exact:
                 if context_ids is None:
                     context_ids = set()
@@ -123,7 +129,6 @@ def category_exists(category, get=None):
 
 
 def float_or_nan(t):
-    import numpy as np
     try:
         return float(t)
     except Exception:
@@ -297,6 +302,7 @@ def df_to_stems(df):
     dict
         {stem: {set of indices}}
     """
+    from os.path import join, dirname
     from collections import defaultdict
     import functools
     import nltk
@@ -304,13 +310,16 @@ def df_to_stems(df):
     # not using nltk default as we want this to be portable so that, for
     # instance, a javascript library can query
     stemmer = nltk.PorterStemmer(nltk.PorterStemmer.MARTIN_EXTENSIONS)
-
+    nltk_data_path = join(dirname(__file__), 'assets', 'nltk_data')
+    if nltk.data.path[0] != nltk_data_path:
+        nltk.data.path = [nltk_data_path] + nltk.data.path
     stops = frozenset(nltk.corpus.stopwords.words('english'))
     stem_f = functools.partial(stems, stops, stemmer)
 
     d = defaultdict(set)
 
     for sample, row in df.iterrows():
+        row = row[~row.isnull()]
         for value in row.values:
             for stem in stem_f(value):
                 d[stem].add(sample)
@@ -320,22 +329,27 @@ def df_to_stems(df):
 
 def stems(stops, stemmer, string):
     """Gather stems from string"""
+    from os.path import join, dirname
     import re
     import nltk
     to_skip = set('()!@#$%^&*-+=|{}[]<>./?;:')
     to_skip.update(NULL_VALUES)
 
     # match numbers (doesn't catch sci notation...)
-    numeric_regex = re.compile('(^-?\d+\.\d+$)|(^-?\d+$)')
+    numeric_regex = re.compile(r'(^-?\d+\.\d+$)|(^-?\d+$)')
 
     # time like. we don't actually care if this doesn't match time
     # as things like 1234:23123 are probably not useful for *general* search
-    time_regex = re.compile("^\d+:\d+(am|AM|pm|PM)?$")
+    time_regex = re.compile(r"^\d+:\d+(am|AM|pm|PM)?$")
 
     if string in to_skip:
         raise StopIteration
 
     # for each word
+    nltk_data_path = join(dirname(__file__), 'assets', 'nltk_data')
+    if nltk.data.path[0] != nltk_data_path:
+        nltk.data.path = [nltk_data_path] + nltk.data.path
+
     for word in nltk.tokenize.word_tokenize(string):
         if word in to_skip or len(word) == 1:
             continue
@@ -354,3 +368,28 @@ def stems(stops, stemmer, string):
             yield stemmer.stem(word).lower()
         except Exception:
             continue
+
+
+def convert_biom_ids_to_md5(table):
+    """convert biom feature ids to md5 and return new table
+
+    Parameters
+    ----------
+    table : BIOM table
+
+    Returns
+    -------
+    BIOM table
+        The new BIOM table
+    dict
+        {original_id: new_id}
+    """
+    import hashlib
+    new_ids = dict()
+    for _id in table.ids(axis='observation'):
+        m = hashlib.md5()
+        m.update(_id.encode('utf-8'))
+        new_ids[_id] = m.hexdigest()
+    table.update_ids(new_ids, axis="observation")
+
+    return table, new_ids

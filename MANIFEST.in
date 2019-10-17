@@ -1,6 +1,12 @@
 include README.md
 include COPYING.txt
 include logo.png
+include redbiom/assets/nltk_data/corpora/stopwords/README
+include redbiom/assets/nltk_data/corpora/stopwords/english
+redbiom/assets/nltk_data/tokenizers/punkt/PY3/english.pickle
+redbiom/assets/nltk_data/tokenizers/punkt/PY3/README
+redbiom/assets/nltk_data/tokenizers/punkt/english.pickle
+redbiom/assets/nltk_data/tokenizers/punkt/README
 
 graft redbiom
 graft licenses

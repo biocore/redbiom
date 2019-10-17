@@ -13,13 +13,13 @@ import atexit
 
 # adapted from biom-format
 
-__version__ = '0.1.0'
+__version__ = '0.3.3'
 
 # db version follows macro/minor/micro expectations where a micro change should
 # be backwards compatible, a minor change introduces some backwards
 # incompatibility, and a major change represents a large shift in the
 # representation
-__db_version__ = '0.1.0'
+__db_version__ = '0.4.0'
 
 active_sessions = {}
 

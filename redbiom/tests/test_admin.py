@@ -1,5 +1,6 @@
 import unittest
 import hashlib
+import datetime
 
 import skbio
 import pandas as pd
@@ -67,8 +68,34 @@ class AdminTests(unittest.TestCase):
         req = requests.get(self.host + '/flushall')
         assert req.status_code == 200
         self.get = redbiom._requests.make_get(redbiom.get_config())
+        self.post = redbiom._requests.make_post(redbiom.get_config())
         self.se = redbiom._requests.make_script_exec(redbiom.get_config())
         redbiom.admin.ScriptManager.load_scripts(read_only=False)
+
+    def test_create_timestamp(self):
+        today = datetime.datetime.now()
+        today = datetime.datetime(today.year, today.month, today.day)
+        exp = today.strftime('%d.%b.%Y')
+        redbiom.admin.create_timestamp()
+        obs = self.get('state', 'LRANGE', 'timestamps/0/-1')
+        self.assertEqual(obs, [exp])
+
+    def test_get_timestamps(self):
+        exp = []
+        obs = redbiom.admin.get_timestamps()
+        self.assertEqual(obs, exp)
+
+        self.post('state', 'LPUSH', 'timestamps/foo')
+        self.post('state', 'LPUSH', 'timestamps/bar')
+        today = datetime.datetime.now()
+        today = datetime.datetime(today.year, today.month, today.day)
+        today = today.strftime('%d.%b.%Y')
+
+        redbiom.admin.create_timestamp()
+
+        exp = [today, 'bar', 'foo']
+        obs = redbiom.admin.get_timestamps()
+        self.assertEqual(obs, exp)
 
     def test_metadata_to_taxonomy_tree(self):
         exp = None
@@ -127,6 +154,22 @@ class AdminTests(unittest.TestCase):
         exp.update({'tagged_%s' % i for i in table.ids()})
         obs = self.get(context, 'SMEMBERS', 'samples-represented')
         self.assertEqual(set(obs), exp)
+
+    def test_load_sample_data_empty(self):
+        context = 'load-data-empty'
+        redbiom.admin.create_context(context, 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        with self.assertRaises(ValueError):
+            redbiom.admin.load_sample_data(biom.Table([], [], []), context,
+                                           tag=None)
+
+    def test_load_sample_data_alreadyloaded(self):
+        context = 'load-data-loaded'
+        redbiom.admin.create_context(context, 'foo')
+        redbiom.admin.load_sample_metadata(metadata)
+        redbiom.admin.load_sample_data(table, context, tag=None)
+        with self.assertRaises(redbiom.admin.AlreadyLoaded):
+            redbiom.admin.load_sample_data(table, context, tag=None)
 
     def test_load_features_partial(self):
         context = 'load-features-partial'
@@ -187,7 +230,8 @@ class AdminTests(unittest.TestCase):
         # has an unclassified genus, so it should have tips directly descending
         f__Actinomycetaceae = {'g__Varibaculum',
                                'g__Actinomyces',
-                               'terminal:TACGTAGGGCGCGAGCGTTGTCCGGAATTATTGGGCGTAAAGGGCTCGTAGGCGGCTTGTCGCGTCTGCTGTGAAAATGCGGGGCTTAACTCCGTACGTG'}  # noqa
+                               'has-terminal'}
+        f__Actinomycetaceae_terminal = 'TACGTAGGGCGCGAGCGTTGTCCGGAATTATTGGGCGTAAAGGGCTCGTAGGCGGCTTGTCGCGTCTGCTGTGAAAATGCGGGGCTTAACTCCGTACGTG'  # noqa
 
         obs_bacteria = self.get(context, 'SMEMBERS',
                                 ':'.join(['taxonomy-children',
@@ -198,10 +242,19 @@ class AdminTests(unittest.TestCase):
                                                   'f__Actinomycetaceae']))
         self.assertEqual(set(obs_Actinomycetaceae), f__Actinomycetaceae)
 
+        key = 'terminal-of:f__Actinomycetaceae'
+        obs_Actinomycetaceae_terminal = self.get(context, 'SMEMBERS', key)
+        self.assertEqual(len(obs_Actinomycetaceae_terminal), 1)
+        id_ = obs_Actinomycetaceae_terminal[0]
+        key = 'feature-index-inverted/%d' % int(id_)
+        obs_Actinomycetaceae_terminal = self.get(context, 'HGET', key)
+        self.assertEqual(obs_Actinomycetaceae_terminal,
+                         f__Actinomycetaceae_terminal)
+
         exp_parents = [('p__Firmicutes', 'k__Bacteria'),
                        ('p__Fusobacteria', 'k__Bacteria'),
                        ('g__Actinomyces', 'f__Actinomycetaceae'),
-                       ('TACGTAGGGCGCGAGCGTTGTCCGGAATTATTGGGCGTAAAGGGCTCGTAGGCGGCTTGTCGCGTCTGCTGTGAAAATGCGGGGCTTAACTCCGTACGTG', 'f__Actinomycetaceae')]  # noqa
+                       (id_, 'f__Actinomycetaceae')]
         for name, exp in exp_parents:
             obs = self.get(context, 'HGET', 'taxonomy-parents/%s' % name)
             self.assertEqual(obs, exp)
@@ -214,6 +267,22 @@ class AdminTests(unittest.TestCase):
         exp = set(metadata['#SampleID'])
         obs = set(self.get('metadata', 'SMEMBERS', 'samples-represented'))
         self.assertEqual(obs, exp)
+
+    def test_load_sample_metadata_encoded(self):
+        md = metadata.copy()
+        md['http_quoted_characters'] = ['foo', 'bar', 'foo/bar', 'baz$12',
+                                        'thing', 'stuff', 'asd#asd',
+                                        'a', 'b', 'c']
+        redbiom.admin.load_sample_metadata(md)
+
+        # NOTE: webdis decodes the encoded strings so they are stored in redis
+        # in their native representation
+        exp = ['foo', 'bar', 'foo/bar', 'baz$12',
+               'thing', 'stuff', 'asd#asd', 'a', 'b', 'c']
+        obs = self.get('metadata:category', 'HGETALL',
+                       'http_quoted_characters')
+        self.assertEqual(sorted([v for k, v in obs.items()]),
+                         sorted(exp))
 
     def test_load_sample_metadata_full_search(self):
         redbiom.admin.load_sample_metadata(metadata)
