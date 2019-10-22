@@ -1,4 +1,8 @@
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus as _quote_plus
+
+
+def quote_plus(s):
+    return _quote_plus(s).replace('.', '%2E')
 
 
 class ScriptManager:

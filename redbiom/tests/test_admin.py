@@ -72,6 +72,12 @@ class AdminTests(unittest.TestCase):
         self.se = redbiom._requests.make_script_exec(redbiom.get_config())
         redbiom.admin.ScriptManager.load_scripts(read_only=False)
 
+    def test_quote_plus(self):
+        data = ['foo.asd', 'bar/qwe', 'baz']
+        exp = ['foo%2Easd', 'bar%2Fqwe', 'baz']
+        for d, e in zip(data, exp):
+            self.assertEqual(redbiom.admin.quote_plus(d), e)
+
     def test_create_timestamp(self):
         today = datetime.datetime.now()
         today = datetime.datetime(today.year, today.month, today.day)
