@@ -284,6 +284,31 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(sorted([v for k, v in obs.items()]),
                          sorted(exp))
 
+    def test_load_sample_metadata_content_type_bug(self):
+        # webdis interprets /SET/FOO/bar.html as
+        # SET FOO bar
+        # and acts on the .html as a Content-Type request. This then breaks the
+        # assumption made in redbiom._requests where the return Content-Type is
+        # always JSON. While we are encoding characters to make them URL safe,
+        # Python's urllib.parse.quote_plus does not automatically encode
+        # "." characters.
+        # See: https://github.com/nicolasff/webdis#command-format
+        md = metadata.copy()
+        md['http_quoted_characters'] = ['a.html', 'b.html', 'foo/bar.html',
+                                        'baz.html', 'thing.html', 'stuff.html',
+                                        'asd#asd.html', 'a.html', 'b.html',
+                                        'foo.html']
+        redbiom.admin.load_sample_metadata(md)
+
+        exp = ['foo', 'bar', 'foo/bar', 'baz$12',
+               'thing', 'stuff', 'asd#asd', 'a', 'b', 'foo.html']
+        exp = ['a.html', 'b.html', 'foo/bar.html', 'baz.html', 'thing.html',
+               'stuff.html', 'asd#asd.html', 'a.html', 'b.html', 'foo.html']
+        obs = self.get('metadata:category', 'HGETALL',
+                       'http_quoted_characters')
+        self.assertEqual(sorted([v for k, v in obs.items()]),
+                         sorted(exp))
+
     def test_load_sample_metadata_full_search(self):
         redbiom.admin.load_sample_metadata(metadata)
         redbiom.admin.load_sample_metadata_full_search(metadata)
