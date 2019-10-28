@@ -81,6 +81,10 @@ If you would like to use redbiom as only a client (which is the general case), t
 
     $ pip install numpy
     $ pip install redbiom
+    
+Alternatively, you can install `redbiom` through conda:
+
+    $ conda install -c conda-forge redbiom
 
 ### Server
 
