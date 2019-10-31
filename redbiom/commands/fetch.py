@@ -62,16 +62,23 @@ def fetch_features_contained(context):
 @click.option('--tagged', is_flag=True, default=False,
               help=("Obtain the tag specific metadata (e.g., preparation "
                     "information)."))
+@click.option('--force-category', type=str, required=False, multiple=True,
+              help=("Force the output to include specific metadata variables "
+                    "if the metadata variable was observed in any of the "
+                    "samples. This can be specified mulitple times for "
+                    "multiple categories."))
 @click.argument('samples', nargs=-1)
 def fetch_sample_metadata(from_, samples, all_columns, context, output,
-                          tagged):
+                          tagged, force_category):
     """Retreive sample metadata."""
     import redbiom.util
     iterator = redbiom.util.from_or_nargs(from_, samples)
 
     import redbiom.fetch
+
     md, map_ = redbiom.fetch.sample_metadata(iterator, context=context,
                                              common=not all_columns,
+                                             restrict_to=force_category,
                                              tagged=tagged)
 
     md.to_csv(output, sep='\t', header=True, index=False, encoding='utf-8')
