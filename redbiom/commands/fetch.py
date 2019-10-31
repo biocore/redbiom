@@ -76,6 +76,9 @@ def fetch_sample_metadata(from_, samples, all_columns, context, output,
 
     import redbiom.fetch
 
+    if not force_category:
+        force_category = None
+
     md, map_ = redbiom.fetch.sample_metadata(iterator, context=context,
                                              common=not all_columns,
                                              restrict_to=force_category,
