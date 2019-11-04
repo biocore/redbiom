@@ -10,7 +10,10 @@ import redbiom.admin
 import redbiom.fetch
 from redbiom.fetch import (_biom_from_samples, sample_metadata,
                            samples_in_context, features_in_context,
-                           sample_counts_per_category, get_sample_values)
+                           sample_counts_per_category, get_sample_values,
+                           _ambiguity_keep_most_reads, _ambiguity_merge,
+                           _resolve_ambiguity)
+
 from redbiom.tests import assert_test_env
 
 assert_test_env()
@@ -354,6 +357,52 @@ class FetchTests(unittest.TestCase):
         self.assertEqual(len(obs), 2)
         self.assertEqual(obs['LATITUDE'], 10)
         self.assertEqual(obs['LONGITUDE'], 10)
+
+    def test_resolve_ambiguities(self):
+        other = ['blah.123', 'blah2.456', 'foo.X', 'foo.Y', 'bar.X', 'bar.Z']
+
+        exp = {'foo.X': 'foo',
+               'foo.Y': 'foo',
+               'bar.X': 'bar',
+               'bar.Z': 'bar',
+               'blah.123': 'blah',
+               'blah2.456': 'blah2'}
+
+        obs = _resolve_ambiguity(other)
+        self.assertEqual(obs, exp)
+
+    def test_ambiguity_merge(self):
+        table = biom.Table(np.array([[0, 1, 2, 3],
+                                     [4, 5, 6, 7],
+                                     [8, 9, 10, 11]]),
+                           ['O1', 'O2', 'O3'],
+                           ['10317.1234.foo',
+                            '10317.1234.bar',
+                            '10317.4321.foo',
+                            '10317.1234.baz'])
+        exp_table = biom.Table(np.array([[4, 2], [16, 6], [28, 10]]),
+                               ['O1', 'O2', 'O3'],
+                               ['10317.1234', '10317.4321'])
+        obs_table = _ambiguity_merge(table)
+        obs_table.del_metadata()
+        self.assertEqual(obs_table, exp_table)
+
+    def test_ambiguity_keep_most_reads(self):
+        table = biom.Table(np.array([[0, 3, 2, 1],
+                                     [4, 7, 6, 5],
+                                     [8, 11, 10, 9]]),
+                           ['O1', 'O2', 'O3'],
+                           ['10317.1234.foo',
+                            '10317.1234.bar',
+                            '10317.4321.foo',
+                            '10317.1234.baz'])
+
+        exp_table = biom.Table(np.array([[3, 2], [7, 6], [11, 10]]),
+                               ['O1', 'O2', 'O3'],
+                               ['10317.1234', '10317.4321'])
+
+        obs_table = _ambiguity_keep_most_reads(table)
+        self.assertEqual(obs_table, exp_table)
 
 
 if __name__ == '__main__':
