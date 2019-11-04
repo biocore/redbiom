@@ -103,9 +103,14 @@ def fetch_sample_metadata(from_, samples, all_columns, context, output,
               help="Calculate and use MD5 for the features. This will also "
               "save a tsv file with the original feature name and the md5",
               default=False)
+@click.option('--resolve-ambiguities', required=False,
+              type=click.Choice(['merge', 'most-reads']), default=None,
+              help=("Resolve ambiguities that may be present in the samples "
+                    "which can arise from, for example, technical "
+                    "replicates."))
 @click.argument('features', nargs=-1)
 def fetch_samples_from_obserations(features, exact, from_, output,
-                                   context, md5):
+                                   context, md5, resolve_ambiguities):
     """Fetch sample data containing features."""
     import redbiom.util
     iterable = redbiom.util.from_or_nargs(from_, features)
@@ -117,6 +122,11 @@ def fetch_samples_from_obserations(features, exact, from_, output,
         tab, new_ids = redbiom.util.convert_biom_ids_to_md5(tab)
         with open(output + '.tsv', 'w') as f:
             f.write('\n'.join(['\t'.join(x) for x in new_ids.items()]))
+
+    if resolve_ambiguities == 'merge':
+        tab = redbiom.fetch._ambiguity_keep_most_reads(tab, map_)
+    elif resolve_ambiguities == 'most-reads':
+        tab = redbiom.fetch._ambiguity_merge(tab, map_)
 
     import h5py
     with h5py.File(output, 'w') as fp:
@@ -137,8 +147,14 @@ def fetch_samples_from_obserations(features, exact, from_, output,
               help="Calculate and use MD5 for the features. This will also "
               "save a tsv file with the original feature name and the md5",
               default=False)
+@click.option('--resolve-ambiguities', required=False,
+              type=click.Choice(['merge', 'most-reads']), default=None,
+              help=("Resolve ambiguities that may be present in the samples "
+                    "which can arise from, for example, technical "
+                    "replicates."))
 @click.argument('samples', nargs=-1)
-def fetch_samples_from_samples(samples, from_, output, context, md5):
+def fetch_samples_from_samples(samples, from_, output, context, md5,
+                               resolve_ambiguities):
     """Fetch sample data."""
     import redbiom.util
     iterable = redbiom.util.from_or_nargs(from_, samples)
@@ -150,6 +166,11 @@ def fetch_samples_from_samples(samples, from_, output, context, md5):
         table, new_ids = redbiom.util.convert_biom_ids_to_md5(table)
         with open(output + '.tsv', 'w') as f:
             f.write('\n'.join(['\t'.join(x) for x in new_ids.items()]))
+
+    if resolve_ambiguities == 'merge':
+        table = redbiom.fetch._ambiguity_keep_most_reads(table, ambig)
+    elif resolve_ambiguities == 'most-reads':
+        table = redbiom.fetch._ambiguity_merge(table, ambig)
 
     import h5py
     with h5py.File(output, 'w') as fp:

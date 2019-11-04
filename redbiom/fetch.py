@@ -381,7 +381,12 @@ def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None):
     table = biom.Table(mat, obs_ids, sample_ids, obs_md)
     table.update_ids(rimap)
 
-    return table, stable_ids
+    ambiguity_map = {}
+    for k, v in rimap.items():
+        tag, id_ = k.split('_', 1)
+        ambiguity_map[v] = id_
+
+    return table, ambiguity_map
 
 
 def taxon_ancestors(context, ids, get=None, normalize=None):
