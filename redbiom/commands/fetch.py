@@ -62,6 +62,9 @@ def fetch_features_contained(context):
 @click.option('--tagged', is_flag=True, default=False,
               help=("Obtain the tag specific metadata (e.g., preparation "
                     "information)."))
+@click.option('--resolve-ambiguities', is_flag=True, default=False,
+              help=("Output unambiguous identifiers only. This option is "
+                    "incompatible with --tagged."))
 @click.option('--force-category', type=str, required=False, multiple=True,
               help=("Force the output to include specific metadata variables "
                     "if the metadata variable was observed in any of the "
@@ -69,12 +72,18 @@ def fetch_features_contained(context):
                     "multiple categories."))
 @click.argument('samples', nargs=-1)
 def fetch_sample_metadata(from_, samples, all_columns, context, output,
-                          tagged, force_category):
+                          tagged, force_category, resolve_ambiguities):
     """Retreive sample metadata."""
-    import redbiom.util
-    iterator = redbiom.util.from_or_nargs(from_, samples)
+    if resolve_ambiguities and tagged:
+        click.echo("Cannot resolve ambiguities and fetch tagged metadata",
+                   err=True)
+        click.exit(1)
 
+    import redbiom.util
     import redbiom.fetch
+    import pandas as pd
+
+    iterator = redbiom.util.from_or_nargs(from_, samples)
 
     if not force_category:
         force_category = None
@@ -83,6 +92,28 @@ def fetch_sample_metadata(from_, samples, all_columns, context, output,
                                              common=not all_columns,
                                              restrict_to=force_category,
                                              tagged=tagged)
+
+    if resolve_ambiguities:
+        md.set_index('#SampleID', inplace=True)
+
+        # a temporary key to use when resolving ambiguities
+        # that will be removed before writing the metadata
+        key = "__@@AMBIGUITY@@__"
+
+        # add ambiguity information into the frame
+        ambigs = pd.Series(map_)
+        ambigs = ambigs.loc[md.index]
+        md[key] = ambigs
+
+        # remove duplicated unambiguous identifiers
+        md = md[~md[key].duplicated()]
+
+        # remove our index, and replace the entries with the ambiguous names
+        md.reset_index(inplace=True)
+        md['#SampleID'] = md[key]
+
+        # cleanup
+        md.drop(columns=key, inplace=True)
 
     md.to_csv(output, sep='\t', header=True, index=False, encoding='utf-8')
 

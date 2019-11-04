@@ -175,14 +175,18 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None,
     samples = untagged + tagged_clean
 
     # resolve ambiguities
+    ambig_map = {}
     if context is not None:
         _, _, ambig_assoc, rbid_map = \
             redbiom.util.resolve_ambiguities(context, samples, get)
 
         if tagged:
             ambig_assoc = {rbid: [rbid] for rbid in rbid_map}
+            ambig_map = {rbid: rbid for rbid in rbid_map}
+        else:
+            ambig_map = {v: k.split('_', 1)[1] for k, v in rbid_map.items()}
     else:
-        ambig_assoc = {k: [k] for k in samples}
+        ambig_assoc = {k: k for k in samples}
 
     if not ambig_assoc:
         raise ValueError("None of the samples were found in the context")
@@ -235,7 +239,7 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None,
             new_ids.append("%s.%s" % (id_, tag))
         md['#SampleID'] = new_ids
 
-    return md, ambig_assoc
+    return md, ambig_map
 
 
 def data_from_features(context, features, exact):
