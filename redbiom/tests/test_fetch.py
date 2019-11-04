@@ -255,6 +255,7 @@ class FetchTests(unittest.TestCase):
         exp = metadata.copy()
         exp.set_index('#SampleID', inplace=True)
         obs, ambig = sample_metadata(table.ids(), common=False)
+
         obs.set_index('#SampleID', inplace=True)
         self.assertEqual(sorted(exp.index), sorted(obs.index))
         self.assertTrue(set(obs.columns).issubset(exp.columns))

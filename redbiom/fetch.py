@@ -186,7 +186,7 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None,
         else:
             ambig_map = {v: k.split('_', 1)[1] for k, v in rbid_map.items()}
     else:
-        ambig_assoc = {k: k for k in samples}
+        ambig_assoc = {k: [k] for k in samples}
 
     if not ambig_assoc:
         raise ValueError("None of the samples were found in the context")
