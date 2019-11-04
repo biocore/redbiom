@@ -381,7 +381,7 @@ def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None):
     table = biom.Table(mat, obs_ids, sample_ids, obs_md)
     table.update_ids(rimap)
 
-    return table, ambig_assoc
+    return table, stable_ids
 
 
 def taxon_ancestors(context, ids, get=None, normalize=None):
