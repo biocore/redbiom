@@ -124,7 +124,7 @@ In redbiom, the word "context" refers to a way in which the sample data were pro
 
 To support the one to many relationship between a sample's metadata and its data, within a context, a sample's IDs are prefixed by a "tag" which can be specified at load. Internally, within a context, these IDs are of the form `<tag>_<sample-id>`. The use of the `_` character ensures that they are not valid QIIME sample IDs, and is necessary so we can appropriately differentiate these IDs. Methods which write data will coerce these invalid QIIME IDs into valid IDs of the form `<sample-id>.<tag>`. **IMPORTANT**: if you run your own resource, it is important to specify `--tag` on load of sample data to differentiate BIOM tables in which the sample IDs between the tables may not be mutually exclusive. 
 
-Commands which write data will notify the user if there were ambiguities. An ambiguitiy means that there was a sample ID which mapped to multiple redbiom IDs within the output. The IDs written are unique because of the reasons noted above, 
+Commands which write data will notify the user if there were ambiguities. An ambiguitiy means that there was a sample ID which mapped to multiple redbiom IDs within the output. The IDs written are unique because of the reasons noted above.  
 
 # Command structure
 
