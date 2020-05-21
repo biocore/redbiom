@@ -473,9 +473,9 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
 
         # normalize if necessary to greengenes like strings
         if normalize is not None:
-            lineage = [l if l else "%s__" % r
-                       for l, r in zip_longest(lineage, normalize,
-                                               fillvalue=False)]
+            lineage = [lin if lin else "%s__" % rnk
+                       for lin, rnk in zip_longest(lineage, normalize,
+                                                   fillvalue=False)]
         lineages.append(lineage)
 
     return lineages

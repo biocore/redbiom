@@ -106,9 +106,9 @@ class FetchTests(unittest.TestCase):
         for id_, md in zip(exp.ids(axis='observation'),
                            exp.metadata(axis='observation')):
             lineage = md['taxonomy']
-            lineages[id_] = {'taxonomy': [l if l is not None else "%s__" % r
-                                          for l, r in zip_longest(lineage,
-                                                                  ranks)]}
+            lineages[id_] = {
+                'taxonomy': [lin if lin is not None else "%s__" % rnk
+                             for lin, rnk in zip_longest(lineage, ranks)]}
         exp.add_metadata(lineages, axis='observation')
 
         fetch = exp.ids()[:]

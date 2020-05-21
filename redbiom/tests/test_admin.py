@@ -345,9 +345,9 @@ class AdminTests(unittest.TestCase):
                                'ANTIBIOTIC_HISTORY'}),
                  ('hand', {'DOMINANT_HAND', }),
                  ('diseas', {'LIVER_DISEASE',
-                              'CARDIOVASCULAR_DISEASE',
-                              'LUNG_DISEASE',
-                              'KIDNEY_DISEASE'}),
+                             'CARDIOVASCULAR_DISEASE',
+                             'LUNG_DISEASE',
+                             'KIDNEY_DISEASE'}),
 
                  # note: this does not get "SEAFOOD" categories as that is its
                  # own stem. However, it will grab "SEA_FOOD" because that
