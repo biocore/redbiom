@@ -73,7 +73,7 @@ Find the feature IDs (Greengenes OTU IDs in this case) associated with S. aureus
 
 ### General requirements
 
-Redbiom depends on Python (tested on 3.5, 3.6 and 3.7), [BIOM](http://biom-format.org/) (tested on >= 2.1.5), [Pandas](http://pandas.pydata.org/) (tested on 0.19.0), [Click](http://click.pocoo.org/5/) (required >= 6.7), [nltk](http://www.nltk.org/) (tested on 3.2.2), [joblib](https://pythonhosted.org/joblib/) (tested on 0.9.3), and [scipy](https://www.scipy.org/) (whatever BIOM is happy with).
+Redbiom depends on Python (tested on 3.5 and 3.6), [BIOM](http://biom-format.org/) (tested on >= 2.1.5), [Pandas](http://pandas.pydata.org/) (tested on 0.19.0), [Click](http://click.pocoo.org/5/) (required >= 6.7), [nltk](http://www.nltk.org/) (tested on 3.2.2), [joblib](https://pythonhosted.org/joblib/) (tested on 0.9.3), and [scipy](https://www.scipy.org/) (whatever BIOM is happy with).
 
 ### Client
 
