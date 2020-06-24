@@ -24,6 +24,14 @@ def Str(s):
     return s
 
 
+def Constant(value, kind):
+    # should only be a number or string
+    if isinstance(value, (int, float)):
+        return Num(value)
+    else:
+        return Str(value)
+
+
 def Tuple(elts, ctx):
     return tuple(elts)
 
