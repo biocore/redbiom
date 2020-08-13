@@ -42,3 +42,7 @@ dump.rdb
 
 # webdis log
 webdis.log
+
+# IDE resources
+# IntelliJ/PyCharm
+.idea
