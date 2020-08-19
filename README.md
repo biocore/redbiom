@@ -46,7 +46,7 @@ Get all the samples in which the word "beer" is found:
 
 Get the closed reference OTU picking 16S V4 data for those samples (more on what `ctx` and `context` is in the longer examples below):
 
-    $ export ctx=Pick_closed-reference_OTUs-illumina-16S-v4-66f541
+    $ export ctx=Pick_closed-reference_OTUs-Greengenes-Illumina-16S-V4-5c6506
     $ redbiom search metadata beer | head | redbiom fetch samples --context $ctx --output beer_example.biom
     $ redbiom search metadata beer | head | redbiom fetch sample-metadata --context $ctx --output beer_example.txt
 
@@ -67,7 +67,7 @@ Find the feature IDs (Greengenes OTU IDs in this case) associated with S. aureus
 ...and then find samples which contain those 10 S. aureus features:
 
     $ redbiom search taxon --context $ctx s__aureus | head | redbiom search features --context $ctx | wc -l
-       40164
+       21577
 
 # Installation
 
@@ -184,42 +184,42 @@ By default, redbiom is setup to query against [Qiita](https://qiita.ucsd.edu). F
     10105.Ingredient.24
 
     $ redbiom search metadata beer | wc -l
-      70
+      416
 
 Now that we have some samples, let's pull out their sample data. Qiita contains a huge amount of data, which are logically partitioned by the sample preparations and processing parameters -- these partitions are denoted as **contexts** in redbiom. In order to pull out the data, we need to specify the context to operate in. There are a lot of contexts, so let's filter to only those which are 16S and V4 using `grep`. We're also going to `cut` the first three columns of data as the fourth one is a voluminous description of the processing parameters. And last, let's `sort` the results by the number of samples represented in the context. Unfortunately, the `grep` removes the column headers, so we'll run a second summarize command and just grab the header:
 
-    $ redbiom summarize contexts | cut -f 1,2,3 | grep 16S-v4 | grep Greengenes-illumina |  sort -k 2 -n
-    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v45-100nt-a243a1 22  8178
-    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v45-90nt-44feac  22  8471
-    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-41ebc6    100 14434
-    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v45-5c6506   102 29598
-    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-125nt-65468f  1122    13277
-    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-150nt-bd7d4d  90500   69304
-    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-90nt-44feac   125354  73083
-    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-5c6506    128222  82492
-    Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-100nt-a243a1  129596  74983
+    $ redbiom summarize contexts | cut -f 1,2,3 | grep 16S-V4 | grep Greengenes-Illumina |  sort -k 2 -n
+    Pick_closed-reference_OTUs-Greengenes-Illumina-16S-V4-41ebc6	100	14434
+    Pick_closed-reference_OTUs-Greengenes-Illumina-16S-V4-250nt-66a626	174	2686
+    Pick_closed-reference_OTUs-Greengenes-Illumina-16S-V4-200nt-a5e305	7009	16070
+    Pick_closed-reference_OTUs-Greengenes-Illumina-16S-V4-58196d	8468	34789
+    Pick_closed-reference_OTUs-Greengenes-Illumina-16S-V4-125nt-65468f	27100	43261
+    Pick_closed-reference_OTUs-Greengenes-Illumina-16S-V4-150nt-bd7d4d	145308	73089
+    Pick_closed-reference_OTUs-Greengenes-Illumina-16S-V4-90nt-44feac	173749	74298
+    Pick_closed-reference_OTUs-Greengenes-Illumina-16S-V4-100nt-a243a1	173809	75990
+    Pick_closed-reference_OTUs-Greengenes-Illumina-16S-V4-5c6506	200552	84164
 
     $ redbiom summarize contexts | head -n 1
     ContextName SamplesWithData FeaturesWithData    Description
 
 To reduce typing later, let's just pick a context and store it as an environment variable:
 
-    $ export ctx=Pick_closed-reference_OTUs-Greengenes-illumina-16S-v4-5c6506
+    $ export ctx=Pick_closed-reference_OTUs-Greengenes-Illumina-16S-V4-5c6506
 
 ...and now we can grab some data:
 
     $ redbiom search metadata beer | redbiom fetch samples --context $ctx --output example.biom
     $ biom summarize-table -i example.biom | head
-    Num samples: 37
-    Num observations: 3653
-    Total count: 2205617
-    Table density (fraction of non-zero values): 0.091
+    Num samples: 203
+    Num observations: 5,265
+    Total count: 5,187,346
+    Table density (fraction of non-zero values): 0.026
 
     Counts/sample summary:
-     Min: 1717.0
-     Max: 208223.0
-     Median: 59224.000
-     Mean: 59611.270
+    Min: 1.000
+    Max: 208,223.000
+    Median: 11,172.000
+    Mean: 25,553.429
     
 We probably also want to get the sample metadata:
 
@@ -230,21 +230,21 @@ You might note that the total number of samples found by the metadata search is 
 The query structures for metadata are fairly permissive, and there are actually two types of queries that can be performed. The structure is as follows: `<set operations> where <value restrictions>`. The `<set operations>` work by finding all samples with that contain a given word, which can be combined together. For the set queries, `&` performs an intersection of the sample IDs, `|` a union, and `-` a difference:
 
     $ redbiom search metadata "soil & europe where ph < 7" | wc -l
-    5521
+    5824
 
 **IMPORTANT**: just because a sample may have a word associated with it, does not mean that word is used as you may expect. In the example below, we're counting the number of samples by their described `sample_type` value. We are working to improve the search functionality, and it is important for users to scrutinize their results:
 
     $ redbiom search metadata "soil & europe where ph < 7" | redbiom summarize samples --category sample_type  | head
-    soil    1978
-    XXQIITAXX   1686
-    Soil    612
-    fresh water 519
-    peat    192
-    sebum   99
-    bodily fluid    81
-    belly   41
-    biofilm 39
-    ab_liq  38
+    XXQIITAXX	1489
+    soil	1186
+    fresh water	724
+    water	722
+    Soil	595
+    cheese	435
+    peat	192
+    biofilm	139
+    wetland soil	78
+    belly	41
 
 ### Search by feature
 
@@ -284,12 +284,12 @@ We can also use redbiom to search for samples containing features of interest. L
 One thing you might want to do is find features based on taxonomy. We can do this by searching for a taxon:
 
     $ redbiom search taxon g__Roseburia --context $ctx | wc -l
-         108
+         121
 
 What we get back are the feature IDs that are of that taxon. We can then take those feature IDs and feed them back into redbiom. So for instance, let's say we wanted to find all samples which contain a Roseburia feature:
 
     $ redbiom search taxon g__Roseburia --context $ctx | redbiom search features --context $ctx | wc -l
-       37539
+       84884
 
 **IMPORTANT** not all contexts necessarily have taxonomy, and taxonomy may not make sense for a context (e.g., if it contains KEGG Orthologous group features).
 
@@ -328,16 +328,16 @@ Then, we can use this list of samples to retrieve the biom table. The text file 
 We found a lot of samples that contain Roseburia. That isn't too surprising since Qiita contains a lot of fecal samples. How many? In this next example, we're taking all of the feature IDs associated with Roseburia, then finding all of the samples which contain that taxon, followed by binning each sample by their `sample_type` category value, and finally we're taking just the top 10 entries. You can see that the metadata are a bit noisy.
 
     $ redbiom search taxon g__Roseburia --context $ctx | redbiom search features --context $ctx | redbiom summarize samples --category sample_type | head
-    Stool   13251
-    stool   11416
-    XXQIITAXX   1029
-    tanker milk 984
-    biopsy  930
-    Floor   622
-    skin    615
-    Stool_Stabilizer    566
-    control blank   520
-    Mouth   420
+    Stool	21029
+    stool	18879
+    feces	16333
+    skin	4242
+    XXQIITAXX	3080
+    control blank	1253
+    saliva	1012
+    surface	995
+    tanker milk	984
+    biopsy	930
 
 We can still work through the noise though. Let's take our samples we found that contain Roseburia, and only select the ones that appear to obviously be fecal. Instead of summarizing as we did in our last example, we're going to "select" the samples in which `sample_type` is either "Stool" or "stool". (as this command is getting long, we'll break it up with \\):
 
@@ -345,7 +345,7 @@ We can still work through the noise though. Let's take our samples we found that
         redbiom search features --context $ctx | \
         redbiom select samples-from-metadata --context $ctx "where sample_type in ('Stool', 'stool')" | \
         wc -l
-       24667
+       39908
 
 And last, we can grab the data for those samples. Fetching data for 24,667 samples can take a few minutes, so for the purpose of the example, let's just grab the ones associated with skin. Please note the "ambiguity" on the output, more in a second on that:
 
