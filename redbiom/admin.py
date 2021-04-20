@@ -1,4 +1,6 @@
 from urllib.parse import quote_plus as _quote_plus
+from math import ceil
+import numpy as np
 
 
 def quote_plus(s):
@@ -9,13 +11,18 @@ class ScriptManager:
     """Static singleton for managing Lua scripts in the Redis backend"""
     # derived from http://stackoverflow.com/a/43900922/19741
     _scripts = {'get-index': """
-                    local kid = redis.call('HGET', KEYS[1], ARGV[1])
-                    if not kid then
-                      kid = redis.call('HINCRBY', KEYS[1], 'current_id', 1) - 1
-                      redis.call('HSET', KEYS[1], ARGV[1], kid)
-                      redis.call('HSET', KEYS[1] .. '-inverted', kid, ARGV[1])
+                    local indices = {}
+                    local kid = nil
+                    for position, name in ipairs(ARGV) do
+                        kid = redis.call('HGET', KEYS[1], name)
+                        if not kid then
+                          kid = redis.call('HINCRBY', KEYS[1], 'current_id', 1) - 1
+                          redis.call('HSET', KEYS[1], name, kid)
+                          redis.call('HSET', KEYS[1] .. '-inverted', kid, name)
+                        end
+                        indices[position] = kid
                     end
-                    return kid""",
+                    return cjson.encode(indices)""",
                 'fetch-feature': """
                     local context = ARGV[1]
                     local key = ARGV[2]
@@ -208,6 +215,13 @@ def create_context(name, description):
     post(name, 'HSET', "state/db-version/%s" % redbiom.__db_version__)
     ScriptManager.load_scripts()
 
+import datetime
+import inspect
+def getLineInfo(tag):
+    now = str(datetime.datetime.now())
+    # https://stackoverflow.com/a/45796693/19741
+    print(tag, now, inspect.stack()[1][1],":",inspect.stack()[1][2],":",
+                      inspect.stack()[1][3])
 
 def load_sample_data(table, context, tag=None, redis_protocol=False):
     """Load nonzero sample data.
@@ -268,18 +282,20 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
 
     redbiom._requests.valid(context, get)
 
+    getLineInfo('START _stage_for_load')
     table = _stage_for_load(table, context, get, tag)
+    getLineInfo('END _stage_for_load')
     samples = table.ids()[:]
     obs = table.ids(axis='observation')
 
-    obs_index = {}
-    for id_ in obs:
-        obs_index[id_] = get_index(context, id_, 'feature')
+    getLineInfo('START indexing')
 
-    samp_index = {}
-    for id_ in samples:
-        samp_index[id_] = get_index(context, id_, 'sample')
+    obs_index = {i: j for i, j in zip(obs, get_index(context, obs, 'feature'))}
+    samp_index = {i: j for i, j in
+                  zip(samples, get_index(context, samples, 'sample'))}
+    getLineInfo('END indexing')
 
+    getLineInfo('START per-sample')
     # load up per-sample
     for values, id_, _ in table.iter(dense=False):
         int_values = values.astype(int)
@@ -292,8 +308,10 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
 
     payload = "samples-represented/%s" % '/'.join(samples)
     post(context, 'SADD', payload)
+    getLineInfo('END per-sample')
 
     # load up per-observation
+    getLineInfo('START per-feature')
     for values, id_, md in table.iter(axis='observation', dense=False):
         int_values = values.astype(int)
         remapped = [samp_index[i] for i in samples[values.indices]]
@@ -305,11 +323,13 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
 
     payload = "features-represented/%s" % '/'.join(obs)
     post(context, 'SADD', payload)
+    getLineInfo('END per-feature')
 
     # load up taxonomy
     taxonomy = _metadata_to_taxonomy_tree(table.ids(axis='observation'),
                                           table.metadata(axis='observation'))
     if taxonomy is not None:
+        getLineInfo('START taxonony')
         post(context, 'HSET', "state/has-taxonomy/1")
         hmgetter = redbiom._requests.buffered
 
@@ -347,6 +367,7 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
                     id_pack = '/'.join(terminal_pack)
                     post(context, 'SADD', 'terminal-of:%s/%s' % (node.name,
                                                                  id_pack))
+        getLineInfo('END taxonony')
 
     return len(samples)
 
@@ -615,17 +636,19 @@ def _stage_for_load(table, context, get, tag=None):
     return table.filter(lambda v, i, md: v.sum() > 0, axis='observation')
 
 
-def get_index(context, key, axis):
+def get_index(context, keys, axis, batchsize=100):
     """Get a unique integer value for a key within a context
 
     Parameters
     ----------
     context : str
         The context to operate in
-    key : str
-        The key to get a unique index for
+    keys : list or tuple of str
+        The keys to get a unique index for
     axis : str
         Either feature or sample
+    batchsize : int, optional
+        The number of IDs to query at once
 
     Notes
     -----
@@ -638,24 +661,23 @@ def get_index(context, key, axis):
 
     Returns
     -------
-    int
-        A unique integer index within the context for the key
+    tuple of int
+        The unique integer indices within the context for the keys. This is
+        returned in index order with keys.
     """
     import redbiom
     import redbiom._requests
 
     config = redbiom.get_config()
 
-    # we need to issue the request directly as the command structure is
-    # rather different than other commands
-    s = redbiom._requests.get_session()
-    sha = ScriptManager.get('get-index')
-    url = '/'.join([config['hostname'], 'EVALSHA', sha,
-                    '1', "%s:%s-index" % (context, axis), key])
-    req = s.get(url)
+    se = redbiom._requests.make_script_exec(config)
+    indexer = ScriptManager.get('get-index')
+    context_axis = "%s:%s-index" % (context, axis)
 
-    if req.status_code != 200:
-        raise ValueError("Unable to obtain index; %d; %s" % (req.status_code,
-                                                             req.content))
+    indices = []
+    splits = max(1, ceil(len(keys) / batchsize))
+    for batch in np.array_split(keys, splits):
+        data = se(indexer, '1', context_axis, '/'.join(batch))
+        indices.extend(data)
 
-    return int(req.json()['EVALSHA'])
+    return [int(i) for i in indices]

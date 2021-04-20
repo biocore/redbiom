@@ -126,7 +126,8 @@ class AdminTests(unittest.TestCase):
                  ('B', 1), ('Z', 3), ('A', 0)]
         for key, exp in tests:
             obs = redbiom.admin.get_index(context, [key, ], 'feature')
-            self.assertEqual(obs, exp)
+            self.assertEqual(len(obs), 1)
+            self.assertEqual(obs[0], exp)
 
     def test_get_index_batch(self):
         context = 'load-features-test'
