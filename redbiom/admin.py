@@ -13,13 +13,19 @@ class ScriptManager:
     _scripts = {'get-index': """
                     local indices = {}
                     local kid = nil
+
+                    -- for each index and identifier (like python's enumerate)
                     for position, name in ipairs(ARGV) do
                         kid = redis.call('HGET', KEYS[1], name)
+
+                        -- if an identifier was not observed, add it
                         if not kid then
                           kid = redis.call('HINCRBY', KEYS[1], 'current_id', 1) - 1
                           redis.call('HSET', KEYS[1], name, kid)
                           redis.call('HSET', KEYS[1] .. '-inverted', kid, name)
                         end
+
+                        -- store store the mapping for return
                         indices[position] = tonumber(kid)
                     end
                     return cjson.encode(indices)""",
@@ -28,8 +34,8 @@ class ScriptManager:
                     -- so rather than recompiling with an arbitrary limit,
                     -- we're going to instead chunk calls where there are a
                     -- large number of arguments. The default is 8000 for the
-                    -- stack size, so we'll use 4000 to be close but not too
-                    -- close to the default, and re
+                    -- stack size, so we'll use 7900 to be close without
+                    -- going over
                     -- https://stackoverflow.com/a/39959618/19741
                     local call_in_chunks = function (command, key, args)
                         local step = 7900
@@ -297,11 +303,13 @@ def _load_axis_data(table, ids, opposite_ids, opposite_id_index, axis_label,
     post = redbiom._requests.make_post(config)
     loader_sha = ScriptManager.get('load-data')
 
+    # partition our IDs into smaller batches
     splits = max(1, ceil(len(ids) / batchsize))
     for batch in np.array_split(ids, splits):
         keys = []
         argv = []
 
+        # pack the id specific data into a format the Lua logic expects
         for id_ in batch:
             values = table.data(id_, axis=axis, dense=False)
             int_values = values.astype(int)
@@ -751,6 +759,8 @@ def get_index(context, keys, axis, batchsize=100):
     indices = []
     splits = max(1, ceil(len(keys) / batchsize))
     for batch in np.array_split(keys, splits):
+        # the redis EVALSHA command structure requires specifying how many keys
+        # there are, which is always 1 in this case.
         nkeys = '1'
         payload = [indexer_sha, nkeys, context_axis] + list(batch)
         data = json.loads(post(None, 'EVALSHA', '/'.join(payload)))
