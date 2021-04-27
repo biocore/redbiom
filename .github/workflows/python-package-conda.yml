@@ -25,32 +25,32 @@ jobs:
         git clone https://github.com/nicolasff/webdis
         cd webdis
         make
-      - name: Check out repository code
-        uses: actions/checkout@v2
-      - name: Setup for conda
-        uses: conda-incubator/setup-miniconda@v2
-        with:        
-          auto-update-conda: true
-          python-version: 3.7 
-      - name: Install
-        shell: bash -l {0}
-        run: |
-          conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python cython
-          conda activate activate test-env
-          conda install -c conda-forge --yes scikit-bio
-          pip install flake8 msgpack
-          pip install -e . --no-deps 
-      - name: Test
-        shell: bash -l {0}
-        run: |
-          conda activate test-env
-          pushd webdis
-          ./webdis &
-          popd
-          alias md5=md5sum
-          export REDBIOM_HOST=http://127.0.0.1:7379
-          redbiom summarize contexts  # will return a nonzero exit status if it cannot communicate with the default host
-          make test
+    - name: Check out repository code
+      uses: actions/checkout@v2
+    - name: Setup for conda
+      uses: conda-incubator/setup-miniconda@v2
+      with:        
+        auto-update-conda: true
+        python-version: 3.7 
+    - name: Install
+      shell: bash -l {0}
+      run: |
+        conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python cython
+        conda activate activate test-env
+        conda install -c conda-forge --yes scikit-bio
+        pip install flake8 msgpack
+        pip install -e . --no-deps 
+    - name: Test
+      shell: bash -l {0}
+      run: |
+        conda activate test-env
+        pushd webdis
+        ./webdis &
+        popd
+        alias md5=md5sum
+        export REDBIOM_HOST=http://127.0.0.1:7379
+        redbiom summarize contexts  # will return a nonzero exit status if it cannot communicate with the default host
+        make test
   lint:
     runs-on: ubuntu-latest
     steps:
