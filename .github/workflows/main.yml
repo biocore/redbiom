@@ -6,37 +6,30 @@ on:
     branches:
       - master
 
-# redis/webdis configuration adapted from
-# https://github.com/nicolasff/webdis/commit/b3eded6a1c888b4fea5d18c84c3f9accb0ccdf74
 jobs:
   build-and-run-tests:
-    runs-on: ubuntu-18.04     # this is a GitHub Runner, hosting the execution
-    container: ubuntu:18.04   # but this is a Docker Hub container, in which everything runs
-
-    services:
-      redis:
-        image: redis:6.2.1-alpine  # Docker Hub image used as a sidecar
-
+    runs-on: ubuntu-latest
+    
     steps:
     - name: Setup for conda
       uses: conda-incubator/setup-miniconda@v2
       with:        
         python-version: 3.6
         
-    - name: Install dependencies
+    - name: Webdis install
+      shell: bash -l {0}
       run: |
-        apt-get -y update
-        apt-get -y --force-yes install make gcc libevent-dev libmsgpack-dev python3 git
+        sudo apt-get -y install libevent-dev
         git clone https://github.com/nicolasff/webdis
         cd webdis
         make
-
+        
     - name: Check out repository code
       uses: actions/checkout@v2
       
     - name: Install
       run: |
-        conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python cython
+        conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python cython redis
         conda activate activate test-env
         conda install -c conda-forge --yes scikit-bio
         pip install flake8 msgpack
@@ -45,9 +38,13 @@ jobs:
     - name: Test
       run: |
         conda activate test-env
+        
+        redis-server --daemonize yes
+        
         pushd webdis
         ./webdis &
         popd
+        
         alias md5=md5sum
         export REDBIOM_HOST=http://127.0.0.1:7379
         redbiom summarize contexts  # will return a nonzero exit status if it cannot communicate with the default host
