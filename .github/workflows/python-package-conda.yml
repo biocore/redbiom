@@ -25,16 +25,13 @@ jobs:
         git clone https://github.com/nicolasff/webdis
         cd webdis
         make
-
       - name: Check out repository code
         uses: actions/checkout@v2
-
       - name: Setup for conda
         uses: conda-incubator/setup-miniconda@v2
         with:        
           auto-update-conda: true
           python-version: 3.7 
-      
       - name: Install
         shell: bash -l {0}
         run: |
@@ -43,7 +40,6 @@ jobs:
           conda install -c conda-forge --yes scikit-bio
           pip install flake8 msgpack
           pip install -e . --no-deps 
-
       - name: Test
         shell: bash -l {0}
         run: |
@@ -55,7 +51,6 @@ jobs:
           export REDBIOM_HOST=http://127.0.0.1:7379
           redbiom summarize contexts  # will return a nonzero exit status if it cannot communicate with the default host
           make test
-
   lint:
     runs-on: ubuntu-latest
     steps:
