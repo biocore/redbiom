@@ -4,7 +4,6 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    
      
 # redis/webdis configuration adapted from
 # https://github.com/nicolasff/webdis/commit/b3eded6a1c888b4fea5d18c84c3f9accb0ccdf74
@@ -27,7 +26,6 @@ jobs:
         cd webdis
         make
 
-      # Downloads a copy of the code in your repository before running CI tests
       - name: Check out repository code
         uses: actions/checkout@v2
 
@@ -40,10 +38,10 @@ jobs:
       - name: Install
         shell: bash -l {0}
         run: |
-				  conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python cython
-				  conda activate activate test-env
-				  conda install -c conda-forge --yes scikit-bio
-				  pip install flake8 msgpack
+          conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python cython
+          conda activate activate test-env
+          conda install -c conda-forge --yes scikit-bio
+          pip install flake8 msgpack
           pip install -e . --no-deps 
 
       - name: Test
@@ -53,9 +51,9 @@ jobs:
           pushd webdis
           ./webdis &
           popd
-  				alias md5=md5sum
+          alias md5=md5sum
           export REDBIOM_HOST=http://127.0.0.1:7379
-				  redbiom summarize contexts  # will return a nonzero exit status if it cannot communicate with the default host
+          redbiom summarize contexts  # will return a nonzero exit status if it cannot communicate with the default host
           make test
 
   lint:
@@ -71,6 +69,6 @@ jobs:
     - name: lint
       run: |
         pip install -q flake8
-  		  flake8 --ignore=E731 redbiom
+        flake8 --ignore=E731 redbiom
         
     
