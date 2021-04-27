@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         apt-get -y update
-        apt-get -y --force-yes install make gcc libevent-dev libmsgpack-dev python3
+        apt-get -y --force-yes install make gcc libevent-dev libmsgpack-dev python3 git
         git clone https://github.com/nicolasff/webdis
         cd webdis
         make
