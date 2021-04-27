@@ -20,9 +20,37 @@ class ScriptManager:
                           redis.call('HSET', KEYS[1], name, kid)
                           redis.call('HSET', KEYS[1] .. '-inverted', kid, name)
                         end
-                        indices[position] = kid
+                        indices[position] = tonumber(kid)
                     end
                     return cjson.encode(indices)""",
+                'load-data': """
+                    -- Redis has a compile time stack limit for Lua calls
+                    -- so rather than recompiling with an arbitrary limit,
+                    -- we're going to instead chunk calls where there are a
+                    -- large number of arguments. The default is 8000 for the
+                    -- stack size, so we'll use 4000 to be close but not too
+                    -- close to the default, and re
+                    -- https://stackoverflow.com/a/39959618/19741
+                    local call_in_chunks = function (command, key, args)
+                        local step = 7900
+                        for i = 1, #args, step do
+                            redis.call(command, key, unpack(args, i, math.min(i + step - 1, #args)))
+                        end
+                    end
+
+                    -- Lua does not have a natural split, for various reasons
+                    -- outlined in the URL below, so we need to do this
+                    -- manually. We'll split on "|" which should be safe
+                    -- as the values sent are only ever expected to be integers
+                    -- http://lua-users.org/wiki/SplitJoin
+                    for idx, arg in ipairs(ARGV) do
+                        local items = {}
+                        for item in string.gmatch(arg, "([^|]+)") do
+                            table.insert(items, item)
+                        end
+                        call_in_chunks('LPUSH', KEYS[idx], items)
+                    end
+                    return redis.status_reply("OK")""",
                 'fetch-feature': """
                     local context = ARGV[1]
                     local key = ARGV[2]
@@ -69,7 +97,7 @@ class ScriptManager:
                     end
 
                     return cjson.encode(result)"""}
-    _admin_scripts = ('get-index', )
+    _admin_scripts = ('get-index', 'load-data')
     _cache = {}
 
     @staticmethod
@@ -215,15 +243,90 @@ def create_context(name, description):
     post(name, 'HSET', "state/db-version/%s" % redbiom.__db_version__)
     ScriptManager.load_scripts()
 
-import datetime
-import inspect
-def getLineInfo(tag):
-    now = str(datetime.datetime.now())
-    # https://stackoverflow.com/a/45796693/19741
-    print(tag, now, inspect.stack()[1][1],":",inspect.stack()[1][2],":",
-                      inspect.stack()[1][3])
 
-def load_sample_data(table, context, tag=None, redis_protocol=False):
+def _load_axis_data(table, ids, opposite_ids, opposite_id_index, axis_label,
+                    context, batchsize):
+    """Manage the loading of data for a particular axis
+
+    Parameters
+    ----------
+    table : biom.Table
+        The table to obtain data from
+    ids : iterable of str
+        The IDs to obtain data for
+    opposite_ids : iterable of str
+        The IDs of the opposite axis in the table
+    opposite_id_index : dict
+        The index which maps an opposite ID to the index value within
+        the Redis database for the identifier
+    axis_label : str
+        The biom.Table axis label of ids
+    context : str
+        The context to load the data into
+    batchsize : int
+        The number of identifiers to group into a single request
+
+    Notes
+    -----
+    This method does not support non count data.
+
+    Data are loaded through the "load-data" Lua script managed in the
+    ScriptsManager. This method in effect packs the data into a structure
+    compatible with Webdis, and the EVALSHA command structure of Redis. The
+    "load-data" script then iterates over the "KEYS" and "ARGV"s, parsing
+    the respective entries into values that can be directly loaded.
+
+    Redis command summary
+    ---------------------
+    EVALSHA <load-data-sha1> N <context>:<axis_label>:<id> ... <packeddata> ...
+
+    Note that "N" refers to the number of "KEYS". The "load-data" Lua script
+    assumes that there are "N" "KEYS" as well as "N" "ARGV"s. For the call,
+    "KEYS" are the prefixed identifiers (e.g., "<context>:<axis_label>:<id>")
+    and "ARGV" are the "packeddata". "KEYS" and "ARGV" are expected to be in
+    index order with each other.
+    """
+    import redbiom
+    import redbiom._requests
+    if axis_label == 'feature':
+        axis = 'observation'
+    else:
+        axis = 'sample'
+
+    config = redbiom.get_config()
+    post = redbiom._requests.make_post(config)
+    loader_sha = ScriptManager.get('load-data')
+
+    splits = max(1, ceil(len(ids) / batchsize))
+    for batch in np.array_split(ids, splits):
+        keys = []
+        argv = []
+
+        for id_ in batch:
+            values = table.data(id_, axis=axis, dense=False)
+            int_values = values.astype(int)
+            remapped = [opposite_id_index[i]
+                        for i in opposite_ids[values.indices]]
+
+            packed = '|'.join(["%d|%d" % (v, i)
+                               for i, v in zip(remapped, int_values.data)])
+
+            keys.append(f"{context}:{axis_label}:{id_}")
+            argv.append(packed)
+
+        nkeys = str(len(keys))
+
+        # load the count data
+        payload = [loader_sha, nkeys] + keys + argv
+        post(None, 'EVALSHA', '/'.join(payload))
+
+        # note which identifiers are represented
+        payload = f"{axis_label}s-represented/%s" % '/'.join(batch)
+        post(context, 'SADD', payload, verbose=False)
+
+
+def load_sample_data(table, context, tag=None, redis_protocol=False,
+                     batchsize=1000):
     """Load nonzero sample data.
 
     Parameters
@@ -236,6 +339,8 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
         A tag to associated the samples with (e.g., a preparation ID).
     redis_protocol : bool, optional
         Generate commands for bulk load instead of HTTP requests.
+    batchsize : int, optional
+        The number of samples or features to load at once
 
     Raises
     ------
@@ -277,59 +382,28 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
     import redbiom.util
 
     config = redbiom.get_config()
-    post = redbiom._requests.make_post(config, redis_protocol=redis_protocol)
     get = redbiom._requests.make_get(config)
+    post = redbiom._requests.make_post(config)
 
     redbiom._requests.valid(context, get)
 
-    getLineInfo('START _stage_for_load')
     table = _stage_for_load(table, context, get, tag)
-    getLineInfo('END _stage_for_load')
     samples = table.ids()[:]
-    obs = table.ids(axis='observation')
-
-    getLineInfo('START indexing')
+    obs = table.ids(axis='observation')[:]
 
     obs_index = {i: j for i, j in zip(obs, get_index(context, obs, 'feature'))}
     samp_index = {i: j for i, j in
                   zip(samples, get_index(context, samples, 'sample'))}
-    getLineInfo('END indexing')
 
-    getLineInfo('START per-sample')
-    # load up per-sample
-    for values, id_, _ in table.iter(dense=False):
-        int_values = values.astype(int)
-        remapped = [obs_index[i] for i in obs[values.indices]]
-
-        packed = '/'.join(["%d/%s" % (v, i)
-                           for i, v in zip(remapped,
-                                           int_values.data)])
-        post(context, 'LPUSH', 'sample:%s/%s' % (id_, packed))
-
-    payload = "samples-represented/%s" % '/'.join(samples)
-    post(context, 'SADD', payload)
-    getLineInfo('END per-sample')
-
-    # load up per-observation
-    getLineInfo('START per-feature')
-    for values, id_, md in table.iter(axis='observation', dense=False):
-        int_values = values.astype(int)
-        remapped = [samp_index[i] for i in samples[values.indices]]
-
-        packed = '/'.join(["%d/%s" % (v, i)
-                           for i, v in zip(remapped,
-                                           int_values.data)])
-        post(context, 'LPUSH', 'feature:%s/%s' % (id_, packed))
-
-    payload = "features-represented/%s" % '/'.join(obs)
-    post(context, 'SADD', payload)
-    getLineInfo('END per-feature')
+    _load_axis_data(table, samples, obs, obs_index, 'sample', context,
+                    batchsize=10)
+    _load_axis_data(table, obs, samples, samp_index, 'feature', context,
+                    batchsize=500)
 
     # load up taxonomy
     taxonomy = _metadata_to_taxonomy_tree(table.ids(axis='observation'),
                                           table.metadata(axis='observation'))
     if taxonomy is not None:
-        getLineInfo('START taxonony')
         post(context, 'HSET', "state/has-taxonomy/1")
         hmgetter = redbiom._requests.buffered
 
@@ -367,7 +441,6 @@ def load_sample_data(table, context, tag=None, redis_protocol=False):
                     id_pack = '/'.join(terminal_pack)
                     post(context, 'SADD', 'terminal-of:%s/%s' % (node.name,
                                                                  id_pack))
-        getLineInfo('END taxonony')
 
     return len(samples)
 
@@ -666,18 +739,21 @@ def get_index(context, keys, axis, batchsize=100):
         returned in index order with keys.
     """
     import redbiom
+    import json
     import redbiom._requests
 
     config = redbiom.get_config()
 
-    se = redbiom._requests.make_script_exec(config)
-    indexer = ScriptManager.get('get-index')
+    post = redbiom._requests.make_post(config)
+    indexer_sha = ScriptManager.get('get-index')
     context_axis = "%s:%s-index" % (context, axis)
 
     indices = []
     splits = max(1, ceil(len(keys) / batchsize))
     for batch in np.array_split(keys, splits):
-        data = se(indexer, '1', context_axis, '/'.join(batch))
+        nkeys = '1'
+        payload = [indexer_sha, nkeys, context_axis] + list(batch)
+        data = json.loads(post(None, 'EVALSHA', '/'.join(payload)))
         indices.extend(data)
 
-    return [int(i) for i in indices]
+    return indices
