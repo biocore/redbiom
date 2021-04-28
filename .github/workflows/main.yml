@@ -29,6 +29,7 @@ jobs:
       uses: actions/checkout@v2
       
     - name: Install
+      shell: bash -l {0}
       run: |
         conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python cython redis
         conda activate test-env
@@ -37,6 +38,7 @@ jobs:
         pip install -e . --no-deps 
 
     - name: Test
+      shell: bash -l {0}
       run: |
         conda activate test-env
         
