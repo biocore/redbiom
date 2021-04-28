@@ -46,7 +46,7 @@ jobs:
         redis-server --daemonize yes
         
         pwd
-        cd webdis
+        pushd webdis
         ./webdis &
         popd
         
