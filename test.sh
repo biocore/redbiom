@@ -21,8 +21,11 @@ fi
 alias md5=md5sum
 function md5test ()
 {
-    _obs=`sort ${1} | ${md5}`
-    _exp=`sort ${2} | ${md5}`
+    # biom summarize-table sets locale, making the 
+    # presence of a numeric separator difference 
+    # across systems. so let's remove "," if we see it.
+    _obs=`sort ${1} | tr -d "," | ${md5}`
+    _exp=`sort ${2} | tr -d "," | ${md5}`
     if [[ "${_obs}" != "${_exp}" ]]; then
         echo "Failed"
         echo "*****OBS*****"
