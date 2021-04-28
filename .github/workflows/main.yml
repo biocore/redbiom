@@ -23,7 +23,7 @@ jobs:
     - name: Install
       shell: bash -l {0}
       run: |
-        conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python cython redis
+        conda create --yes -n test-env -c bioconda python=3.6 biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python cython redis==3.2.6
         conda activate test-env
         conda install -c conda-forge --yes scikit-bio
         pip install flake8 msgpack
