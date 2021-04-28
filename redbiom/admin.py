@@ -280,7 +280,7 @@ def _load_axis_data(table, ids, opposite_ids, opposite_id_index, axis_label,
 
     Notes
     -----
-    This method does not support non count data.
+    This method only supports count data.
 
     Data are loaded through the "load-data" Lua script managed in the
     ScriptsManager. This method in effect packs the data into a structure
