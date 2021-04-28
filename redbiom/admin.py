@@ -20,7 +20,9 @@ class ScriptManager:
 
                         -- if an identifier was not observed, add it
                         if not kid then
-                          kid = redis.call('HINCRBY', KEYS[1], 'current_id', 1) - 1
+                          kid = redis.call('HINCRBY',
+                                           KEYS[1],
+                                           'current_id', 1) - 1
                           redis.call('HSET', KEYS[1], name, kid)
                           redis.call('HSET', KEYS[1] .. '-inverted', kid, name)
                         end
@@ -40,7 +42,11 @@ class ScriptManager:
                     local call_in_chunks = function (command, key, args)
                         local step = 7900
                         for i = 1, #args, step do
-                            redis.call(command, key, unpack(args, i, math.min(i + step - 1, #args)))
+                            redis.call(command,
+                                       key,
+                                       unpack(args,
+                                              i,
+                                              math.min(i + step - 1, #args)))
                         end
                     end
 
