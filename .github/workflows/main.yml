@@ -13,7 +13,8 @@ jobs:
     steps:
     - name: Setup for conda
       uses: conda-incubator/setup-miniconda@v2
-      with:        
+      with:
+        auto-update-conda: true
         python-version: 3.6
         
     - name: Webdis install
@@ -30,7 +31,7 @@ jobs:
     - name: Install
       run: |
         conda create --yes -n test-env -c bioconda python=$PYTHON_VERSION biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python cython redis
-        conda activate activate test-env
+        conda activate test-env
         conda install -c conda-forge --yes scikit-bio
         pip install flake8 msgpack
         pip install -e . --no-deps 
