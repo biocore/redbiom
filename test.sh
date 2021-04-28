@@ -25,6 +25,11 @@ function md5test ()
     _exp=`sort ${2} | ${md5}`
     if [[ "${_obs}" != "${_exp}" ]]; then
         echo "Failed"
+        echo "*****OBS*****"
+        cat ${_obs}
+        echo
+        echo "*****EXP*****"
+        cat ${_exp}
         exit 1
     fi
 }
