@@ -26,10 +26,10 @@ function md5test ()
     if [[ "${_obs}" != "${_exp}" ]]; then
         echo "Failed"
         echo "*****OBS*****"
-        cat ${_obs}
+        cat ${1}
         echo
         echo "*****EXP*****"
-        cat ${_exp}
+        cat ${2}
         exit 1
     fi
 }
