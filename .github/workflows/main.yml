@@ -28,7 +28,7 @@ jobs:
     - name: Install
       shell: bash -l {0}
       run: |
-        conda create --yes -n test-env python=${{ matrix.python-version }} requests pandas click==6.7 "redis<5.0.0"
+        conda create --yes -n test-env python=${{ matrix.python-version }} requests pandas click "redis<5.0.0"
         pip install biom-format
         conda activate test-env
         conda install -c conda-forge --yes scikit-bio
