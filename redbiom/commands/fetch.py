@@ -77,7 +77,8 @@ def fetch_sample_metadata(from_, samples, all_columns, context, output,
     if resolve_ambiguities and tagged:
         click.echo("Cannot resolve ambiguities and fetch tagged metadata",
                    err=True)
-        click.exit(1)
+        import sys
+        sys.exit(1)
 
     import redbiom.util
     import redbiom.fetch
