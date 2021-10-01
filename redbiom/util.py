@@ -343,7 +343,7 @@ def stems(stops, stemmer, string):
     time_regex = re.compile(r"^\d+:\d+(am|AM|pm|PM)?$")
 
     if string in to_skip:
-        raise StopIteration
+        return
 
     # for each word
     nltk_data_path = join(dirname(__file__), 'assets', 'nltk_data')
