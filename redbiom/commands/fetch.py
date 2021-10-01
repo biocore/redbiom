@@ -155,9 +155,9 @@ def fetch_samples_from_obserations(features, exact, from_, output,
             f.write('\n'.join(['\t'.join(x) for x in new_ids.items()]))
 
     if resolve_ambiguities == 'merge':
-        tab = redbiom.fetch._ambiguity_keep_most_reads(tab, map_)
-    elif resolve_ambiguities == 'most-reads':
         tab = redbiom.fetch._ambiguity_merge(tab, map_)
+    elif resolve_ambiguities == 'most-reads':
+        tab = redbiom.fetch._ambiguity_keep_most_reads(tab, map_)
 
     import h5py
     with h5py.File(output, 'w') as fp:
@@ -199,9 +199,9 @@ def fetch_samples_from_samples(samples, from_, output, context, md5,
             f.write('\n'.join(['\t'.join(x) for x in new_ids.items()]))
 
     if resolve_ambiguities == 'merge':
-        table = redbiom.fetch._ambiguity_keep_most_reads(table, ambig)
-    elif resolve_ambiguities == 'most-reads':
         table = redbiom.fetch._ambiguity_merge(table, ambig)
+    elif resolve_ambiguities == 'most-reads':
+        table = redbiom.fetch._ambiguity_keep_most_reads(table, ambig)
 
     import h5py
     with h5py.File(output, 'w') as fp:
