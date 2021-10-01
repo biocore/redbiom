@@ -207,7 +207,6 @@ def fetch_samples_from_samples(samples, from_, output, context, md5,
     import h5py
     with h5py.File(output, 'w') as fp:
         table.to_hdf5(fp, 'redbiom')
-    print("asdasdasdasd")
     _write_ambig(ambig, output)
 
 
