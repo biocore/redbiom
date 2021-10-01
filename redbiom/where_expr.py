@@ -24,7 +24,7 @@ def Str(s):
     return s
 
 
-def Constant(value, kind):
+def Constant(value, kind=None):
     # should only be a number or string
     if isinstance(value, (int, float)):
         return Num(value)
