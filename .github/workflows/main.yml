@@ -9,6 +9,9 @@ on:
 jobs:
   build-and-run-tests:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.6', '3.7', '3.8']
     
     steps:
     - name: Check out repository code
@@ -18,12 +21,11 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2
       with:
         auto-update-conda: true
-        python-version: 3.6
 
     - name: Install
       shell: bash -l {0}
       run: |
-        conda create --yes -n test-env -c bioconda python=3.6 biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python cython "redis<5.0.0"
+          conda create --yes -n test-env -c bioconda python=${{ matrix.python-version }} biom-format requests pandas click==6.7 nose sqlite joblib nltk msgpack-python cython "redis<5.0.0"
         conda activate test-env
         conda install -c conda-forge --yes scikit-bio
         pip install flake8 msgpack
