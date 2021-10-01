@@ -206,18 +206,21 @@ def fetch_samples_from_samples(samples, from_, output, context, md5,
     import h5py
     with h5py.File(output, 'w') as fp:
         table.to_hdf5(fp, 'redbiom')
-
+    print("asdasdasdasd")
     _write_ambig(ambig, output)
 
 
 def _write_ambig(map_, output):
-    has_ambig = {len(v) for v in map_.values()}
+    from collections import defaultdict
+    ambig = defaultdict(list)
+    for k, v in map_.items():
+        ambig[v].append(k)
+    ambig = {k: v for k, v in ambig.items() if len(v) > 1}
 
-    if has_ambig and has_ambig != set([1]):
+    if len(ambig) > 1:
         import json
-        ambig = {k: v for k, v in map_.items() if len(v) > 1}
         click.echo("%d sample ambiguities observed. Writing ambiguity "
                    "mappings to: %s" % (len(ambig), output + '.ambiguities'),
                    err=True)
         with open(output + '.ambiguities', 'w') as fp:
-            fp.write(json.dumps(ambig))
+            fp.write(json.dumps(ambig, indent=2))
