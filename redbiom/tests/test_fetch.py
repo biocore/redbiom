@@ -2,6 +2,7 @@ import unittest
 import requests
 from future.moves.itertools import zip_longest
 
+import numpy as np
 import biom
 import pandas as pd
 import pandas.util.testing as pdt
@@ -10,7 +11,9 @@ import redbiom.admin
 import redbiom.fetch
 from redbiom.fetch import (_biom_from_samples, sample_metadata,
                            samples_in_context, features_in_context,
-                           sample_counts_per_category, get_sample_values)
+                           sample_counts_per_category, get_sample_values,
+                           _ambiguity_keep_most_reads, _ambiguity_merge)
+
 from redbiom.tests import assert_test_env
 
 assert_test_env()
@@ -103,14 +106,14 @@ class FetchTests(unittest.TestCase):
         for id_, md in zip(exp.ids(axis='observation'),
                            exp.metadata(axis='observation')):
             lineage = md['taxonomy']
-            lineages[id_] = {'taxonomy': [l if l is not None else "%s__" % r
-                                          for l, r in zip_longest(lineage,
-                                                                  ranks)]}
+            lineages[id_] = {
+                'taxonomy': [lin if lin is not None else "%s__" % rnk
+                             for lin, rnk in zip_longest(lineage, ranks)]}
         exp.add_metadata(lineages, axis='observation')
 
         fetch = exp.ids()[:]
 
-        exp_map = {k: ["UNTAGGED_%s" % k] for k in exp.ids()}
+        exp_map = {"%s.UNTAGGED" % k: k for k in exp.ids()}
         exp.update_ids({k: "%s.UNTAGGED" % k for k in exp.ids()})
 
         obs, obs_map = _biom_from_samples('test', fetch,
@@ -252,6 +255,7 @@ class FetchTests(unittest.TestCase):
         exp = metadata.copy()
         exp.set_index('#SampleID', inplace=True)
         obs, ambig = sample_metadata(table.ids(), common=False)
+
         obs.set_index('#SampleID', inplace=True)
         self.assertEqual(sorted(exp.index), sorted(obs.index))
         self.assertTrue(set(obs.columns).issubset(exp.columns))
@@ -354,6 +358,82 @@ class FetchTests(unittest.TestCase):
         self.assertEqual(len(obs), 2)
         self.assertEqual(obs['LATITUDE'], 10)
         self.assertEqual(obs['LONGITUDE'], 10)
+
+    def test_ambiguity_merge(self):
+        ambig_map = {'10317.1234.foo': '10317.1234',
+                     '10317.1234.bar': '10317.1234',
+                     '10317.4321.foo': '10317.4321',
+                     '10317.1234.baz': '10317.1234'}
+        table = biom.Table(np.array([[0, 1, 2, 3],
+                                     [4, 5, 6, 7],
+                                     [8, 9, 10, 11]]),
+                           ['O1', 'O2', 'O3'],
+                           ['10317.1234.foo',
+                            '10317.1234.bar',
+                            '10317.4321.foo',
+                            '10317.1234.baz'])
+        exp_table = biom.Table(np.array([[4, 2], [16, 6], [28, 10]]),
+                               ['O1', 'O2', 'O3'],
+                               ['10317.1234', '10317.4321'])
+        obs_table = _ambiguity_merge(table, ambig_map)
+        obs_table.del_metadata()
+        obs_table = obs_table.sort_order(exp_table.ids())
+        self.assertEqual(obs_table, exp_table)
+
+    def test_ambiguity_merge_mismatch(self):
+        ambig_map = {'10317.1234.foo': '10317.1234',
+                     '10317.4321.foo': '10317.4321',
+                     '10317.1234.baz': '10317.1234'}
+        table = biom.Table(np.array([[0, 1, 2, 3],
+                                     [4, 5, 6, 7],
+                                     [8, 9, 10, 11]]),
+                           ['O1', 'O2', 'O3'],
+                           ['10317.1234.foo',
+                            '10317.1234.bar',
+                            '10317.4321.foo',
+                            '10317.1234.baz'])
+
+        with self.assertRaisesRegex(ValueError, "IDs are inconsistent"):
+            _ambiguity_merge(table, ambig_map)
+
+    def test_ambiguity_keep_most_reads(self):
+        ambig_map = {'10317.1234.foo': '10317.1234',
+                     '10317.1234.bar': '10317.1234',
+                     '10317.4321.foo': '10317.4321',
+                     '10317.1234.baz': '10317.1234'}
+
+        table = biom.Table(np.array([[0, 3, 2, 1],
+                                     [4, 7, 6, 5],
+                                     [8, 11, 10, 9]]),
+                           ['O1', 'O2', 'O3'],
+                           ['10317.1234.foo',
+                            '10317.1234.bar',
+                            '10317.4321.foo',
+                            '10317.1234.baz'])
+
+        exp_table = biom.Table(np.array([[3, 2], [7, 6], [11, 10]]),
+                               ['O1', 'O2', 'O3'],
+                               ['10317.1234', '10317.4321'])
+
+        obs_table = _ambiguity_keep_most_reads(table, ambig_map)
+        self.assertEqual(obs_table, exp_table)
+
+    def test_ambiguity_keep_most_reads_mismatch(self):
+        ambig_map = {'10317.1234.foo': '10317.1234',
+                     '10317.4321.foo': '10317.4321',
+                     '10317.1234.baz': '10317.1234'}
+
+        table = biom.Table(np.array([[0, 3, 2, 1],
+                                     [4, 7, 6, 5],
+                                     [8, 11, 10, 9]]),
+                           ['O1', 'O2', 'O3'],
+                           ['10317.1234.foo',
+                            '10317.1234.bar',
+                            '10317.4321.foo',
+                            '10317.1234.baz'])
+
+        with self.assertRaisesRegex(ValueError, "IDs are inconsistent"):
+            _ambiguity_keep_most_reads(table, ambig_map)
 
 
 if __name__ == '__main__':

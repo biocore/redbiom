@@ -175,12 +175,16 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None,
     samples = untagged + tagged_clean
 
     # resolve ambiguities
+    ambig_map = {}
     if context is not None:
         _, _, ambig_assoc, rbid_map = \
             redbiom.util.resolve_ambiguities(context, samples, get)
 
         if tagged:
             ambig_assoc = {rbid: [rbid] for rbid in rbid_map}
+            ambig_map = {rbid: rbid for rbid in rbid_map}
+        else:
+            ambig_map = {v: k.split('_', 1)[1] for k, v in rbid_map.items()}
     else:
         ambig_assoc = {k: [k] for k in samples}
 
@@ -235,7 +239,7 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None,
             new_ids.append("%s.%s" % (id_, tag))
         md['#SampleID'] = new_ids
 
-    return md, ambig_assoc
+    return md, ambig_map
 
 
 def data_from_features(context, features, exact):
@@ -381,7 +385,12 @@ def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None):
     table = biom.Table(mat, obs_ids, sample_ids, obs_md)
     table.update_ids(rimap)
 
-    return table, ambig_assoc
+    ambiguity_map = {}
+    for k, v in rimap.items():
+        tag, id_ = k.split('_', 1)
+        ambiguity_map[v] = id_
+
+    return table, ambiguity_map
 
 
 def taxon_ancestors(context, ids, get=None, normalize=None):
@@ -464,9 +473,9 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
 
         # normalize if necessary to greengenes like strings
         if normalize is not None:
-            lineage = [l if l else "%s__" % r
-                       for l, r in zip_longest(lineage, normalize,
-                                               fillvalue=False)]
+            lineage = [lin if lin else "%s__" % rnk
+                       for lin, rnk in zip_longest(lineage, normalize,
+                                                   fillvalue=False)]
         lineages.append(lineage)
 
     return lineages
@@ -733,3 +742,91 @@ def get_sample_values(samples, category, get=None):
                                         multikey=key)
 
     return [item for chunk in getter for item in zip(*chunk)]
+
+
+def _ambiguity_merge(table, collapse_map):
+    """Merge ambiguous samples
+
+    Parameters
+    ----------
+    table : biom.Table
+        The table obtained from redbiom
+    collapse_map : dict
+        A mapping of a sample ID in the table to its collapse
+        target name.
+
+    Raises
+    ------
+    ValueError
+        If the IDs present in the table are not a perfect match to the keys
+        of the collapse map.
+
+    Returns
+    -------
+    biom.Table
+        A table of the merged data with updated sample identifiers
+    """
+    if set(collapse_map) != set(table.ids()):
+        raise ValueError("IDs are inconsistent")
+
+    def collapser(i, m):
+        return collapse_map[i]
+
+    collapsed_table = table.collapse(collapser, axis='sample', norm=False)
+
+    seen = set()
+    keep = []
+    for k, v in collapse_map.items():
+        if v not in seen:
+            keep.append(k)
+            seen.add(v)
+
+    return collapsed_table
+
+
+def _ambiguity_keep_most_reads(table, ambig_map):
+    """Keep the ambiguous sample with the most reads
+
+    Parameters
+    ----------
+    table : biom.Table
+        The table obtained from redbiom
+    ambig_map : dict
+        A mapping of a sample ID in the table to its ambiguous form.
+
+    Returns
+    -------
+    biom.Table
+        A table of the most volumous data with updated sample identifiers
+    """
+    import pandas as pd
+
+    if set(ambig_map) != set(table.ids()):
+        raise ValueError("IDs are inconsistent")
+
+    sample_counts = pd.Series(table.sum('sample'), index=table.ids()).to_dict()
+
+    ambigs = {}
+    for k, v in ambig_map.items():
+        if v not in ambigs:
+            ambigs[v] = []
+        ambigs[v].append(k)
+
+    to_keep = []
+    for sample_name, sample_ids in ambigs.items():
+        if len(sample_ids) > 1:
+            best = sample_ids[0]
+            best_cnt = sample_counts[best]
+            for i in sample_ids[1:]:
+                cnt = sample_counts[i]
+                if cnt > best_cnt:
+                    best = i
+                    best_cnt = cnt
+            to_keep.append(best)
+        else:
+            to_keep.append(sample_ids[0])
+
+    subset_table = table.filter(set(to_keep), inplace=False).remove_empty()
+    subset_table.update_ids(ambig_map, inplace=True)
+
+    return subset_table
