@@ -77,7 +77,8 @@ def fetch_sample_metadata(from_, samples, all_columns, context, output,
     if resolve_ambiguities and tagged:
         click.echo("Cannot resolve ambiguities and fetch tagged metadata",
                    err=True)
-        click.exit(1)
+        import sys
+        sys.exit(1)
 
     import redbiom.util
     import redbiom.fetch
@@ -155,9 +156,9 @@ def fetch_samples_from_obserations(features, exact, from_, output,
             f.write('\n'.join(['\t'.join(x) for x in new_ids.items()]))
 
     if resolve_ambiguities == 'merge':
-        tab = redbiom.fetch._ambiguity_keep_most_reads(tab, map_)
-    elif resolve_ambiguities == 'most-reads':
         tab = redbiom.fetch._ambiguity_merge(tab, map_)
+    elif resolve_ambiguities == 'most-reads':
+        tab = redbiom.fetch._ambiguity_keep_most_reads(tab, map_)
 
     import h5py
     with h5py.File(output, 'w') as fp:
@@ -199,25 +200,27 @@ def fetch_samples_from_samples(samples, from_, output, context, md5,
             f.write('\n'.join(['\t'.join(x) for x in new_ids.items()]))
 
     if resolve_ambiguities == 'merge':
-        table = redbiom.fetch._ambiguity_keep_most_reads(table, ambig)
-    elif resolve_ambiguities == 'most-reads':
         table = redbiom.fetch._ambiguity_merge(table, ambig)
+    elif resolve_ambiguities == 'most-reads':
+        table = redbiom.fetch._ambiguity_keep_most_reads(table, ambig)
 
     import h5py
     with h5py.File(output, 'w') as fp:
         table.to_hdf5(fp, 'redbiom')
-
     _write_ambig(ambig, output)
 
 
 def _write_ambig(map_, output):
-    has_ambig = {len(v) for v in map_.values()}
+    from collections import defaultdict
+    ambig = defaultdict(list)
+    for k, v in map_.items():
+        ambig[v].append(k)
+    ambig = {k: v for k, v in ambig.items() if len(v) > 1}
 
-    if has_ambig and has_ambig != set([1]):
+    if len(ambig) > 1:
         import json
-        ambig = {k: v for k, v in map_.items() if len(v) > 1}
         click.echo("%d sample ambiguities observed. Writing ambiguity "
                    "mappings to: %s" % (len(ambig), output + '.ambiguities'),
                    err=True)
         with open(output + '.ambiguities', 'w') as fp:
-            fp.write(json.dumps(ambig))
+            fp.write(json.dumps(ambig, indent=2))
