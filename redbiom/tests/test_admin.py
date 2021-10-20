@@ -299,21 +299,35 @@ class AdminTests(unittest.TestCase):
         # Python's urllib.parse.quote_plus does not automatically encode
         # "." characters.
         # See: https://github.com/nicolasff/webdis#command-format
+
+        # expand the test set to include .raw and other format type requests
         md = metadata.copy()
         md['http_quoted_characters'] = ['a.html', 'b.html', 'foo/bar.html',
-                                        'baz.html', 'thing.html', 'stuff.html',
-                                        'asd#asd.html', 'a.html', 'b.html',
-                                        'foo.html']
+                                        'baz.raw', 'thing.msgpack',
+                                        'stuff.html', 'asd#asd.html',
+                                        'a.html', 'b.html', 'foo.html']
         redbiom.admin.load_sample_metadata(md)
 
-        exp = ['foo', 'bar', 'foo/bar', 'baz$12',
-               'thing', 'stuff', 'asd#asd', 'a', 'b', 'foo.html']
-        exp = ['a.html', 'b.html', 'foo/bar.html', 'baz.html', 'thing.html',
+        exp = ['a.html', 'b.html', 'foo/bar.html', 'baz.raw', 'thing.msgpack',
                'stuff.html', 'asd#asd.html', 'a.html', 'b.html', 'foo.html']
         obs = self.get('metadata:category', 'HGETALL',
                        'http_quoted_characters')
         self.assertEqual(sorted([v for k, v in obs.items()]),
                          sorted(exp))
+
+    def test_load_sample_metadata_content_type_sample_id_bug(self):
+        # similar as test_load_sample_metadata_content_type_bug but sample IDs
+        # are special...
+
+        # expand the test set to include .raw and other format type requests
+        md = metadata.copy()
+        cur = md['#SampleID'].iloc[0]
+        md.iloc[0]['#SampleID'] = cur + '.raw'
+        redbiom.admin.load_sample_metadata(md)
+
+        obs = self.get('metadata', 'smembers',
+                       'samples-represented')
+        self.assertContains(obs, cur + '.raw')
 
     def test_load_sample_metadata_full_search(self):
         redbiom.admin.load_sample_metadata(metadata)
