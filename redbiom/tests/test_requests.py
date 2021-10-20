@@ -68,10 +68,11 @@ class RequestsTests(unittest.TestCase):
             _parse_validate_request(req, 'EXISTS')
 
     def test_format_request(self):
-        self.assertEqual(_format_request(None, 'foo', 'bar'), "foo/bar")
-        self.assertEqual(_format_request(None, 'foo', ''), "foo/")
-        self.assertEqual(_format_request(None, '', 'bar'), "/bar")
-        self.assertEqual(_format_request('baz', 'foo', 'bar'), "foo/baz:bar")
+        self.assertEqual(_format_request(None, 'foo', 'bar'), "foo/bar.json")
+        self.assertEqual(_format_request(None, 'foo', ''), "foo/.json")
+        self.assertEqual(_format_request(None, '', 'bar'), "/bar.json")
+        self.assertEqual(_format_request('baz', 'foo', 'bar'),
+                         "foo/baz:bar.json")
 
     def test_make_post(self):
         post = make_post(config)
