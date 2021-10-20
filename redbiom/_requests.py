@@ -9,9 +9,9 @@ def _parse_validate_request(req, command):
 def _format_request(context, command, other):
     """Merge commands, context and payload"""
     if context is None:
-        return "%s/%s" % (command, other)
+        return "%s/%s.json" % (command, other)
     else:
-        return "%s/%s:%s" % (command, context, other)
+        return "%s/%s:%s.json" % (command, context, other)
 
 
 def get_session():
@@ -73,7 +73,7 @@ def make_put(config):
     def f(context, cmd, key, data):
         url = '/'.join([config['hostname'],
                         _format_request(context, cmd, key)])
-        req = s.put(url, data=data)
+        req = s.put(url + '.json', data=data)
         return _parse_validate_request(req, cmd)
     return f
 

@@ -327,7 +327,7 @@ class AdminTests(unittest.TestCase):
 
         obs = self.get('metadata', 'smembers',
                        'samples-represented')
-        self.assertContains(obs, cur + '.raw')
+        self.assertIn(cur + '.raw', obs)
 
     def test_load_sample_metadata_full_search(self):
         redbiom.admin.load_sample_metadata(metadata)
