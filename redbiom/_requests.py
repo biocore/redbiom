@@ -73,7 +73,7 @@ def make_put(config):
     def f(context, cmd, key, data):
         url = '/'.join([config['hostname'],
                         _format_request(context, cmd, key)])
-        req = s.put(url + '.json', data=data)
+        req = s.put(url, data=data)
         return _parse_validate_request(req, cmd)
     return f
 
