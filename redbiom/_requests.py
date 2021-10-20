@@ -9,9 +9,9 @@ def _parse_validate_request(req, command):
 def _format_request(context, command, other):
     """Merge commands, context and payload"""
     if context is None:
-        return "%s/%s" % (command, other)
+        return "%s/%s.json" % (command, other)
     else:
-        return "%s/%s:%s" % (command, context, other)
+        return "%s/%s:%s.json" % (command, context, other)
 
 
 def get_session():
