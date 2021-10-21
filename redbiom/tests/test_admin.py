@@ -118,15 +118,28 @@ class AdminTests(unittest.TestCase):
         obs = redbiom.admin._metadata_to_taxonomy_tree(*input)
         self.assertEqual(obs.compare_subsets(exp), 0.0)
 
-    def test_get_index(self):
+    def test_get_index_singular(self):
         context = 'load-features-test'
         redbiom.admin.create_context(context, 'foo')
 
         tests = [('A', 0), ('A', 0), ('B', 1), ('C', 2),
                  ('B', 1), ('Z', 3), ('A', 0)]
         for key, exp in tests:
-            obs = redbiom.admin.get_index(context, key, 'feature')
-            self.assertEqual(obs, exp)
+            obs = redbiom.admin.get_index(context, [key, ], 'feature')
+            self.assertEqual(len(obs), 1)
+            self.assertEqual(obs[0], exp)
+
+    def test_get_index_batch(self):
+        context = 'load-features-test'
+        redbiom.admin.create_context(context, 'foo')
+
+        tests = [('A', 0), ('A', 0), ('B', 1), ('C', 2),
+                 ('B', 1), ('Z', 3), ('A', 0)]
+
+        keys = [a for a, _ in tests]
+        exp = [b for _, b in tests]
+        obs = redbiom.admin.get_index(context, keys, 'feature')
+        self.assertEqual(obs, exp)
 
     def test_create_context(self):
         obs = self.get('state', 'HGETALL', 'contexts')

@@ -53,9 +53,14 @@ def make_post(config, redis_protocol=None):
             sys.stdout.write(proto)
             sys.stdout.flush()
     else:
-        def f(context, cmd, payload):
+        def f(context, cmd, payload, verbose=False):
             req = s.post(config['hostname'],
                          data=_format_request(context, cmd, payload))
+
+            if verbose:
+                print(context, cmd, payload[:100])
+                print(req.status_code)
+                print(req.content)
             return _parse_validate_request(req, cmd)
     return f
 
@@ -103,6 +108,7 @@ def make_script_exec(config):
         payload.extend([str(a) for a in args])
         url = '/'.join(payload)
         return json.loads(_parse_validate_request(s.get(url), 'EVALSHA'))
+
     return f
 
 
