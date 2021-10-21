@@ -302,8 +302,8 @@ def _load_axis_data(table, ids, opposite_ids, opposite_id_index, axis_label,
     import redbiom._requests
     if axis_label == 'feature':
         axis = 'observation'
-    elif axis == 'sample':
-        pass
+    elif axis_label == 'sample':
+        axis = 'sample'
     else:
         raise ValueError("%s is unrecognized as an axis" % axis)
 
