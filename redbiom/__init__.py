@@ -13,7 +13,7 @@ import atexit
 
 # adapted from biom-format
 
-__version__ = '0.3.7'
+__version__ = '0.3.8'
 
 # db version follows macro/minor/micro expectations where a micro change should
 # be backwards compatible, a minor change introduces some backwards
