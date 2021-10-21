@@ -96,27 +96,19 @@ def make_get(config):
     return f
 
 
-def make_script_exec(config, post=False):
+def make_script_exec(config):
     """Factory function: produce a script_exec() method"""
     import redbiom
     import json
     s = get_session()
     config = redbiom.get_config()
 
-    # TODO: this entire function should probably be refactored
-    if post:
-        def f(sha, *args):
-            url = config['hostname']
-            data = ['EVALSHA', sha]
-            data.extend(args)
-            req = s.post(url, data='/'.join(data))
-            return req.json()
-    else:
-        def f(sha, *args):
-            payload = [config['hostname'], 'EVALSHA', sha]
-            payload.extend([str(a) for a in args])
-            url = '/'.join(payload)
-            return json.loads(_parse_validate_request(s.get(url), 'EVALSHA'))
+    def f(sha, *args):
+        payload = [config['hostname'], 'EVALSHA', sha]
+        payload.extend([str(a) for a in args])
+        url = '/'.join(payload)
+        return json.loads(_parse_validate_request(s.get(url), 'EVALSHA'))
+
     return f
 
 
