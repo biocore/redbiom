@@ -320,7 +320,7 @@ def _load_axis_data(table, ids, opposite_ids, opposite_id_index, axis_label,
         # pack the id specific data into a format the Lua logic expects
         for id_ in batch:
             values = table.data(id_, axis=axis, dense=False)
-            if not np.allclose(values - np.round(values, 1), 0.0):
+            if not np.allclose(values.data - np.round(values.data, 1), 0.0):
                 raise ValueError("Data do not appear to be counts")
 
             int_values = values.astype(int)
