@@ -242,7 +242,7 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None,
     return md, ambig_map
 
 
-def data_from_features(context, features, exact):
+def data_from_features(context, features, exact, skip_taxonomy=False):
     """Fetch sample data from an iterable of features.
 
     Parameters
@@ -254,6 +254,9 @@ def data_from_features(context, features, exact):
     exact : bool
         If True, only samples in which all features exist are obtained.
         Otherwise, all samples with at least one feature are obtained.
+    skip_taxonomy : bool, optional
+        If true, do not resolve taxonomy. This greatly reduces fetch time.
+        Default is false.
 
     Returns
     -------
@@ -275,10 +278,11 @@ def data_from_features(context, features, exact):
     # determine the samples which contain the features of interest
     samples = redbiom.util.ids_from(features, exact, 'feature', [context])
 
-    return _biom_from_samples(context, iter(samples), get=get)
+    return _biom_from_samples(context, iter(samples), get=get,
+                              skip_taxonomy=skip_taxonomy)
 
 
-def data_from_samples(context, samples):
+def data_from_samples(context, samples, skip_taxonomy=False):
     """Fetch sample data from an iterable of samples.
 
     Paramters
@@ -287,6 +291,9 @@ def data_from_samples(context, samples):
         The name of the context to retrieve sample data from.
     samples : Iterable of str
         The samples of interest.
+    skip_taxonomy : bool, optional
+        If true, do not resolve taxonomy. This greatly reduces fetch time.
+        Default is false.
 
     Returns
     -------
@@ -296,10 +303,11 @@ def data_from_samples(context, samples):
         A map of {sample_id_in_table: original_id}. This map can be used to
         identify what samples are ambiguous based off their original IDs.
     """
-    return _biom_from_samples(context, samples)
+    return _biom_from_samples(context, samples, skip_taxonomy=skip_taxonomy)
 
 
-def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None):
+def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None,
+                       skip_taxonomy=False):
     """Create a BIOM table from an iterable of samples
 
     Parameters
@@ -312,6 +320,9 @@ def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None):
         A constructed get method.
     normalize_taxonomy : list, optional
         The ranks to normalize a lineage too (e.g., [k, p, c, o, f, g, s])
+    skip_taxonomy : bool, optional
+        If true, do not resolve taxonomy. This greatly reduces fetch time.
+        Default is false.
 
     Returns
     -------
@@ -374,8 +385,11 @@ def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None):
         for obs_id, value in col_data.items():
             mat[unique_indices_map[obs_id], col] = value
 
-    lineages = taxon_ancestors(context, obs_ids, get,
-                               normalize=normalize_taxonomy)
+    if skip_taxonomy:
+        lineages = None
+    else:
+        lineages = taxon_ancestors(context, obs_ids, get,
+                                   normalize=normalize_taxonomy)
 
     if lineages is not None:
         obs_md = [{'taxonomy': lineage} for lineage in lineages]
