@@ -28,7 +28,7 @@ jobs:
     - name: Install
       shell: bash -l {0}
       run: |
-        conda create --yes -n test-env python=${{ matrix.python-version }} requests pandas click redis h5py nose
+        conda create --yes -n test-env python=${{ matrix.python-version }} requests pandas click redis h5py nose msgpack
         conda activate test-env
         conda install -c conda-forge --yes scikit-bio
         pip install flake8 nltk biom-format
