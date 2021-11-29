@@ -140,15 +140,20 @@ def fetch_sample_metadata(from_, samples, all_columns, context, output,
               help=("Resolve ambiguities that may be present in the samples "
                     "which can arise from, for example, technical "
                     "replicates."))
+@click.option('--skip-taxonomy', is_flag=True, default=False, required=False,
+              help=("Do not resolve taxonomy on fetch. Setting this flag can "
+                    "reduce the time required to complete a fetch"))
 @click.argument('features', nargs=-1)
 def fetch_samples_from_obserations(features, exact, from_, output,
-                                   context, md5, resolve_ambiguities):
+                                   context, md5, resolve_ambiguities,
+                                   skip_taxonomy):
     """Fetch sample data containing features."""
     import redbiom.util
     iterable = redbiom.util.from_or_nargs(from_, features)
 
     import redbiom.fetch
-    tab, map_ = redbiom.fetch.data_from_features(context, iterable, exact)
+    tab, map_ = redbiom.fetch.data_from_features(context, iterable, exact,
+                                                 skip_taxonomy=skip_taxonomy)
 
     if md5:
         tab, new_ids = redbiom.util.convert_biom_ids_to_md5(tab)
@@ -184,15 +189,19 @@ def fetch_samples_from_obserations(features, exact, from_, output,
               help=("Resolve ambiguities that may be present in the samples "
                     "which can arise from, for example, technical "
                     "replicates."))
+@click.option('--skip-taxonomy', is_flag=True, default=False, required=False,
+              help=("Do not resolve taxonomy on fetch. Setting this flag can "
+                    "reduce the time required to complete a fetch"))
 @click.argument('samples', nargs=-1)
 def fetch_samples_from_samples(samples, from_, output, context, md5,
-                               resolve_ambiguities):
+                               resolve_ambiguities, skip_taxonomy):
     """Fetch sample data."""
     import redbiom.util
     iterable = redbiom.util.from_or_nargs(from_, samples)
 
     import redbiom.fetch
-    table, ambig = redbiom.fetch.data_from_samples(context, iterable)
+    table, ambig = redbiom.fetch.data_from_samples(context, iterable,
+                                                   skip_taxonomy=skip_taxonomy)
 
     if md5:
         table, new_ids = redbiom.util.convert_biom_ids_to_md5(table)
