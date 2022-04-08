@@ -29,8 +29,7 @@ setup(
     include_package_data=True,
     install_requires=['click >= 6.7', 'biom-format >= 2.1.5',
                       'requests', 'h5py', 'pandas', 'nltk',
-                      'joblib', 'scikit-bio >= 0.4.2',
-                      'msgpack'],
+                      'joblib', 'scikit-bio >= 0.4.2', 'msgpack'],
     entry_points='''
         [console_scripts]
         redbiom=redbiom.commands:cli
