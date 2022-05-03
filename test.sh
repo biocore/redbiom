@@ -69,7 +69,7 @@ md5test test_obs_features_contained.txt test_exp_features_contained.txt
 
 # fetch samples based on features and sanity check
 echo ${query} | redbiom fetch features --context test --output pipetest.biom --from -
-python -c "import biom; t = biom.load_table('pipetest.biom'); assert len(t.ids() == 3)"
+python -c "import biom; t = biom.load_table('pipetest.biom'); assert len(t.ids()) == 3"
 python -c "import biom; t = biom.load_table('pipetest.biom'); exp = biom.load_table('pipetestexp.biom').filter(t.ids()).filter(lambda v, i, md: (v > 0).sum() > 0, axis='observation').sort_order(t.ids()).sort_order(t.ids(axis='observation'), axis='observation'); exp._observation_metadata = None; t._observation_metadata = None; assert t == exp"
 
 # fetch data via sample
