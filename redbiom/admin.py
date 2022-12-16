@@ -566,7 +566,7 @@ def load_sample_metadata(md, tag=None):
 
     # subset to only the novel IDs
     represented = get('metadata', 'SMEMBERS', 'samples-represented')
-    md = md.loc[set(md.index) - set(represented)]
+    md = md.loc[list(set(md.index) - set(represented))]
     if len(md) == 0:
         return 0
 

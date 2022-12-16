@@ -5,7 +5,7 @@ from future.moves.itertools import zip_longest
 import numpy as np
 import biom
 import pandas as pd
-import pandas.util.testing as pdt
+import pandas.testing as pdt
 
 import redbiom.admin
 import redbiom.fetch
