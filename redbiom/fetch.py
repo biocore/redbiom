@@ -798,7 +798,7 @@ def _ambiguity_merge(table, collapse_map):
     return collapsed_table
 
 
-def _ambiguity_keep_most_reads(table, ambig_map):
+def _ambiguity_keep_most_reads(table, ambig_map, retain_artifact_id=False):
     """Keep the ambiguous sample with the most reads
 
     Parameters
@@ -807,6 +807,8 @@ def _ambiguity_keep_most_reads(table, ambig_map):
         The table obtained from redbiom
     ambig_map : dict
         A mapping of a sample ID in the table to its ambiguous form.
+    retain_artifact_id : boolean, default False
+        If True, do not strip the artifact ID
 
     Returns
     -------
@@ -841,6 +843,8 @@ def _ambiguity_keep_most_reads(table, ambig_map):
             to_keep.append(sample_ids[0])
 
     subset_table = table.filter(set(to_keep), inplace=False).remove_empty()
-    subset_table.update_ids(ambig_map, inplace=True)
+
+    if not retain_artifact_id:
+        subset_table.update_ids(ambig_map, inplace=True)
 
     return subset_table

@@ -418,6 +418,28 @@ class FetchTests(unittest.TestCase):
         obs_table = _ambiguity_keep_most_reads(table, ambig_map)
         self.assertEqual(obs_table, exp_table)
 
+    def test_ambiguity_keep_most_reads_retain_artifact_id(self):
+        ambig_map = {'10317.1234.foo': '10317.1234',
+                     '10317.1234.bar': '10317.1234',
+                     '10317.4321.foo': '10317.4321',
+                     '10317.1234.baz': '10317.1234'}
+
+        table = biom.Table(np.array([[0, 3, 2, 1],
+                                     [4, 7, 6, 5],
+                                     [8, 11, 10, 9]]),
+                           ['O1', 'O2', 'O3'],
+                           ['10317.1234.foo',
+                            '10317.1234.bar',
+                            '10317.4321.foo',
+                            '10317.1234.baz'])
+
+        exp_table = biom.Table(np.array([[3, 2], [7, 6], [11, 10]]),
+                               ['O1', 'O2', 'O3'],
+                               ['10317.1234.bar', '10317.4321.foo'])
+
+        obs_table = _ambiguity_keep_most_reads(table, ambig_map, True)
+        self.assertEqual(obs_table, exp_table)
+
     def test_ambiguity_keep_most_reads_mismatch(self):
         ambig_map = {'10317.1234.foo': '10317.1234',
                      '10317.4321.foo': '10317.4321',

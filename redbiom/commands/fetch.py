@@ -143,11 +143,19 @@ def fetch_sample_metadata(from_, samples, all_columns, context, output,
 @click.option('--skip-taxonomy', is_flag=True, default=False, required=False,
               help=("Do not resolve taxonomy on fetch. Setting this flag can "
                     "reduce the time required to complete a fetch"))
+@click.option('--retain-artifact-id', is_flag=True, default=False,
+              required=False,
+              help=("If using --resolve-ambiguities=most-reads, set this flag "
+                    "to retain the artifact ID of the sample kept"))
 @click.argument('features', nargs=-1)
 def fetch_samples_from_obserations(features, exact, from_, output,
                                    context, md5, resolve_ambiguities,
-                                   skip_taxonomy):
+                                   skip_taxonomy, retain_artifact_id):
     """Fetch sample data containing features."""
+    if retain_artifact_id and resolve_ambiguities != 'merge-reads':
+        raise ValueError('--retain-artifact-id only impacts a merge-reads '
+                         'ambiguity resolution')
+
     import redbiom.util
     iterable = redbiom.util.from_or_nargs(from_, features)
 
@@ -163,7 +171,8 @@ def fetch_samples_from_obserations(features, exact, from_, output,
     if resolve_ambiguities == 'merge':
         tab = redbiom.fetch._ambiguity_merge(tab, map_)
     elif resolve_ambiguities == 'most-reads':
-        tab = redbiom.fetch._ambiguity_keep_most_reads(tab, map_)
+        tab = redbiom.fetch._ambiguity_keep_most_reads(tab, map_,
+                                                       retain_artifact_id)
 
     import h5py
     with h5py.File(output, 'w') as fp:
@@ -192,10 +201,19 @@ def fetch_samples_from_obserations(features, exact, from_, output,
 @click.option('--skip-taxonomy', is_flag=True, default=False, required=False,
               help=("Do not resolve taxonomy on fetch. Setting this flag can "
                     "reduce the time required to complete a fetch"))
+@click.option('--retain-artifact-id', is_flag=True, default=False,
+              required=False,
+              help=("If using --resolve-ambiguities=most-reads, set this flag "
+                    "to retain the artifact ID of the sample kept"))
 @click.argument('samples', nargs=-1)
 def fetch_samples_from_samples(samples, from_, output, context, md5,
-                               resolve_ambiguities, skip_taxonomy):
+                               resolve_ambiguities, skip_taxonomy,
+                               retain_artifact_id):
     """Fetch sample data."""
+    if retain_artifact_id and resolve_ambiguities != 'merge-reads':
+        raise ValueError('--retain-artifact-id only impacts a merge-reads '
+                         'ambiguity resolution')
+
     import redbiom.util
     iterable = redbiom.util.from_or_nargs(from_, samples)
 
@@ -211,7 +229,8 @@ def fetch_samples_from_samples(samples, from_, output, context, md5,
     if resolve_ambiguities == 'merge':
         table = redbiom.fetch._ambiguity_merge(table, ambig)
     elif resolve_ambiguities == 'most-reads':
-        table = redbiom.fetch._ambiguity_keep_most_reads(table, ambig)
+        table = redbiom.fetch._ambiguity_keep_most_reads(table, ambig,
+                                                         retain_artifact_id)
 
     import h5py
     with h5py.File(output, 'w') as fp:
