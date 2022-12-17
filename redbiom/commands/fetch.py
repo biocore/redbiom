@@ -284,7 +284,7 @@ def qiita_study(study_id, context, resolve_ambiguities, skip_taxonomy,
 
     if md5:
         table, new_ids = redbiom.util.convert_biom_ids_to_md5(table)
-        with open(output + '.tsv', 'w') as f:
+        with open(output_basename + 'md5mapping.tsv', 'w') as f:
             f.write('\n'.join(['\t'.join(x) for x in new_ids.items()]))
 
     if resolve_ambiguities == 'merge':
@@ -297,8 +297,7 @@ def qiita_study(study_id, context, resolve_ambiguities, skip_taxonomy,
     md, map_ = redbiom.fetch.sample_metadata(samples, context=context,
                                              common=False, tagged=False)
 
-    md_resolve_ambiguities = resolve_ambiguities in ('merge', 'most-reads')
-    if md_resolve_ambiguities:
+    if resolve_ambiguities in ('merge', 'most-reads'):
         if resolve_ambiguities == 'most-reads' and retain_artifact_id:
             pass
         else:
@@ -316,7 +315,8 @@ def qiita_study(study_id, context, resolve_ambiguities, skip_taxonomy,
             # remove duplicated unambiguous identifiers
             md = md[~md[key].duplicated()]
 
-            # remove our index, and replace the entries with the ambiguous names
+            # remove our index, and replace the entries with the ambiguous
+            # names
             md.reset_index(inplace=True)
             md['#SampleID'] = md[key]
 
