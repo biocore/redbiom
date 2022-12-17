@@ -39,6 +39,7 @@ test: test_db
 	/bin/bash test.sh
 	nosetests
 	/bin/bash test_failures.sh  # this blows away the db
+	/bin/bash test_external.sh  # relies on public redbiom instance
 
 test_bulk: test_db_bulk
 	/bin/bash test.sh
