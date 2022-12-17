@@ -379,9 +379,8 @@ def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None,
     sample_ids = [id_ for id_, _ in table_data]
 
     # fill in the matrix
-    mat = ss.lil_matrix((len(unique_indices), len(table_data)))
+    mat = ss.dok_matrix((len(unique_indices), len(table_data)))
     for col, (sample, col_data) in enumerate(table_data):
-        # since this isn't dense, hopefully roworder doesn't hose us
         for obs_id, value in col_data.items():
             mat[unique_indices_map[obs_id], col] = value
 
