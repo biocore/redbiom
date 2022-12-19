@@ -198,7 +198,7 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None,
 
     getter = redbiom._requests.buffered(list(ambig_assoc), 'categories',
                                         'MGET', 'metadata', get=get,
-                                        buffer_size=100)
+                                        buffer_size=200)
     for samples, columns_by_sample in getter:
         all_samples.extend(samples)
         for column_set in columns_by_sample:
@@ -379,7 +379,7 @@ def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None,
     sample_ids = [id_ for id_, _ in table_data]
 
     # fill in the matrix
-    mat = ss.dok_matrix((len(unique_indices), len(table_data)))
+    mat = ss.lil_matrix((len(unique_indices), len(table_data)))
     for col, (sample, col_data) in enumerate(table_data):
         for obs_id, value in col_data.items():
             mat[unique_indices_map[obs_id], col] = value
@@ -431,15 +431,25 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
     """
     from future.moves.itertools import zip_longest
     import redbiom._requests
+    import re
 
     if get is None:
         import redbiom
         config = redbiom.get_config()
         get = redbiom._requests.make_get(config)
 
+    is_asv = re.compile(r"^[ATGC]{90}")
+    non_asvs = []
+    for i in ids:
+        if not is_asv.match(i):
+            non_asvs.append(i)
+    ids = non_asvs
+    if not ids:
+        return None
+
     hmgetter = redbiom._requests.buffered
     remapped_bulk = hmgetter(iter(ids), None, 'HMGET', context,
-                             get=get, buffer_size=100,
+                             get=get, buffer_size=200,
                              multikey='feature-index')
 
     # map the feature identifier to an internal ID
@@ -458,7 +468,7 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
         key = 'taxonomy-parents'
         getter = hmgetter(iter(to_get), None, 'HMGET',
                           context, get=get,
-                          buffer_size=100, multikey=key)
+                          buffer_size=200, multikey=key)
 
         new_to_get = set()
         for block in getter:
@@ -538,7 +548,7 @@ def taxon_descendents(context, taxon, get=None):
         to_get = new_to_get
 
     remapped_bulk = hmgetter(to_keep, None, 'HMGET', context,
-                             get=get, buffer_size=100,
+                             get=get, buffer_size=200,
                              multikey='feature-index-inverted')
 
     remapped = {name
@@ -687,7 +697,7 @@ def metadata(where=None, tag=None, restrict_to=None):
 
     getter = redbiom._requests.buffered(samples, 'categories',
                                         'MGET', 'metadata', get=get,
-                                        buffer_size=100)
+                                        buffer_size=200)
 
     samples_to_get = []
     for chunk in getter:
@@ -751,7 +761,7 @@ def get_sample_values(samples, category, get=None):
     getter = redbiom._requests.buffered(iter(samples), None,
                                         'HMGET',
                                         'metadata', get=get,
-                                        buffer_size=100,
+                                        buffer_size=200,
                                         multikey=key)
 
     return [item for chunk in getter for item in zip(*chunk)]
