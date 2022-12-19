@@ -99,11 +99,21 @@ IsNot = NotEq
 
 
 def _in(left, right):
-    return left[left.isin(right)]
+    if isinstance(right, tuple):
+        # some_category in foo
+        return left[left.isin(right)]
+    else:
+        # foo in some_category
+        return right[right.isin([left])]
 
 
 def _notin(left, right):
-    return left[~left.isin(right)]
+    if isinstance(right, tuple):
+        # some_category not in foo
+        return left[~left.isin(right)]
+    else:
+        # foo not in some_category
+        return right[~right.isin([left])]
 
 
 def Or():
