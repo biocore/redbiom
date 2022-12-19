@@ -251,8 +251,13 @@ def create_context(name, description):
 
     config = redbiom.get_config()
     post = redbiom._requests.make_post(config)
-    post('state', 'HSET', "contexts/%s/%s" % (name, description))
-    post(name, 'HSET', "state/db-version/%s" % redbiom.__db_version__)
+    try:
+        post('state', 'HSET', "contexts/%s/%s" % (name, description))
+        post(name, 'HSET', "state/db-version/%s" % redbiom.__db_version__)
+    except:  # noqa
+        import sys
+        print("Unable to create context: %s" % name, file=sys.stderr)
+        raise
     ScriptManager.load_scripts()
 
 
