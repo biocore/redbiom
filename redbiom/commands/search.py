@@ -117,12 +117,13 @@ def search_metadata(query, categories):
     $ redbiom search metadata --categories "ph - water"
     """
     import redbiom.search
+    import sys
+
     try:
         for i in redbiom.search.metadata_full(query, categories):
             click.echo(i)
-    except TypeError:
-        import sys
-        click.echo("The search query appears to be malformed. ")
+    except (TypeError, SyntaxError):
+        click.echo("The search query appears to be malformed.")
         sys.exit(1)
 
 
