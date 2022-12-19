@@ -13,7 +13,7 @@ jobs:
       matrix:
         # based roughly on https://github.com/conda-incubator/setup-miniconda#example-1-basic-usage
         # via biocore/empress
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
 
     steps:
     - name: Check out repository code
