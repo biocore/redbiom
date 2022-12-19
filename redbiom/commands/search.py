@@ -117,8 +117,13 @@ def search_metadata(query, categories):
     $ redbiom search metadata --categories "ph - water"
     """
     import redbiom.search
-    for i in redbiom.search.metadata_full(query, categories):
-        click.echo(i)
+    try:
+        for i in redbiom.search.metadata_full(query, categories):
+            click.echo(i)
+    except TypeError:
+        import sys
+        click.echo("The search query appears to be malformed. ")
+        sys.exit(1)
 
 
 @search.command(name='taxon')
