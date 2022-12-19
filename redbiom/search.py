@@ -99,11 +99,6 @@ def query_plan(query):
 
         parts[i] = parts[i].strip()
 
-    if ' ' in parts[0]:
-        import sys
-        print("Set queries cannot contain spaces.", file=sys.stderr)
-        raise SyntaxError
-
     if len(parts) == 1:
         return [('set', parts[0].strip())]
     else:
