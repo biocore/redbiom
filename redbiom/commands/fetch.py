@@ -140,9 +140,10 @@ def fetch_sample_metadata(from_, samples, all_columns, context, output,
               help=("Resolve ambiguities that may be present in the samples "
                     "which can arise from, for example, technical "
                     "replicates."))
-@click.option('--skip-taxonomy', is_flag=True, default=False, required=False,
-              help=("Do not resolve taxonomy on fetch. Setting this flag can "
-                    "reduce the time required to complete a fetch"))
+@click.option('--fetch-taxonomy', is_flag=True, default=False, required=False,
+              help=("Resolve taxonomy on fetch. Setting this flag increases "
+                    "the time required to complete a fetch. Note that Deblur "
+                    "contexts do not cache taxonomy."))
 @click.option('--retain-artifact-id', is_flag=True, default=False,
               required=False,
               help=("If using --resolve-ambiguities=most-reads, set this flag "
@@ -150,7 +151,7 @@ def fetch_sample_metadata(from_, samples, all_columns, context, output,
 @click.argument('features', nargs=-1)
 def fetch_samples_from_obserations(features, exact, from_, output,
                                    context, md5, resolve_ambiguities,
-                                   skip_taxonomy, retain_artifact_id):
+                                   fetch_taxonomy, retain_artifact_id):
     """Fetch sample data containing features."""
     if retain_artifact_id and resolve_ambiguities != 'merge-reads':
         raise ValueError('--retain-artifact-id only impacts a merge-reads '
@@ -160,6 +161,7 @@ def fetch_samples_from_obserations(features, exact, from_, output,
     iterable = redbiom.util.from_or_nargs(from_, features)
 
     import redbiom.fetch
+    skip_taxonomy = not fetch_taxonomy
     tab, map_ = redbiom.fetch.data_from_features(context, iterable, exact,
                                                  skip_taxonomy=skip_taxonomy)
 
@@ -198,16 +200,17 @@ def fetch_samples_from_obserations(features, exact, from_, output,
               help=("Resolve ambiguities that may be present in the samples "
                     "which can arise from, for example, technical "
                     "replicates."))
-@click.option('--skip-taxonomy', is_flag=True, default=False, required=False,
-              help=("Do not resolve taxonomy on fetch. Setting this flag can "
-                    "reduce the time required to complete a fetch"))
+@click.option('--fetch-taxonomy', is_flag=True, default=False, required=False,
+              help=("Resolve taxonomy on fetch. Setting this flag increases "
+                    "the time required to complete a fetch. Note that Deblur "
+                    "contexts do not cache taxonomy."))
 @click.option('--retain-artifact-id', is_flag=True, default=False,
               required=False,
               help=("If using --resolve-ambiguities=most-reads, set this flag "
                     "to retain the artifact ID of the sample kept"))
 @click.argument('samples', nargs=-1)
 def fetch_samples_from_samples(samples, from_, output, context, md5,
-                               resolve_ambiguities, skip_taxonomy,
+                               resolve_ambiguities, fetch_taxonomy,
                                retain_artifact_id):
     """Fetch sample data."""
     if retain_artifact_id and resolve_ambiguities != 'merge-reads':
@@ -218,6 +221,7 @@ def fetch_samples_from_samples(samples, from_, output, context, md5,
     iterable = redbiom.util.from_or_nargs(from_, samples)
 
     import redbiom.fetch
+    skip_taxonomy = not fetch_taxonomy
     table, ambig = redbiom.fetch.data_from_samples(context, iterable,
                                                    skip_taxonomy=skip_taxonomy)
 
@@ -247,9 +251,10 @@ def fetch_samples_from_samples(samples, from_, output, context, md5,
               help=("Resolve ambiguities that may be present in the samples "
                     "which can arise from, for example, technical "
                     "replicates."))
-@click.option('--skip-taxonomy', is_flag=True, default=False, required=False,
-              help=("Do not resolve taxonomy on fetch. Setting this flag can "
-                    "reduce the time required to complete a fetch"))
+@click.option('--fetch-taxonomy', is_flag=True, default=False, required=False,
+              help=("Resolve taxonomy on fetch. Setting this flag increases "
+                    "the time required to complete a fetch. Note that Deblur "
+                    "contexts do not cache taxonomy."))
 @click.option('--retain-artifact-id', is_flag=True, default=False,
               required=False,
               help=("If using --resolve-ambiguities=most-reads, set this flag "
@@ -263,7 +268,7 @@ def fetch_samples_from_samples(samples, from_, output, context, md5,
               help="Calculate and use MD5 for the features. This will also "
               "save a tsv file with the original feature name and the md5",
               default=False)
-def qiita_study(study_id, context, resolve_ambiguities, skip_taxonomy,
+def qiita_study(study_id, context, resolve_ambiguities, fetch_taxonomy,
                 retain_artifact_id, remove_blanks, output_basename, md5):
     """Fetch sample data from a Qiita study."""
     if retain_artifact_id and resolve_ambiguities != 'merge-reads':
@@ -274,6 +279,7 @@ def qiita_study(study_id, context, resolve_ambiguities, skip_taxonomy,
     samples = list(redbiom.search.metadata_full(query, categories=False))
 
     import redbiom.fetch
+    skip_taxonomy = not fetch_taxonomy
     table, ambig = redbiom.fetch.data_from_samples(context, samples,
                                                    skip_taxonomy=skip_taxonomy)
 

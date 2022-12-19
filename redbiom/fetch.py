@@ -431,21 +431,11 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
     """
     from future.moves.itertools import zip_longest
     import redbiom._requests
-    import re
 
     if get is None:
         import redbiom
         config = redbiom.get_config()
         get = redbiom._requests.make_get(config)
-
-    is_asv = re.compile(r"^[ATGC]{90}")
-    non_asvs = []
-    for i in ids:
-        if not is_asv.match(i):
-            non_asvs.append(i)
-    ids = non_asvs
-    if not ids:
-        return None
 
     hmgetter = redbiom._requests.buffered
     remapped_bulk = hmgetter(iter(ids), None, 'HMGET', context,
