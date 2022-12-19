@@ -27,3 +27,6 @@ if [[ ! ${in_table} -eq 450 ]];
 then
     exit 1
 fi
+
+# see https://github.com/biocore/redbiom/issues/117
+redbiom fetch samples --context Deblur_2021.09-Illumina-16S-V4-150nt-ac8c0b --output samples.biom 11896.A2.raw
