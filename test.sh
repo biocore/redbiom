@@ -227,7 +227,7 @@ redbiom search samples --context test UNTAGGED_10317.000003302 | sort - > obs_sa
 md5test obs_sample_search.txt exp_sample_search.txt
 md5test obs_sample_search_rbid.txt exp_sample_search.txt
 
-if [[ $(redbiom search metadata "where 'feces' in BODY_SITE" | wc -l | awk '{ print $1 }') != "9" ]];
+if [[ $(redbiom search metadata "where 'UBERON:feces' in BODY_SITE" | wc -l | awk '{ print $1 }') != "11" ]];
 then
     echo "fail"
     exit 1

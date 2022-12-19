@@ -104,6 +104,9 @@ def _in(left, right):
         return left[left.isin(right)]
     else:
         # foo in some_category
+        if len(right) == 0:
+            return pd.Series([])
+
         return right[right.isin([left])]
 
 
