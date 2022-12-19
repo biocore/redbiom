@@ -205,6 +205,11 @@ def taxonomy(from_, context, normalize_ranks, features):
     lineages = redbiom.fetch.taxon_ancestors(context, ids,
                                              normalize=normalize_ranks)
 
+    if lineages is None:
+        import sys
+        click.echo("No taxonomy information found.")
+        sys.exit(0)
+
     import skbio
     tree = skbio.TreeNode.from_taxonomy([(i, l)
                                          for i, l in zip(ids, lineages)])
