@@ -251,8 +251,13 @@ def create_context(name, description):
 
     config = redbiom.get_config()
     post = redbiom._requests.make_post(config)
-    post('state', 'HSET', "contexts/%s/%s" % (name, description))
-    post(name, 'HSET', "state/db-version/%s" % redbiom.__db_version__)
+    try:
+        post('state', 'HSET', "contexts/%s/%s" % (name, description))
+        post(name, 'HSET', "state/db-version/%s" % redbiom.__db_version__)
+    except:  # noqa
+        import sys
+        print("Unable to create context: %s" % name, file=sys.stderr)
+        raise
     ScriptManager.load_scripts()
 
 
@@ -566,7 +571,7 @@ def load_sample_metadata(md, tag=None):
 
     # subset to only the novel IDs
     represented = get('metadata', 'SMEMBERS', 'samples-represented')
-    md = md.loc[set(md.index) - set(represented)]
+    md = md.loc[list(set(md.index) - set(represented))]
     if len(md) == 0:
         return 0
 

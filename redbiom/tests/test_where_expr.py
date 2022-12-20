@@ -52,6 +52,8 @@ class WhereTests(unittest.TestCase):
                  ("(age >= 5) <= 15", {'D', 'C'}),
                  ("sex == 'male'", {'D', }),
                  ("sex in ('male', 'female')", {'A', 'B', 'D'}),
+                 ("'male' in sex", {'D', }),
+                 ("'male' not in sex", {'A', 'B', 'C'}),
                  ("sex is 'male' or age < 11", {'D', 'A', 'C'}),
                  ("(age <= 10) != 8 and sex is 'male'", {'D', }),
                  ("(age <= 10) != 8 or sex is 'male'", {'D', 'A', 'C'}),

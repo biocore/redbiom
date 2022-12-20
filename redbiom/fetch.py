@@ -198,7 +198,7 @@ def sample_metadata(samples, common=True, context=None, restrict_to=None,
 
     getter = redbiom._requests.buffered(list(ambig_assoc), 'categories',
                                         'MGET', 'metadata', get=get,
-                                        buffer_size=100)
+                                        buffer_size=200)
     for samples, columns_by_sample in getter:
         all_samples.extend(samples)
         for column_set in columns_by_sample:
@@ -381,7 +381,6 @@ def _biom_from_samples(context, samples, get=None, normalize_taxonomy=None,
     # fill in the matrix
     mat = ss.lil_matrix((len(unique_indices), len(table_data)))
     for col, (sample, col_data) in enumerate(table_data):
-        # since this isn't dense, hopefully roworder doesn't hose us
         for obs_id, value in col_data.items():
             mat[unique_indices_map[obs_id], col] = value
 
@@ -440,7 +439,7 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
 
     hmgetter = redbiom._requests.buffered
     remapped_bulk = hmgetter(iter(ids), None, 'HMGET', context,
-                             get=get, buffer_size=100,
+                             get=get, buffer_size=200,
                              multikey='feature-index')
 
     # map the feature identifier to an internal ID
@@ -459,7 +458,7 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
         key = 'taxonomy-parents'
         getter = hmgetter(iter(to_get), None, 'HMGET',
                           context, get=get,
-                          buffer_size=100, multikey=key)
+                          buffer_size=200, multikey=key)
 
         new_to_get = set()
         for block in getter:
@@ -539,7 +538,7 @@ def taxon_descendents(context, taxon, get=None):
         to_get = new_to_get
 
     remapped_bulk = hmgetter(to_keep, None, 'HMGET', context,
-                             get=get, buffer_size=100,
+                             get=get, buffer_size=200,
                              multikey='feature-index-inverted')
 
     remapped = {name
@@ -688,7 +687,7 @@ def metadata(where=None, tag=None, restrict_to=None):
 
     getter = redbiom._requests.buffered(samples, 'categories',
                                         'MGET', 'metadata', get=get,
-                                        buffer_size=100)
+                                        buffer_size=200)
 
     samples_to_get = []
     for chunk in getter:
@@ -752,7 +751,7 @@ def get_sample_values(samples, category, get=None):
     getter = redbiom._requests.buffered(iter(samples), None,
                                         'HMGET',
                                         'metadata', get=get,
-                                        buffer_size=100,
+                                        buffer_size=200,
                                         multikey=key)
 
     return [item for chunk in getter for item in zip(*chunk)]
@@ -798,7 +797,7 @@ def _ambiguity_merge(table, collapse_map):
     return collapsed_table
 
 
-def _ambiguity_keep_most_reads(table, ambig_map):
+def _ambiguity_keep_most_reads(table, ambig_map, retain_artifact_id=False):
     """Keep the ambiguous sample with the most reads
 
     Parameters
@@ -807,6 +806,8 @@ def _ambiguity_keep_most_reads(table, ambig_map):
         The table obtained from redbiom
     ambig_map : dict
         A mapping of a sample ID in the table to its ambiguous form.
+    retain_artifact_id : boolean, default False
+        If True, do not strip the artifact ID
 
     Returns
     -------
@@ -841,6 +842,8 @@ def _ambiguity_keep_most_reads(table, ambig_map):
             to_keep.append(sample_ids[0])
 
     subset_table = table.filter(set(to_keep), inplace=False).remove_empty()
-    subset_table.update_ids(ambig_map, inplace=True)
+
+    if not retain_artifact_id:
+        subset_table.update_ids(ambig_map, inplace=True)
 
     return subset_table

@@ -226,3 +226,9 @@ redbiom search samples --context test 10317.000003302 | sort - > obs_sample_sear
 redbiom search samples --context test UNTAGGED_10317.000003302 | sort - > obs_sample_search_rbid.txt
 md5test obs_sample_search.txt exp_sample_search.txt
 md5test obs_sample_search_rbid.txt exp_sample_search.txt
+
+if [[ $(redbiom search metadata "where 'UBERON:feces' in BODY_SITE" | wc -l | awk '{ print $1 }') != "11" ]];
+then
+    echo "fail"
+    exit 1
+fi
