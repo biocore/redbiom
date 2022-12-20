@@ -93,9 +93,11 @@ def query_plan(query):
         return [('where', part)]
 
     parts = query.split('where', 1)
-    for part in parts:
+    for i, part in enumerate(parts):
         if not part:
             raise ValueError('No query')
+
+        parts[i] = parts[i].strip()
 
     if len(parts) == 1:
         return [('set', parts[0].strip())]

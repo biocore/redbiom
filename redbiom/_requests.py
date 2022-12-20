@@ -104,10 +104,12 @@ def make_script_exec(config):
     config = redbiom.get_config()
 
     def f(sha, *args):
-        payload = [config['hostname'], 'EVALSHA', sha]
+        payload = [sha]
         payload.extend([str(a) for a in args])
-        url = '/'.join(payload)
-        return json.loads(_parse_validate_request(s.get(url), 'EVALSHA'))
+        payload = '/'.join(payload)
+        data = _format_request(None, 'EVALSHA', payload)
+        req = s.post(config['hostname'], data=data)
+        return json.loads(req.json()['EVALSHA'])
 
     return f
 

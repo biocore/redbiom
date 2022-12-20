@@ -13,7 +13,7 @@ jobs:
       matrix:
         # based roughly on https://github.com/conda-incubator/setup-miniconda#example-1-basic-usage
         # via biocore/empress
-        python-version: ["3.6", "3.7", "3.8", "3.9"]
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
 
     steps:
     - name: Check out repository code
@@ -28,7 +28,7 @@ jobs:
     - name: Install
       shell: bash -l {0}
       run: |
-        conda create --yes -n test-env python=${{ matrix.python-version }} requests pandas click redis h5py nose cython
+        conda create --yes -n test-env python=${{ matrix.python-version }} requests pandas click redis h5py nose cython future
         conda activate test-env
         conda install -c conda-forge --yes scikit-bio biom-format
         pip install flake8 nltk msgpack
