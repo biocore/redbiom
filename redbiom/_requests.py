@@ -6,12 +6,17 @@ def _parse_validate_request(req, command):
     return req.json()[command]
 
 
-def _format_request(context, command, other):
+def _format_request(context, command, other, as_bytes=False):
     """Merge commands, context and payload"""
     if context is None:
-        return "%s/%s.json" % (command, other)
+        data = "%s/%s.json" % (command, other)
     else:
-        return "%s/%s:%s.json" % (command, context, other)
+        data = "%s/%s:%s.json" % (command, context, other)
+
+    if as_bytes:
+        return data.encode('utf-8')
+    else:
+        return data
 
 
 def get_session():
@@ -55,7 +60,8 @@ def make_post(config, redis_protocol=None):
     else:
         def f(context, cmd, payload, verbose=False):
             req = s.post(config['hostname'],
-                         data=_format_request(context, cmd, payload))
+                         data=_format_request(context, cmd, payload,
+                                              as_bytes=True))
 
             if verbose:
                 print(context, cmd, payload[:100])
