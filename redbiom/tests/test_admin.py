@@ -343,8 +343,14 @@ class AdminTests(unittest.TestCase):
         self.assertIn(cur + '.raw', obs)
 
     def test_load_sample_metadata_full_search(self):
-        redbiom.admin.load_sample_metadata(metadata)
-        redbiom.admin.load_sample_metadata_full_search(metadata)
+        md = metadata.copy()
+
+        # valid portion of a name in Czech Republic, but which does not encode
+        # in python's http client
+        md.iloc[0]['STATE'] = "Vysočina"
+
+        redbiom.admin.load_sample_metadata(md)
+        redbiom.admin.load_sample_metadata_full_search(md)
         tests = [('agp-skin', {'10317.000003302', }),
 
                  # an example of a misleading query. only those AG samples
