@@ -1,6 +1,6 @@
 import unittest
 import pandas as pd
-import pandas.util.testing as pdt
+import pandas.testing as pdt
 
 from redbiom.where_expr import whereeval, _cast_retain_numeric
 
@@ -19,7 +19,9 @@ class WhereTests(unittest.TestCase):
     def test_cast_retain_numeric(self):
         tests = [(pd.Series(['a', '10', '1.23']),
                   pd.Series([10.0, 1.23], index=[1, 2])),
-                 (pd.Series(['a', 'b', 'c']), pd.Series([])),
+                 # the default dtype for empty Series was changed from float64
+                 # to object for current versions of Pandas.
+                 (pd.Series(['a', 'b', 'c']), pd.Series([], dtype='float64')),
                  (pd.Series(['1', '2', '3', '4']),
                   pd.Series([1, 2, 3, 4], index=[0, 1, 2, 3]))]
 

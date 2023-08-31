@@ -429,7 +429,7 @@ def taxon_ancestors(context, ids, get=None, normalize=None):
     ---------------------
     HMGET <context>:taxonomy-parents <child> ... <child>
     """
-    from future.moves.itertools import zip_longest
+    from itertools import zip_longest
     import redbiom._requests
 
     if get is None:

@@ -1,6 +1,6 @@
 import unittest
 import requests
-from future.moves.itertools import zip_longest
+from itertools import zip_longest
 
 import numpy as np
 import biom
