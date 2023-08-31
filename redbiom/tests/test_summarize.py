@@ -3,7 +3,7 @@ import requests
 
 import biom
 import pandas as pd
-import pandas.util.testing as pdt
+import pandas.testing as pdt
 
 import redbiom
 import redbiom.admin
